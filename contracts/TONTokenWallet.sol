@@ -137,7 +137,7 @@ contract TONTokenWallet is ITONTokenWallet, IBurnableByOwnerTokenWallet, IBurnab
 
         balance_ += tokens;
 
-        send_gas_to.transfer({ value: 0, flag: 64 });
+        
     }
 
     function internalTransfer(uint128 tokens, uint256 sender_public_key, address sender_address, address send_gas_to) override external {
