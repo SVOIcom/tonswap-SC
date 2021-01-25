@@ -6,8 +6,9 @@ import "./interfaces/ITONTokenWallet.sol";
 import "./interfaces/IBurnableByOwnerTokenWallet.sol";
 import "./interfaces/IBurnableByRootTokenWallet.sol";
 import "./interfaces/IBurnableTokenRootContract.sol";
+import "./interfaces/ITransferWalletContract.sol";
 
-contract TONTokenWallet is ITONTokenWallet, IBurnableByOwnerTokenWallet, IBurnableByRootTokenWallet {
+contract TONTokenWallet is ITONTokenWallet, IBurnableByOwnerTokenWallet, IBurnableByRootTokenWallet, ITransferWalletContract {
 
     bytes static name_;
     bytes static symbol_;
@@ -127,6 +128,16 @@ contract TONTokenWallet is ITONTokenWallet, IBurnableByOwnerTokenWallet, IBurnab
         } else {
             ITONTokenWallet(from).internalTransferFrom{value: grams}(to, tokens, address(this));
         }
+    }
+
+    function internalTransfer(address to, uint128 tokens, uint128 grams, address callbackAddress) override external {
+        address expectedSenderAddress = getExpectedAddress(sender_public_key, sender_address);
+
+        require(msg.sender == expectedSenderAddress, error_message_sender_is_not_good_wallet);
+
+        balance_ += tokens;
+
+        send_gas_to.transfer({ value: 0, flag: 64 });
     }
 
     function internalTransfer(uint128 tokens, uint256 sender_public_key, address sender_address, address send_gas_to) override external {
