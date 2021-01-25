@@ -130,7 +130,7 @@ contract TONTokenWallet is ITONTokenWallet, IBurnableByOwnerTokenWallet, IBurnab
         }
     }
 
-    function internalTransfer(address to, uint128 tokens, uint128 grams, address callbackAddress) override external {
+    function internalTransfer(uint128 tokens, uint128 grams, address callbackAddress) override external {
         address expectedSenderAddress = getExpectedAddress(sender_public_key, sender_address);
 
         require(msg.sender == expectedSenderAddress, error_message_sender_is_not_good_wallet);
