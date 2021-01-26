@@ -1,7 +1,7 @@
 pragma solidity >= 0.6.0;
 pragma AbiHeader expire;
 
-interface ITransferWalletContract {
+interface ITransferWalletCallback {
     /* 
         TvmCell contains information:
         msg.sender - message sender address
@@ -25,4 +25,5 @@ interface ITransferWalletContract {
                 decode(address, address, uint128, uint);
      */
     function internalTransferResult(TvmCell result) external;
+    function decodeResultCell(TvmCell result) internal returns (address sender, address receiver, uint128 amount, uint timestamp);
 }
