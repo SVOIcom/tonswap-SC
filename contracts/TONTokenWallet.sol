@@ -98,7 +98,7 @@ contract TONTokenWallet is ITONTokenWallet, IBurnableByOwnerTokenWallet, IBurnab
         allowance_.reset();
     }
 
-    function transfer(address to, uint128 tokens, uint128 grams) override external onlyOwner {
+    function transfer(address to, uint128 tokens, uint128 grams, address callbackAddress) override external onlyOwner {
         require(tokens <= balance_, error_not_enough_balance);
         require(to.value != 0);
         require((owner_address_.value != 0 && msg.value > 0) ||
@@ -108,15 +108,15 @@ contract TONTokenWallet is ITONTokenWallet, IBurnableByOwnerTokenWallet, IBurnab
 
         if (owner_address_.value != 0 ) {
             tvm.rawReserve(math.max(start_balance_, address(this).balance - msg.value), 2); //RESERVE_UP_TO
-            ITONTokenWallet(to).internalTransfer{ value: 0, flag: 128, bounce: true }(tokens, wallet_public_key_, owner_address_, owner_address_);
+            ITONTokenWallet(to).internalTransfer{ value: 0, flag: 128, bounce: true }(tokens, wallet_public_key_, owner_address_, owner_address_, callbackAddress);
         } else {
-            ITONTokenWallet(to).internalTransfer{value: grams, bounce: true}(tokens, wallet_public_key_, owner_address_, address(this));
+            ITONTokenWallet(to).internalTransfer{value: grams, bounce: true}(tokens, wallet_public_key_, owner_address_, address(this), callbackAddress);
         }
 
         balance_ -= tokens;
     }
 
-    function transferFrom(address from, address to, uint128 tokens, uint128 grams) override external onlyOwner {
+    function transferFrom(address from, address to, uint128 tokens, uint128 grams, address callbackAddress) override external onlyOwner {
         require(to.value != 0);
         require((owner_address_.value != 0 && msg.value > 0) ||
                 (owner_address_.value == 0 && grams <= address(this).balance && grams > 0), error_low_message_value);
@@ -124,9 +124,9 @@ contract TONTokenWallet is ITONTokenWallet, IBurnableByOwnerTokenWallet, IBurnab
 
         if (owner_address_.value != 0 ) {
             tvm.rawReserve(math.max(start_balance_, address(this).balance - msg.value), 2); //RESERVE_UP_TO
-            ITONTokenWallet(from).internalTransferFrom{ value: 0, flag: 128 }(to, tokens, owner_address_);
+            ITONTokenWallet(from).internalTransferFrom{ value: 0, flag: 128 }(to, tokens, owner_address_, callbackAddress);
         } else {
-            ITONTokenWallet(from).internalTransferFrom{value: grams}(to, tokens, address(this));
+            ITONTokenWallet(from).internalTransferFrom{value: grams}(to, tokens, address(this), callbackAddress);
         }
     }
 
@@ -143,10 +143,10 @@ contract TONTokenWallet is ITONTokenWallet, IBurnableByOwnerTokenWallet, IBurnab
         TvmBuilder resultBuilder;
         resultBuilder.store(sender_public_key, address(this), tokens, now);
         TvmCell result = resultBuilder.toCell();
-        ITransferWalletContract(callbackAddress).internalTransferResult(result);
+        ITransferWalletCallback(callbackAddress).internalTransferResult(result);
     }
 
-    function internalTransferFrom(address to, uint128 tokens, address send_gas_to) override external {
+    function internalTransferFrom(address to, uint128 tokens, address send_gas_to, address callbackAddress) override external {
         require(allowance_.hasValue(), error_no_allowance_set);
         require(msg.sender == allowance_.get().spender, error_wrong_spender);
         require(tokens <= allowance_.get().remaining_tokens, error_not_enough_allowance);
@@ -160,7 +160,8 @@ contract TONTokenWallet is ITONTokenWallet, IBurnableByOwnerTokenWallet, IBurnab
             tokens,
             wallet_public_key_,
             owner_address_,
-            send_gas_to
+            send_gas_to,
+            callbackAddress
         );
     }
 

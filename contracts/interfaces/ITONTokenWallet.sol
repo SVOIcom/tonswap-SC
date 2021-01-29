@@ -19,10 +19,10 @@ interface ITONTokenWallet is AllowanceInfoStructure {
     function approve(address spender, uint128 remaining_tokens, uint128 tokens) external;
     function disapprove() external;
 
-    function transfer(address to, uint128 tokens, uint128 grams) external;
-    function transferFrom(address from, address to, uint128 tokens, uint128 grams) external;
+    function transfer(address to, uint128 tokens, uint128 grams, address callbackAddress) external;
+    function transferFrom(address from, address to, uint128 tokens, uint128 grams, address callbackAddress) external;
 
-    function internalTransfer(uint128 tokens, uint256 sender_public_key, address sender_address, address send_gas_to) external;
-    function internalTransferFrom(address to, uint128 tokens, address send_gas_to) external;
+    function internalTransfer(uint128 tokens, uint256 sender_public_key, address sender_address, address send_gas_to, address callbackAddress) external;
+    function internalTransferFrom(address to, uint128 tokens, address send_gas_to, address callbackAddress) external;
 
 }

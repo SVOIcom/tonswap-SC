@@ -25,5 +25,4 @@ interface ITransferWalletCallback {
                 decode(address, address, uint128, uint);
      */
     function internalTransferResult(TvmCell result) external;
-    function decodeResultCell(TvmCell result) internal returns (address sender, address receiver, uint128 amount, uint timestamp);
 }
