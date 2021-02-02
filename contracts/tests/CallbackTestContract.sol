@@ -9,7 +9,7 @@ contract TestContract is ITransferWalletCallback {
     address receiver_;
     uint128 amount_;
     uint timestamp_;
-    function internalTransferResult(TvmCell result) external 
+    function internalTransferResult(TvmCell result) external override
     {
         tvm.accept();
         (sender_, receiver_, amount_, timestamp_) = decodeResultCell(result);
@@ -19,8 +19,8 @@ contract TestContract is ITransferWalletCallback {
         internal 
         returns (address sender, address receiver, uint128 amount, uint timestamp)
     {
-        TvmCell resultCell = result.toSlice();
-        (sender, receiver, amount, timestamp) = resultCell.decode(address, address, uint128, uint);
+        TvmSlice resultSlice = result.toSlice();
+        (sender, receiver, amount, timestamp) = resultSlice.decode(address, address, uint128, uint);
    }
 
     function getResult()
