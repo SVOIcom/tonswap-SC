@@ -140,10 +140,12 @@ contract TONTokenWallet is ITONTokenWallet, IBurnableByOwnerTokenWallet, IBurnab
 
         send_gas_to.transfer({ value: 0, flag: 64 });
 
-        TvmBuilder resultBuilder;
-        resultBuilder.store(sender_public_key, address(this), tokens, now);
-        TvmCell result = resultBuilder.toCell();
-        ITransferWalletCallback(callbackAddress).internalTransferResult(result);
+        if (callbackAddress.value != 0) {
+            TvmBuilder resultBuilder;
+            resultBuilder.store(sender_public_key, address(this), tokens, now);
+            TvmCell result = resultBuilder.toCell();
+            ITransferWalletCallback(callbackAddress).internalTransferResult(result);
+        }
     }
 
     function internalTransferFrom(address to, uint128 tokens, address send_gas_to, address callbackAddress) override external {
