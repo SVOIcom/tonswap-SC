@@ -42,30 +42,37 @@ contract RootTokenContract is IRootTokenContract, IBurnableTokenRootContract, IB
     }
 
     function getName() override external view returns (bytes) {
+        tvm.accept();
         return name_;
     }
 
     function getSymbol() override external view returns (bytes) {
+        tvm.accept();
         return symbol_;
     }
 
     function getDecimals() override external view returns (uint8) {
+        tvm.accept();
         return decimals_;
     }
 
     function getRootPublicKey() override external view returns (uint256) {
+        tvm.accept();
         return root_public_key_;
     }
 
     function getRootOwnerAddress() override external view returns (address) {
+        tvm.accept();
         return root_owner_address_;
     }
 
     function getTotalSupply() override external view returns (uint128) {
+        tvm.accept();
         return total_supply_;
     }
 
     function getWalletCode() override external view returns (TvmCell) {
+        tvm.accept();
         return wallet_code_;
     }
 

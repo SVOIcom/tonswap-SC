@@ -45,34 +45,42 @@ contract TONTokenWallet is ITONTokenWallet, IBurnableByOwnerTokenWallet, IBurnab
     }
 
     function getName() override external view returns (bytes) {
+        tvm.accept();
         return name_;
     }
 
     function getSymbol() override external view returns (bytes) {
+        tvm.accept();
         return symbol_;
     }
 
     function getDecimals() override external view returns (uint8) {
+        tvm.accept();
         return decimals_;
     }
 
     function getRootAddress() override external view returns (address) {
+        tvm.accept();
         return root_address_;
     }
 
     function getOwnerAddress() override external view returns (address) {
+        tvm.accept();
         return owner_address_;
     }
 
     function getWalletPublicKey() override external view returns (uint256) {
+        tvm.accept();
         return wallet_public_key_;
     }
 
     function getBalance() override external view returns (uint128) {
+        tvm.accept();
         return balance_;
     }
 
     function allowance() override external view returns (AllowanceInfo) {
+        tvm.accept();
         return allowance_.hasValue() ? allowance_.get() : AllowanceInfo(0, address.makeAddrStd(0, 0));
     }
 
