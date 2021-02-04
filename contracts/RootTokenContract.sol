@@ -98,10 +98,6 @@ contract RootTokenContract is IRootTokenContract, IBurnableTokenRootContract, IB
 
         tvm.accept();
 
-        if(root_owner_address_.value != 0) {
-            tvm.rawReserve(math.max(start_balance_, address(this).balance - msg.value), 2); //RESERVE_UP_TO
-        }
-
         address wallet = new TONTokenWallet{
             value: grams,
             code: wallet_code_,
@@ -143,8 +139,6 @@ contract RootTokenContract is IRootTokenContract, IBurnableTokenRootContract, IB
                 error_define_wallet_public_key_or_owner_address);
 
         tvm.accept();
-
-        tvm.rawReserve(math.max(start_balance_, address(this).balance - msg.value), 2); //RESERVE_UP_TO
 
         address walletAddress = new TONTokenWallet{
             value: grams,
