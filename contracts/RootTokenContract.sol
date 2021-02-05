@@ -14,16 +14,16 @@ contract RootTokenContract is IRootTokenContract, IBurnableTokenRootContract, IB
 
     uint256 static _randomNonce;
 
-    bytes static name_;
-    bytes static symbol_;
-    uint8 static decimals_;
-    TvmCell static wallet_code_;
-    uint256 static root_public_key_;
-    address static root_owner_address_;
+    bytes public static name;
+    bytes public static symbol;
+    uint8 public static decimals;
+    TvmCell public static wallet_code;
+    uint256 static root_public_key;
+    address static root_owner_address;
 
-    uint128 total_supply_;
+    uint128 public total_supply;
 
-    uint128 start_balance_;
+    uint128 public start_gas_balance;
 
     uint8 error_message_sender_is_not_my_owner = 100;
     uint8 error_not_enough_balance = 101;
@@ -31,145 +31,125 @@ contract RootTokenContract is IRootTokenContract, IBurnableTokenRootContract, IB
     uint8 error_define_wallet_public_key_or_owner_address = 106;
 
     constructor() public {
-        require(root_public_key_ != 0 && root_owner_address_.value == 0 ||
-                root_public_key_ == 0 && root_owner_address_.value != 0,
+        require((root_public_key != 0 && root_owner_address.value == 0) ||
+                (root_public_key == 0 && root_owner_address.value != 0),
                 error_define_wallet_public_key_or_owner_address);
         tvm.accept();
 
-        total_supply_ = 0;
+        total_supply = 0;
 
-        start_balance_ = address(this).balance;
+        start_gas_balance = address(this).balance;
     }
 
-    function getName() override external view returns (bytes) {
-        tvm.accept();
-        return name_;
+    function getDetails() override external view returns (IRootTokenContractDetails) {
+        return IRootTokenContractDetails(
+            name,
+            symbol,
+            decimals,
+            wallet_code,
+            root_public_key,
+            root_owner_address,
+            total_supply,
+            start_gas_balance
+        );
     }
 
-    function getSymbol() override external view returns (bytes) {
-        tvm.accept();
-        return symbol_;
-    }
-
-    function getDecimals() override external view returns (uint8) {
-        tvm.accept();
-        return decimals_;
-    }
-
-    function getRootPublicKey() override external view returns (uint256) {
-        tvm.accept();
-        return root_public_key_;
-    }
-
-    function getRootOwnerAddress() override external view returns (address) {
-        tvm.accept();
-        return root_owner_address_;
-    }
-
-    function getTotalSupply() override external view returns (uint128) {
-        tvm.accept();
-        return total_supply_;
-    }
-
-    function getWalletCode() override external view returns (TvmCell) {
-        tvm.accept();
-        return wallet_code_;
-    }
-
-    function getWalletAddress(uint256 wallet_public_key, address owner_address) override external returns (address) {
-        require(owner_address.value != 0 && wallet_public_key == 0 ||
-                owner_address.value == 0 && wallet_public_key != 0,
+    function getWalletAddress(uint256 wallet_public_key_, address owner_address_) override external returns (address) {
+        require((owner_address_.value != 0 && wallet_public_key_ == 0) ||
+                (owner_address_.value == 0 && wallet_public_key_ != 0),
                 error_define_wallet_public_key_or_owner_address);
-        address walletAddress = getExpectedWalletAddress(wallet_public_key, owner_address);
+        address walletAddress = getExpectedWalletAddress(wallet_public_key_, owner_address_);
         return walletAddress;
     }
 
     function deployWallet(
         uint128 tokens,
         uint128 grams,
-        uint256 wallet_public_key,
-        address owner_address,
+        uint256 wallet_public_key_,
+        address owner_address_,
         address gas_back_address
-    ) override external onlyOwner returns (address) {
+    ) override external onlyOwner {
         require(tokens >= 0);
-        require(owner_address.value != 0 && wallet_public_key == 0 ||
-                owner_address.value == 0 && wallet_public_key != 0,
+        require((owner_address_.value != 0 && wallet_public_key_ == 0) ||
+                (owner_address_.value == 0 && wallet_public_key_ != 0),
                 error_define_wallet_public_key_or_owner_address);
 
-        tvm.accept();
+        if(root_owner_address.value == 0) {
+            tvm.accept();
+        } else {
+            tvm.rawReserve(math.max(start_gas_balance, address(this).balance - msg.value), 2); 
+        }
 
         address wallet = new TONTokenWallet{
             value: grams,
-            code: wallet_code_,
-            pubkey: wallet_public_key,
+            code: wallet_code,
+            pubkey: wallet_public_key_,
             varInit: {
-                name_: name_,
-                symbol_: symbol_,
-                decimals_: decimals_,
-                root_address_: address(this),
-                code_: wallet_code_,
-                wallet_public_key_: wallet_public_key,
-                owner_address_: owner_address
+                root_address: address(this),
+                code: wallet_code,
+                wallet_public_key: wallet_public_key_,
+                owner_address: owner_address_
             }
         }();
 
         ITONTokenWallet(wallet).accept(tokens);
 
-        total_supply_ += tokens;
+        total_supply += tokens;
 
-        if (root_owner_address_.value != 0) {
+        if (root_owner_address.value != 0) {
             if (gas_back_address.value != 0) {
-                gas_back_address.transfer({ value: 0, flag: 128 }); //SEND_ALL_GAS
+                gas_back_address.transfer({ value: 0, flag: 128 }); 
             } else {
-                msg.sender.transfer({ value: 0, flag: 128 }); //SEND_ALL_GAS
+                msg.sender.transfer({ value: 0, flag: 128 }); 
             }
         }
-
-        return wallet;
     }
 
     function deployEmptyWallet(
         uint128 grams,
-        uint256 wallet_public_key,
-        address owner_address,
+        uint256 wallet_public_key_,
+        address owner_address_,
         address gas_back_address
-    ) override external returns (address) {
-        require(owner_address.value != 0 && wallet_public_key == 0 ||
-                owner_address.value == 0 && wallet_public_key != 0,
+    ) override external {
+        require((owner_address_.value != 0 && wallet_public_key_ == 0) ||
+                (owner_address_.value == 0 && wallet_public_key_ != 0),
                 error_define_wallet_public_key_or_owner_address);
 
-        tvm.accept();
+        tvm.rawReserve(math.max(start_gas_balance, address(this).balance - msg.value), 2); 
 
-        address walletAddress = new TONTokenWallet{
+        new TONTokenWallet{
             value: grams,
-            code: wallet_code_,
-            pubkey: wallet_public_key,
+            code: wallet_code,
+            pubkey: wallet_public_key_,
             varInit: {
-                name_: name_,
-                symbol_: symbol_,
-                decimals_: decimals_,
-                root_address_: address(this),
-                code_: wallet_code_,
-                wallet_public_key_: wallet_public_key,
-                owner_address_: owner_address
+                root_address: address(this),
+                code: wallet_code,
+                wallet_public_key: wallet_public_key_,
+                owner_address: owner_address_
             }
         }();
 
         if (gas_back_address.value != 0) {
-            gas_back_address.transfer({ value: 0, flag: 128 }); //SEND_ALL_GAS
+            gas_back_address.transfer({ value: 0, flag: 128 }); 
         } else {
-            msg.sender.transfer({ value: 0, flag: 128 }); //SEND_ALL_GAS
+            msg.sender.transfer({ value: 0, flag: 128 }); 
         }
-
-        return walletAddress;
     }
 
     function mint(uint128 tokens, address to) override external onlyOwner {
-        tvm.accept();
+        if(root_owner_address.value == 0) {
+            tvm.accept();
+        } else {
+            tvm.rawReserve(math.max(start_gas_balance, address(this).balance - msg.value), 2); 
+        }
+
+        total_supply += tokens;
 
         ITONTokenWallet(to).accept(tokens);
 
-        total_supply_ += tokens;
+        if(root_owner_address.value != 0) {
+            root_owner_address.transfer({ value: 0, flag: 128 }); 
+        }
     }
 
 
@@ -179,9 +159,9 @@ contract RootTokenContract is IRootTokenContract, IBurnableTokenRootContract, IB
         address callback_address,
         TvmCell callback_payload
     ) override external onlyInternalOwner {
-        tvm.accept();
+        tvm.rawReserve(address(this).balance - msg.value, 2); 
         address expectedWalletAddress = getExpectedWalletAddress(0, sender_address);
-        IBurnableByRootTokenWallet(expectedWalletAddress).burnByRoot{value: 0, flag: 64}(
+        IBurnableByRootTokenWallet(expectedWalletAddress).burnByRoot{value: 0, flag: 128}( 
             tokens,
             callback_address,
             callback_payload
@@ -200,11 +180,11 @@ contract RootTokenContract is IRootTokenContract, IBurnableTokenRootContract, IB
 
         require(msg.sender == expectedWalletAddress, error_message_sender_is_not_good_wallet);
 
-        tvm.accept();
+        tvm.rawReserve(address(this).balance - msg.value, 2); 
 
-        total_supply_ -= tokens;
+        total_supply -= tokens;
 
-        IBurnTokensCallback(callback_address).burnCallback{value: 0, flag: 64}(
+        IBurnTokensCallback(callback_address).burnCallback{value: 0, flag: 128}( 
             tokens,
             callback_payload,
             sender_public_key,
@@ -212,6 +192,11 @@ contract RootTokenContract is IRootTokenContract, IBurnableTokenRootContract, IB
             expectedWalletAddress
         );
 
+    }
+
+    function withdrawExtraGas() override external onlyInternalOwner {
+        tvm.rawReserve(start_gas_balance, 2);
+        root_owner_address.transfer({ value: 0, flag: 128 });
     }
 
 // =============== Support functions ==================
@@ -231,27 +216,24 @@ contract RootTokenContract is IRootTokenContract, IBurnableTokenRootContract, IB
     }
 
     function isInternalOwner() private inline view returns (bool) {
-        return root_owner_address_.value != 0 && root_owner_address_ == msg.sender;
+        return root_owner_address.value != 0 && root_owner_address == msg.sender;
     }
 
     function isExternalOwner() private inline view returns (bool) {
-        return root_public_key_ != 0 && root_public_key_ == tvm.pubkey();
+        return root_public_key != 0 && root_public_key == tvm.pubkey();
     }
 
-    function getExpectedWalletAddress(uint256 wallet_public_key, address owner_address) private inline view returns (address)  {
+    function getExpectedWalletAddress(uint256 wallet_public_key_, address owner_address_) private inline view returns (address)  {
         TvmCell stateInit = tvm.buildStateInit({
             contr: TONTokenWallet,
             varInit: {
-                name_: name_,
-                symbol_: symbol_,
-                decimals_: decimals_,
-                root_address_: address(this),
-                code_: wallet_code_,
-                wallet_public_key_: wallet_public_key,
-                owner_address_: owner_address
+                root_address: address(this),
+                code: wallet_code,
+                wallet_public_key: wallet_public_key_,
+                owner_address: owner_address_
             },
-            pubkey: wallet_public_key,
-            code: wallet_code_
+            pubkey: wallet_public_key_,
+            code: wallet_code
         });
 
         return address(tvm.hash(stateInit));
@@ -262,7 +244,7 @@ contract RootTokenContract is IRootTokenContract, IBurnableTokenRootContract, IB
         uint32 functionId = slice.decode(uint32);
         if (functionId == tvm.functionId(ITONTokenWallet.accept)) {
             uint128 latest_bounced_tokens = slice.decode(uint128);
-            total_supply_ -= latest_bounced_tokens;
+            total_supply -= latest_bounced_tokens;
         }
     }
 

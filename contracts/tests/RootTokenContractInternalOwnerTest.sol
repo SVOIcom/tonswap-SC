@@ -17,7 +17,7 @@ contract RootTokenContractInternalOwnerTest is IBurnTokensCallback, ITokensBurne
 
     address root_address_;
 
-    uint128 start_balance_;
+    uint128 start_gas_balance_;
 
     uint8 error_message_sender_is_not_my_owner = 100;
     uint8 error_message_sender_is_not_my_root = 102;
@@ -28,7 +28,7 @@ contract RootTokenContractInternalOwnerTest is IBurnTokensCallback, ITokensBurne
     constructor() public {
         tvm.accept();
         root_address_ = address.makeAddrStd(0, 0);
-        start_balance_ = address(this).balance;
+        start_gas_balance_ = address(this).balance;
     }
 
     function setRootAddressOnce(address root_address) external onlyOwner {
@@ -44,20 +44,20 @@ contract RootTokenContractInternalOwnerTest is IBurnTokensCallback, ITokensBurne
     function burnCallback(
         uint128 tokens,
         TvmCell payload,
-        uint256 sender_public_key,
+        uint256,
         address sender_address,
         address wallet_address
     ) override external onlyRoot {
 
-        tvm.accept();
+        tvm.rawReserve(address(this).balance - msg.value, 2);
 
         burned_count += tokens;
         latest_payload = payload;
 
         if (sender_address.value == 0) {
-            wallet_address.transfer({ value: 0, flag: 64 });
+            wallet_address.transfer({ value: 0, flag: 128 });
         } else {
-            sender_address.transfer({ value: 0, flag: 64 });
+            sender_address.transfer({ value: 0, flag: 128 });
         }
     }
 
@@ -65,8 +65,8 @@ contract RootTokenContractInternalOwnerTest is IBurnTokensCallback, ITokensBurne
         require(root_address_.value != 0);
         require(msg.sender.value != 0);
         require(msg.value >= settings_burn_min_value);
-        tvm.accept();
-        IBurnableByRootTokenRootContract(root_address_).proxyBurn{value: 0, flag: 64}(
+        tvm.rawReserve(address(this).balance - msg.value, 2);
+        IBurnableByRootTokenRootContract(root_address_).proxyBurn{value: 0, flag: 128}(
             tokens,
             msg.sender,
             callback_address,
@@ -128,6 +128,16 @@ contract RootTokenContractInternalOwnerTest is IBurnTokensCallback, ITokensBurne
     function mint(uint128 tokens, address addr) external view onlyOwner {
         require(root_address_.value != 0);
         tvm.accept();
-        IRootTokenContract(root_address_).mint(tokens, addr);
+        IRootTokenContract(root_address_).mint{value: 0.1 ton}(tokens, addr);
+    }
+
+    function sendGramsToRoot(uint128 grams) external view onlyOwner {
+        tvm.accept();
+        root_address_.transfer({ value: grams });
+}
+
+    function testWithdrawExtraGas() external view onlyOwner {
+        tvm.accept();
+        IRootTokenContract(root_address_).withdrawExtraGas();
     }
 }
