@@ -7,6 +7,7 @@ import "../interfaces/ITokensReceivedCallback.sol";
 contract TestContract is ITokensReceivedCallback {
     uint256 static _randomNonce;
 
+    uint256 sender_public_key_;
     address sender_address_;
     address receiver_address_;
     uint128 amount_;
@@ -22,6 +23,7 @@ contract TestContract is ITokensReceivedCallback {
         uint128 updated_balance,
         TvmCell payload
     ) external override {
+        sender_public_key_ = sender_public_key;
         sender_address_ = sender_address;
         receiver_address_ = msg.sender;
         amount_ = amount;
@@ -30,11 +32,12 @@ contract TestContract is ITokensReceivedCallback {
     function getResult()
         external
         view
-        returns (address sender, address receiver, uint128 amount)
+        returns (address sender, address receiver, uint128 amount, uint256 sender_public_key)
     {
         tvm.accept();
         sender = sender_address_;
         receiver = receiver_address_;
         amount = amount_;
+        sender_public_key = sender_public_key_;
     }
 }
