@@ -4,7 +4,7 @@ pragma AbiHeader expire;
 
 import "../interfaces/ITokensReceivedCallback.sol";
 
-contract TestContract is ITransferWalletCallback {
+contract TestContract is ITokensReceivedCallback {
     uint256 static _randomNonce;
 
     address sender_address_;
