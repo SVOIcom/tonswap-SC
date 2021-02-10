@@ -1,7 +1,8 @@
 // Pre-alpha
 pragma solidity >= 0.6.0;
-pragma expire;
-pragma time;
+pragma AbiHeader expire;
+pragma AbiHeader pubkey;
+pragma AbiHeader time;
 
 import './ISwapPairInformation.sol';
 import './IRootSwapPairContract.sol';
