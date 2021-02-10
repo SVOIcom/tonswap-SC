@@ -1,3 +1,4 @@
+// Pre-alpha
 pragma solidity >= 0.6.0;
 pragma expire;
 pragma time;
