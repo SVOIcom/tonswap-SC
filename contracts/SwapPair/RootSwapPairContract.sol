@@ -23,7 +23,7 @@ contract RootSwapPairContract is
     uint256 static ownerPubkey;
     // Minimum required message value
     uint256 static minMessageValue;
-    uint256 static commission;
+    uint256 static contractServicePayment;
 
     // Logic time of root contract creation
     uint256 creationTimestamp;
@@ -32,10 +32,12 @@ contract RootSwapPairContract is
     // Required because we want only unique swap pairs
     mapping (uint256 => SwapPairContract) swapPairDB;
 
-    uint8 error_message_sender_is_not_deployer = 100;
-    uint8 error_pair_does_not_exist            = 101;
-    uint8 error_pair_already_exists            = 102;
-    uint8 error_message_value_is_too_low       = 103;
+    uint8 error_message_sender_is_not_deployer       = 100;
+    uint8 error_message_sender_is_not_owner          = 101;
+    uint8 error_pair_does_not_exist                  = 102;
+    uint8 error_pair_already_exists                  = 103;
+    uint8 error_message_value_is_too_low             = 104;
+    uint8 error_code_is_not_updated_or_is_downgraded = 105;
 
     /**
      * Пока что - просто задание публичного ключа
@@ -44,6 +46,9 @@ contract RootSwapPairContract is
         tvm.accept();
         creationTimestamp = now;
     }
+
+    //#########################################################//
+    // External functions
 
     /**
      * Deploy swap pair with specified address of token root contract
@@ -62,20 +67,26 @@ contract RootSwapPairContract is
         // TODO: управление балансом, чтобы контракт не умер в мучениях от недостатка тона в крови
         // Допустим что новой паре необходимо изначально 2 тона, + 0.3 на выполнение
         require(msg.value > minMessageValue, error_message_value_is_too_low);
-        tvm.rawReserve(msg.value - (msg.value - minMessageValue), 2);
+        tvm.rawReserve(msg.value - (msg.value - minMessageValue - contractServicePayment), 2);
             
-
+        // Time of contract deploy
         uint256 currentTimestamp = now;
 
         // Нужны параметры для деплоя контракта
-        address contractAddress = new SwapPairContract{
+        address contractAddress = _calculateSwapPairContractAddress(
+            tokenRootContract1,
+            tokenRootContract2,
+            msg.sender,
+            uniqueID
+        ); 
+
+        new SwapPairContract{
             value: 2 ton,
             varInit: {
                 token1: tokenRootContract1,
-                token2: tokenRootCOntract2,
+                token2: tokenRootContract2,
                 swapPairDeployer: msg.sender,
-                swapPairID: uniqueID,
-                timestamp: currentTimestamp
+                swapPairID: uniqueID
             },
             bounce: true
         }();
@@ -108,6 +119,9 @@ contract RootSwapPairContract is
         return swapPairDB.exists(uniqueID);
     }
 
+    /**
+     * Get service information about root contract
+     */
     function getServiceInformation() external view override returns (ServiceInfo) {
         return ServiceInfo(
             ownerPubkey,
@@ -118,10 +132,17 @@ contract RootSwapPairContract is
         );
     }
 
+    /**
+     * Set new swap pair code
+     */
     function setSwapPairCode(
         TvmCell code, 
         SwapPairCodeVersion codeVersion
     ) external override onlyOwner {
+        require(
+            codeVersion.contractCodeVersion > swapPairCodeVersion.contractCodeVersion, 
+            error_code_is_not_updated_or_is_downgraded
+        );
         tvm.accept();
         swapPairCode = code;
         swapPairCodeVersion = codeVersion;
@@ -131,13 +152,40 @@ contract RootSwapPairContract is
         // TODO: update magic
     }
 
+    //#########################################################//
+    // Private functions
+
+    function _calculateSwapPairContractAddress(
+        address rootTokenContract1,
+        address rootTokenContract2,
+        uint256 publicKey,
+        uint256 uniqueID
+    ) private inline returns(address) {
+        TvmCell stateInit = tvm.buildStateInit({
+            contr: SwapPairContract,
+            varInit: {
+                token1: tokenRootContract1,
+                token2: tokenRootContract2,
+                swapPairDeployer: msg.sender,
+                swapPairID: uniqueID
+            },
+            pubkey: publicKey,
+            code: swapPairCode
+        });
+
+        return address(tvm.hash(stateInit));
+    }
+
+    //#########################################################//
+    // Modifiers
+
     modifier onlyOwner() {
-        require(msg.sender == ownerPubkey, 100);
+        require(msg.sender == ownerPubkey, error_message_sender_is_not_owner);
         _;
     }
 
     modifier onlyPaid() {
-        require(msg.value >= minMessageValue);
+        require(msg.value >= minMessageValue, error_message_value_is_too_low);
         _;
     }
 
