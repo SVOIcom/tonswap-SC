@@ -74,7 +74,7 @@ contract RootSwapPairContract is
         address contractAddress = _calculateSwapPairContractAddress(
             tokenRootContract1,
             tokenRootContract2,
-            msg.sender,
+            msg.pubkey(),
             uniqueID
         ); 
 
@@ -83,10 +83,11 @@ contract RootSwapPairContract is
             varInit: {
                 token1: tokenRootContract1,
                 token2: tokenRootContract2,
-                swapPairDeployer: msg.sender,
+                swapPairDeployer: msg.pubkey(),
                 swapPairID: uniqueID
             },
-            bounce: true
+            pubkey: msg.pubkey(),
+            code: swapPairCode
         }();
 
         if (contractAddress.value != 0) {
@@ -146,7 +147,8 @@ contract RootSwapPairContract is
         swapPairCodeVersion = codeVersion;
     }
 
-    function upgradeSwapPair(uint256 uniqueID) external pairExists(uniqueID) onlyPairDeployer(uniqueID) {
+    function upgradeSwapPair(uint256 uniqueID) external view override pairExists(uniqueID) onlyPairDeployer(uniqueID) {
+        tvm.accept();
         // TODO: update magic
     }
 
@@ -158,7 +160,7 @@ contract RootSwapPairContract is
         address tokenRootContract2,
         uint256 publicKey,
         uint256 uniqueID
-    ) private inline returns(address) {
+    ) private view inline returns(address) {
         TvmCell stateInit = tvm.buildStateInit({
             contr: SwapPairContract,
             varInit: {
@@ -178,7 +180,7 @@ contract RootSwapPairContract is
     // Modifiers
 
     modifier onlyOwner() {
-        require(msg.sender == ownerPubkey, error_message_sender_is_not_owner);
+        require(msg.pubkey() == ownerPubkey, error_message_sender_is_not_owner);
         _;
     }
 

@@ -7,5 +7,5 @@ interface IRootSwapPairUpgradePairCode {
     }
     
     function setSwapPairCode(TvmCell code, SwapPairCodeVersion codeVersion) external;
-    function upgradeSwapPair(address pairAddress) external view;
+    function upgradeSwapPair(uint256 uniqueID) external view;
 }
