@@ -2,7 +2,7 @@ pragma solidity >= 0.6.0;
 
 import './IRootSwapPairUpgradePairCode.sol';
 
-interface IServiceInformation {
+interface IServiceInformation is IRootSwapPairUpgradePairCode {
     struct ServiceInfo {
         uint256 ownerPubkey;
         uint256 contractBalance;

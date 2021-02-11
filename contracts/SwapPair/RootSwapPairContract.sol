@@ -4,17 +4,15 @@ pragma AbiHeader expire;
 pragma AbiHeader pubkey;
 pragma AbiHeader time;
 
-import './ISwapPairInformation.sol';
-import './IRootSwapPairContract.sol';
-import './IRootSwapPairUpgradePairCode.sol';
-import './IServiceInformation.sol';
+import './interfaces/ISwapPairInformation.sol';
+import './interfaces/IRootSwapPairContract.sol';
+import './interfaces/IRootSwapPairUpgradePairCode.sol';
+import './interfaces/IServiceInformation.sol';
 import './SwapPairContract.sol';
 
-contract RootSwapPairContract is 
-    ISwapPairInformation, 
-    IServiceInformation,
-    IRootSwapPairContract, 
-    IRootSwapPairUpgradePairCode 
+contract RootSwapPairContract is
+    IRootSwapPairUpgradePairCode,
+    IRootSwapPairContract 
 {
     // Code of swap pair info
     TvmCell static swapPairCode;
@@ -30,7 +28,7 @@ contract RootSwapPairContract is
     
     // Information about deployed swap pairs
     // Required because we want only unique swap pairs
-    mapping (uint256 => SwapPairContract) swapPairDB;
+    mapping (uint256 => SwapPairInfo) swapPairDB;
 
     uint8 error_message_sender_is_not_deployer       = 100;
     uint8 error_message_sender_is_not_owner          = 101;
@@ -62,7 +60,7 @@ contract RootSwapPairContract is
         uint256 uniqueID = tokenRootContract1.value^tokenRootContract2.value;
         
         // TODO: условия когда можно начинать выполнение контракта
-        require( (!pairInfoStorage.exists(uniqueID)) || (uniqueID != 0), error_pair_already_exitst);
+        require( (!swapPairDB.exists(uniqueID)) || (uniqueID != 0), error_pair_already_exists);
         
         // TODO: управление балансом, чтобы контракт не умер в мучениях от недостатка тона в крови
         // Допустим что новой паре необходимо изначально 2 тона, + 0.3 на выполнение
@@ -148,7 +146,7 @@ contract RootSwapPairContract is
         swapPairCodeVersion = codeVersion;
     }
 
-    function upgradeSwapPair(uint256 uniqueID) external onlyPairDeployer(uniqueID) pairExists(uniqueID) {
+    function upgradeSwapPair(uint256 uniqueID) external pairExists(uniqueID) onlyPairDeployer(uniqueID) {
         // TODO: update magic
     }
 
@@ -156,8 +154,8 @@ contract RootSwapPairContract is
     // Private functions
 
     function _calculateSwapPairContractAddress(
-        address rootTokenContract1,
-        address rootTokenContract2,
+        address tokenRootContract1,
+        address tokenRootContract2,
         uint256 publicKey,
         uint256 uniqueID
     ) private inline returns(address) {
@@ -190,13 +188,13 @@ contract RootSwapPairContract is
     }
 
     modifier pairExists(uint256 uniqueID) {
-        optional(SwapPairInfo) pairInfo = swapPairDB.fetch(uniqueID));
+        optional(SwapPairInfo) pairInfo = swapPairDB.fetch(uniqueID);
         require(pairInfo.hasValue(), error_pair_does_not_exist);
         _;
     }
 
     modifier onlyPairDeployer(uint256 uniqueID) {
-        SwapPairInfo spi = pairInfo.at(uniqueID);
+        SwapPairInfo spi = swapPairDB.at(uniqueID);
         require(spi.deployerPubkey == msg.pubkey(), error_message_sender_is_not_deployer);
         _;
     }

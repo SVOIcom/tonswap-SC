@@ -1,7 +1,7 @@
 // Pre-alpha
 pragma solidity >= 0.6.0;
 
-interface IRootSwapPairUpdatePairCode {
+interface IRootSwapPairUpgradePairCode {
     struct SwapPairCodeVersion {
         uint8 contractCodeVersion;
     }

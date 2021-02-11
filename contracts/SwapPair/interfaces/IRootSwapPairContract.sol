@@ -4,9 +4,9 @@ pragma AbiHeader expire;
 pragma AbiHeader time;
 
 import './ISwapPairInformation.sol';
-improt './IServiceInformation.sol';
+import './IServiceInformation.sol';
 
-interface IRootSwapPairContract is ISwapPairInformation {
+interface IRootSwapPairContract is ISwapPairInformation, IServiceInformation {
     // Deploy of swap pair
     function deploySwapPair(address tokenRootContract1, address tokenRootContract2) external returns (address);
 
