@@ -6,7 +6,7 @@ pragma AbiHeader time;
 contract SwapPairContract {
     address static token1;
     address static token2;
-    uint static swapPairDeployer;
+    uint static swapPairRootContract;
     uint static swapPairID;
 
     constructor() public {

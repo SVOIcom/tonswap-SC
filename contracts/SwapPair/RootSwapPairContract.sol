@@ -83,7 +83,7 @@ contract RootSwapPairContract is
             varInit: {
                 token1: tokenRootContract1,
                 token2: tokenRootContract2,
-                swapPairDeployer: msg.pubkey(),
+                swapPairRootContract: msg.pubkey(),
                 swapPairID: uniqueID
             },
             pubkey: msg.pubkey(),
@@ -166,7 +166,7 @@ contract RootSwapPairContract is
             varInit: {
                 token1: tokenRootContract1,
                 token2: tokenRootContract2,
-                swapPairDeployer: msg.sender,
+                swapPairRootContract: msg.sender,
                 swapPairID: uniqueID
             },
             pubkey: publicKey,
