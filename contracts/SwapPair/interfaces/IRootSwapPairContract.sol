@@ -16,4 +16,7 @@ interface IRootSwapPairContract is ISwapPairInformation, IServiceInformation {
     // Getting service information
     // Expected to be run locally
     function getServiceInformation() external view returns (ServiceInfo);
+
+    // Getting information about swap pair
+    function getPairInfo(address tokenRootContract1, address tokenRootContract2) external view returns(SwapPairInfo);
 }

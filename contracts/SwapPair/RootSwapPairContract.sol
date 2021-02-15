@@ -86,12 +86,7 @@ contract RootSwapPairContract is
                 swapPairRootContract: msg.pubkey(),
                 swapPairID: uniqueID
             },
-            pubkey: msg.pubkey(),
-            code: swapPairCode
-        }();
-
-        if (contractAddress.value != 0) {
-            SwapPairInfo info = SwapPairInfo(
+            pubkey: msg.pubkey(),fetch
                 tokenRootContract1,
                 tokenRootContract2,
                 msg.pubkey(),
@@ -116,6 +111,16 @@ contract RootSwapPairContract is
     ) external view override returns(bool) {
         uint256 uniqueID = tokenRootContract1.value^tokenRootContract2.value;
         return swapPairDB.exists(uniqueID);
+    }
+    
+    function getPairInfo(
+        address tokenRootContract1, 
+        address tokenRootContract2
+    ) external view override returns(SwapPairInfo) {
+        uint256 uniqueID = tokenRootContract1.value^tokenRootContract2.value;
+        optional(SwapPairInfo) spi = swapPairDB.fetch(uniqueID);
+        require(spi.hasValue(), error_pair_does_not_exist);
+        return spi.get();
     }
 
     /**
