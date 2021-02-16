@@ -14,6 +14,8 @@ contract RootSwapPairContract is
     IRootSwapPairUpgradePairCode,
     IRootSwapPairContract 
 {
+    uint256 static _randomNonce;
+
     // Code of swap pair info
     TvmCell static swapPairCode;
     SwapPairCodeVersion static swapPairCodeVersion;
