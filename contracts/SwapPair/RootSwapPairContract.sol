@@ -58,11 +58,8 @@ contract RootSwapPairContract is
     function deploySwapPair(
         address tokenRootContract1, 
         address tokenRootContract2
-    ) external override returns (address) {
+    ) external override pairWithTokensDoesNotExist(tokenRootContract1, tokenRootContract2) returns (address) {
         uint256 uniqueID = tokenRootContract1.value^tokenRootContract2.value;
-        
-        // TODO: условия когда можно начинать выполнение контракта
-        require( (!swapPairDB.exists(uniqueID)) || (uniqueID != 0), error_pair_already_exists);
         
         // TODO: управление балансом, чтобы контракт не умер в мучениях от недостатка тона в крови
         // Допустим что новой паре необходимо изначально 2 тона, + 0.3 на выполнение
@@ -72,13 +69,6 @@ contract RootSwapPairContract is
             
         // Time of contract deploy
         uint256 currentTimestamp = now; 
-
-        // address tmp;
-        // if (tokenRootContract1.value > tokenRootContract2.value) {
-        //     tmp = tokenRootContract2;
-        //     tokenRootContract2 = tokenRootContract2;
-        //     tokenRootContract1 = tmp;
-        // }
 
         // Нужны параметры для деплоя контракта
         address contractAddress = new SwapPairContract{
@@ -94,7 +84,7 @@ contract RootSwapPairContract is
             code: swapPairCode
         }();
 
-        if (contractAddress.value != 0) {
+        //if (contractAddress.value != 0) {
             SwapPairInfo info = SwapPairInfo(
                 tokenRootContract1,
                 tokenRootContract2,
@@ -104,7 +94,7 @@ contract RootSwapPairContract is
                 uniqueID
             );
             swapPairDB.add(uniqueID, info);
-        }
+        //}
 
         return contractAddress;
     }
@@ -113,7 +103,7 @@ contract RootSwapPairContract is
         address tokenRootContract1, 
         address tokenRootContract2
     ) external returns (uint256) {
-        return tokenRootContrac1.value^tokenRootContract2.value;
+        return tokenRootContract1.value^tokenRootContract2.value;
     }
 
     /**
@@ -174,7 +164,7 @@ contract RootSwapPairContract is
         swapPairCodeVersion = codeVersion;
     }
 
-    function upgradeSwapPair(uint256 uniqueID) external view override pairExists(uniqueID) onlyPairDeployer(uniqueID) {
+    function upgradeSwapPair(uint256 uniqueID) external view override pairExists(uniqueID, true) onlyPairDeployer(uniqueID) {
         tvm.accept();
         // TODO: update magic
     }
@@ -216,9 +206,16 @@ contract RootSwapPairContract is
         _;
     }
 
-    modifier pairExists(uint256 uniqueID) {
+    modifier pairWithTokensDoesNotExist(address t1, address t2) {
+        uint256 uniqueID = t1.value^t2.value;
         optional(SwapPairInfo) pairInfo = swapPairDB.fetch(uniqueID);
-        require(pairInfo.hasValue(), error_pair_does_not_exist);
+        require(!pairInfo.hasValue(), error_pair_already_exists);
+        _;
+    }
+
+    modifier pairExists(uint256 uniqueID, bool exists) {
+        optional(SwapPairInfo) pairInfo = swapPairDB.fetch(uniqueID);
+        require(pairInfo.hasValue() == exists, error_pair_does_not_exist);
         _;
     }
 
