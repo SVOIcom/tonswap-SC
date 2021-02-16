@@ -58,7 +58,7 @@ contract RootSwapPairContract is
     function deploySwapPair(
         address tokenRootContract1, 
         address tokenRootContract2
-    ) external override onlyPaid returns (address) {
+    ) external override returns (address) {
         uint256 uniqueID = tokenRootContract1.value^tokenRootContract2.value;
         
         // TODO: условия когда можно начинать выполнение контракта
@@ -66,8 +66,9 @@ contract RootSwapPairContract is
         
         // TODO: управление балансом, чтобы контракт не умер в мучениях от недостатка тона в крови
         // Допустим что новой паре необходимо изначально 2 тона, + 0.3 на выполнение
-        require(msg.value > minMessageValue, error_message_value_is_too_low);
-        tvm.rawReserve(msg.value - (msg.value - minMessageValue - contractServicePayment), 2);
+        //For testing purposes
+        tvm.accept();
+        //tvm.rawReserve(msg.value - (msg.value - minMessageValue - contractServicePayment), 2);
             
         // Time of contract deploy
         uint256 currentTimestamp = now;
