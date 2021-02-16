@@ -72,7 +72,13 @@ contract RootSwapPairContract is
             
         // Time of contract deploy
         uint256 currentTimestamp = now; 
-        require(false, 110);
+
+        // address tmp;
+        // if (tokenRootContract1.value > tokenRootContract2.value) {
+        //     tmp = tokenRootContract2;
+        //     tokenRootContract2 = tokenRootContract2;
+        //     tokenRootContract1 = tmp;
+        // }
 
         // Нужны параметры для деплоя контракта
         address contractAddress = new SwapPairContract{
@@ -88,8 +94,6 @@ contract RootSwapPairContract is
             code: swapPairCode
         }();
 
-        require(false, 111);
-
         if (contractAddress.value != 0) {
             SwapPairInfo info = SwapPairInfo(
                 tokenRootContract1,
@@ -99,13 +103,17 @@ contract RootSwapPairContract is
                 contractAddress,
                 uniqueID
             );
-            require(false, 112);
             swapPairDB.add(uniqueID, info);
-            require(false, 113);
         }
-        require(false, 114);
 
         return contractAddress;
+    }
+
+    function getXOR(
+        address tokenRootContract1, 
+        address tokenRootContract2
+    ) external returns (uint256) {
+        return tokenRootContrac1.value^tokenRootContract2.value;
     }
 
     /**
