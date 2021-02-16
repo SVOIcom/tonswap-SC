@@ -11,6 +11,6 @@ contract SwapPairContract {
     uint static swapPairDeployer;
 
     constructor() public {
-
+        tvm.accept();
     }  
 }

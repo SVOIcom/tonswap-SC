@@ -68,20 +68,14 @@ contract RootSwapPairContract is
         // Допустим что новой паре необходимо изначально 2 тона, + 0.3 на выполнение
         //For testing purposes
         tvm.accept();
-        //tvm.rawReserve(msg.value - (msg.value - minMessageValue - contractServicePayment), 2);
+        // tvm.rawReserve(msg.value - (msg.value - minMessageValue - contractServicePayment), 2);
             
         // Time of contract deploy
-        uint256 currentTimestamp = now;
+        uint256 currentTimestamp = now; 
+        require(false, 110);
 
         // Нужны параметры для деплоя контракта
-        address contractAddress = _calculateSwapPairContractAddress(
-            tokenRootContract1,
-            tokenRootContract2,
-            msg.pubkey(),
-            uniqueID
-        ); 
-
-        new SwapPairContract{
+        address contractAddress = new SwapPairContract{
             value: 2 ton,
             varInit: {
                 token1: tokenRootContract1,
@@ -94,6 +88,8 @@ contract RootSwapPairContract is
             code: swapPairCode
         }();
 
+        require(false, 111);
+
         if (contractAddress.value != 0) {
             SwapPairInfo info = SwapPairInfo(
                 tokenRootContract1,
@@ -103,8 +99,11 @@ contract RootSwapPairContract is
                 contractAddress,
                 uniqueID
             );
+            require(false, 112);
             swapPairDB.add(uniqueID, info);
+            require(false, 113);
         }
+        require(false, 114);
 
         return contractAddress;
     }
