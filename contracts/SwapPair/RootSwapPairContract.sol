@@ -83,10 +83,15 @@ contract RootSwapPairContract is
             varInit: {
                 token1: tokenRootContract1,
                 token2: tokenRootContract2,
-                swapPairRootContract: msg.pubkey(),
+                swapPairDeployer: msg.pubkey(),
                 swapPairID: uniqueID
             },
-            pubkey: msg.pubkey(),fetch
+            pubkey: msg.pubkey(),
+            code: swapPairCode
+        }();
+
+        if (contractAddress.value != 0) {
+            SwapPairInfo info = SwapPairInfo(
                 tokenRootContract1,
                 tokenRootContract2,
                 msg.pubkey(),
@@ -112,7 +117,12 @@ contract RootSwapPairContract is
         uint256 uniqueID = tokenRootContract1.value^tokenRootContract2.value;
         return swapPairDB.exists(uniqueID);
     }
-    
+
+    /**
+     * Check if pair exists
+     * @param tokenRootContract1 Address of token root contract
+     * @param tokenRootContract2 Address of token root contract
+     */
     function getPairInfo(
         address tokenRootContract1, 
         address tokenRootContract2
@@ -122,6 +132,7 @@ contract RootSwapPairContract is
         require(spi.hasValue(), error_pair_does_not_exist);
         return spi.get();
     }
+
 
     /**
      * Get service information about root contract
@@ -171,7 +182,7 @@ contract RootSwapPairContract is
             varInit: {
                 token1: tokenRootContract1,
                 token2: tokenRootContract2,
-                swapPairRootContract: msg.sender,
+                swapPairDeployer: msg.sender,
                 swapPairID: uniqueID
             },
             pubkey: publicKey,
