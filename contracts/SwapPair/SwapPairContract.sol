@@ -8,6 +8,7 @@ contract SwapPairContract {
     address static token2;
     uint static swapPairRootContract;
     uint static swapPairID;
+    uint static swapPairDeployer;
 
     constructor() public {
 
