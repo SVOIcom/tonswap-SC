@@ -84,17 +84,15 @@ contract RootSwapPairContract is
             code: swapPairCode
         }();
 
-        //if (contractAddress.value != 0) {
-            SwapPairInfo info = SwapPairInfo(
-                tokenRootContract1,
-                tokenRootContract2,
-                msg.pubkey(),
-                currentTimestamp,
-                contractAddress,
-                uniqueID
-            );
-            swapPairDB.add(uniqueID, info);
-        //}
+        SwapPairInfo info = SwapPairInfo(
+            tokenRootContract1,
+            tokenRootContract2,
+            msg.pubkey(),
+            currentTimestamp,
+            contractAddress,
+            uniqueID
+        );
+        swapPairDB.add(uniqueID, info);
 
         return contractAddress;
     }

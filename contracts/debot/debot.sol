@@ -11,6 +11,7 @@ import "./interfaces/Terminal.sol";
 
 interface ISwapPairContract {
     function getUserTokens(uint256 publicKey) public returns (TokensBalance);
+    function getPairInfo() public returns (PairInfo);
 }
 
 contract SwapDebot is Debot, Menu, Sdk, Terminal, AddressInput {
@@ -35,7 +36,7 @@ contract SwapDebot is Debot, Menu, Sdk, Terminal, AddressInput {
     function start() public override {
         Menu.select("Main menu", "Hello, this is debot for swap pairs from SVOI.dev! You can swap tokens and get them from pair.", [
             MenuItem("Swap tokens", "", tvm.functionId(swapTokens)),
-            MenuItem("Get tokens back", "", tvm.functionId(getTokensFromPair)),
+            MenuItem("Withdraw tokens", "", tvm.functionId(getTokensFromPair)),
             MenuItem("Exit debot", "", 0)
         ]);
     }
@@ -47,6 +48,7 @@ contract SwapDebot is Debot, Menu, Sdk, Terminal, AddressInput {
     }
 
     function processPair(address value) {  
+        swapPairAddress = value;
         Sdk.getAccountType(tvm.functionId(checkIfWalletExists), value);
     }
 
@@ -59,7 +61,24 @@ contract SwapDebot is Debot, Menu, Sdk, Terminal, AddressInput {
     }
 
     function getUserTokens() public {
-
+        optional(uint256) pubkey;
+        ISwapPairContract(swapPairAddress).getPairInfo{
+            extMsg: true,
+            time: uint64(now),
+            sign: false,
+            pubkey: pubkey,
+            expire: tvm.functionId(setTokenInfo)
+        }();
+        ISwapPairContract(swapPairAddress).getUserTokens{
+            extMsg: true,
+            time: uint64(now),
+            sign: false,
+            pubkey: pubkey,
+            expire: tvm.functionId(setUserTokenBalance)
+        }();
+        // TvmBuilder b;
+        // b.store(token1Balance, token1Symbol, token2Balance, token2Symbol);
+        // Terminal.printf(tvm.functionId(chooseToken), "Your balance: {} for {}; {} for {}", b.toCell());
     }
 
     function getTokenInfo() public {
@@ -67,7 +86,10 @@ contract SwapDebot is Debot, Menu, Sdk, Terminal, AddressInput {
     }
 
     function chooseToken() public {
-
+        Menu.select("Select token", "Select active token (for swap - token you want to swap): ", [
+            MenuItem(token1Symbol, "", tvm.functionId(getTokenAmount)),
+            MenuItem(token2Symbol, "", tvm.functionId(getTokenAmount))
+        ]);
     }
 
     function getTokenAmount() public {
@@ -90,5 +112,13 @@ contract SwapDebot is Debot, Menu, Sdk, Terminal, AddressInput {
         action = GET_TOKENS;
         Terminal.input(0, "Please input swap pair address");
         AddressInput.select(tvm.functionId(processPair));
+    }
+
+    function setUserTokenBalance(TokensBalance tokensBalance) public {
+
+    }
+
+    function setTokenInfo(PairInfo pairInfo) public {
+
     }
 }
