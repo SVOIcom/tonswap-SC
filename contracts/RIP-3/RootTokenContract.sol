@@ -62,7 +62,7 @@ contract RootTokenContract is IRootTokenContract, IBurnableTokenRootContract, IB
                 error_define_wallet_public_key_or_owner_address);
         address walletAddress = getExpectedWalletAddress(wallet_public_key_, owner_address_);
         if ((msg.sender).value != 0) {
-            IWalletCreationCallback(msg.sender).getWalletAddress(walletAddress);
+            IWalletCreationCallback(msg.sender).getWalletAddressCallback(walletAddress);
         }
         return walletAddress;
     }

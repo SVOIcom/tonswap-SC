@@ -5,5 +5,5 @@ pragma AbiHeader expire;
 pragma AbiHeader time;
 
 interface IWalletCreationCallback {
-    function getWalletAddress(address walletAddress) external;
+    function getWalletAddressCallback(address walletAddress) external;
 }
