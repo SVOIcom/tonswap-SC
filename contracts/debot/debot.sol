@@ -10,7 +10,7 @@ import "./interfaces/Sdk.sol";
 import "./interfaces/Terminal.sol";
 
 interface ISwapPairContract {
-
+    function getUserTokens(uint256 publicKey) public returns (TokensBalance);
 }
 
 contract SwapDebot is Debot, Menu, Sdk, Terminal, AddressInput {
@@ -19,6 +19,10 @@ contract SwapDebot is Debot, Menu, Sdk, Terminal, AddressInput {
     address token1; address token2;
     string token1Symbol; string token2Symbol;
     uint128 token1Balance; uint128 token2Balance;
+    uint8 state;
+
+    uint8 SWAP = 1;
+    uint8 GET_TOKENS = 2;
 
     constructor(string swapDebotAbi) {
         require(msg.pubkey() == tvm.pubkey(), 100);
@@ -37,26 +41,21 @@ contract SwapDebot is Debot, Menu, Sdk, Terminal, AddressInput {
     }
 
     function swapTokens(uint32 index) public { 
+        action = SWAP;
         Terminal.input(0, "Please input swap pair address");
         AddressInput.select(tvm.functionId(processPair));
     }
 
     function processPair(address value) {  
-        Sdk.getAccountType(tvm.functionId(checkAccountType), value);
+        Sdk.getAccountType(tvm.functionId(checkIfWalletExists), value);
     }
 
-    function checkAccountType(uint acc_type) public {
-        if (acc_type == 1) {
-            showOkMessage();
+    function checkIfWalletExists(uint acc_type) public {
+        if (acc_type != 1) {
+            Terminal.print(tvm.functionId(start), "Wallet does not exist or is not active. Going back to main menu");
+        } else {
+            Terminal.print(tvm.functionId(getUserTokens), "Looks like wallet exists and is active. Getting info about available tokens...");
         }
-    }
-
-    function showOkMessage() public {
-
-    }
-
-    function showErrorMessage() public {
-
     }
 
     function getUserTokens() public {
@@ -88,6 +87,8 @@ contract SwapDebot is Debot, Menu, Sdk, Terminal, AddressInput {
     }
 
     function getTokensFromPair(uint32 index) public {
-
+        action = GET_TOKENS;
+        Terminal.input(0, "Please input swap pair address");
+        AddressInput.select(tvm.functionId(processPair));
     }
 }

@@ -10,9 +10,9 @@ contract LilBot {
     string name;
 
     function start() public {
-        Terminal.print("Hello! I'm jst a lilbot, but I will grow big and useful!");
-        Terminal.input(tvm.functionId(setText), "Enter your name: ");
-        Terminal.print("Your name: " + name);
+        Terminal.print(0, "Hello! I'm jst a lilbot, but I will grow big and useful!");
+        Terminal.inputStr(tvm.functionId(setText), "Enter your name: ", false);
+        Terminal.print(0, "Your name: " + name);
     }
 
     function setText(string value) public {

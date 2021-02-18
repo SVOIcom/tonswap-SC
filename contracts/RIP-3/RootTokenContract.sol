@@ -8,7 +8,9 @@ import "./interfaces/IBurnableByRootTokenRootContract.sol";
 import "./interfaces/IBurnTokensCallback.sol";
 import "./interfaces/IRootTokenContract.sol";
 import "./interfaces/ITONTokenWallet.sol";
+import "./interfaces/IWalletCreationCallback.sol";
 import "./TONTokenWallet.sol";
+
 
 contract RootTokenContract is IRootTokenContract, IBurnableTokenRootContract, IBurnableByRootTokenRootContract {
 
@@ -59,6 +61,9 @@ contract RootTokenContract is IRootTokenContract, IBurnableTokenRootContract, IB
                 (owner_address_.value == 0 && wallet_public_key_ != 0),
                 error_define_wallet_public_key_or_owner_address);
         address walletAddress = getExpectedWalletAddress(wallet_public_key_, owner_address_);
+        if ((msg.sender).value != 0) {
+            IWalletCreationCallback(msg.sender).getWalletAddress(walletAddress);
+        }
         return walletAddress;
     }
 
