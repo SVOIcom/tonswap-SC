@@ -136,7 +136,9 @@ contract MsigDebot is Debot {
                 time: uint64(now),
                 sign: false,
                 pubkey: pubkey,
-                expire: tvm.functionId(setCustodians)
+                callbackId: tvm.functionId(setCustodians),
+                abiVer: 2,
+                onErrorId: tvm.functionId(start)
             }();
 
             Terminal.inputTons(tvm.functionId(setTons), "Enter number of tokens to transfer:");
@@ -172,7 +174,9 @@ contract MsigDebot is Debot {
                 time: uint64(now),
                 sign: true,
                 pubkey: pubkey,
-                expire: tvm.functionId(setResult)
+                callbackId: tvm.functionId(setResult),
+                abiVer: 2,
+                onErrorId: tvm.functionId(start)
             }(m_dest, m_tons, m_bounce, false,  empty);
     }
 
