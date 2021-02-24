@@ -7,7 +7,7 @@ import '../RIP-3/interfaces/IRootTokenContract.sol';
 import '../RIP-3/interfaces/IWalletCreationCallback.sol';
 import '../RIP-3/interfaces/ITokensReceivedCallback.sol';
 
-contract SwapPairContract is IWalletCreationCallback, ITokensReceivedCallback  {
+contract SwapPairContract is IWalletCreationCallback, ITokensReceivedCallback {
     address /*static*/ token1;
     address /*static*/ token2;
 
@@ -24,11 +24,14 @@ contract SwapPairContract is IWalletCreationCallback, ITokensReceivedCallback  {
     mapping(address => uint128) token2UserBalance;
     mapping(address => uint128) rewardUserBalance;
 
+    mapping(address => uint128) token1LiquidityUserBalance;
+    mapping(address => uint128) token2LiquidityUserBalance;
+
     //Error codes
-    uint8 ERROR_CONTRACT_ALREADY_INITIALIZED            = 100;
-    uint8 ERROR_CONTRACT_NOT_INITIALIZED                = 101;
-    uint8 ERROR_CALLER_IS_NOT_TOKEN_ROOT                = 102;
-    uint8 ERROR_CALLER_IS_NOT_TOKEN_WALLET              = 103;
+    uint8 ERROR_CONTRACT_ALREADY_INITIALIZED = 100;
+    uint8 ERROR_CONTRACT_NOT_INITIALIZED = 101;
+    uint8 ERROR_CALLER_IS_NOT_TOKEN_ROOT = 102;
+    uint8 ERROR_CALLER_IS_NOT_TOKEN_WALLET = 103;
 
     //Pair creation timestamp
     uint256 creationTimestamp;
@@ -61,7 +64,7 @@ contract SwapPairContract is IWalletCreationCallback, ITokensReceivedCallback  {
         return creationTimestamp;
     }
 
-    function _getRates() private{
+    function _getRates() private {
 
     }
 
@@ -90,16 +93,16 @@ contract SwapPairContract is IWalletCreationCallback, ITokensReceivedCallback  {
     /*
     * Deployed wallet address callback
     */
-    function getWalletAddressCallback(address walletAddress) public{
+    function getWalletAddressCallback(address walletAddress) public {
         //Check for initialization
         require(initializedStatus < 2, ERROR_CONTRACT_ALREADY_INITIALIZED);
 
-        if(msg.sender.value == token1.value){
+        if (msg.sender.value == token1.value) {
             token1Wallet = walletAddress;
             initializedStatus++;
         }
 
-        if(msg.sender.value == token2.value){
+        if (msg.sender.value == token2.value) {
             token2Wallet = walletAddress;
             initializedStatus++;
         }
@@ -120,8 +123,32 @@ contract SwapPairContract is IWalletCreationCallback, ITokensReceivedCallback  {
         TvmCell payload
     ) public onlyOwnWallet {
 
-        
+        if (msg.sender.value == token1Wallet.sender) {
+            token1UserBalance[sender_address] += amount;
+        }
+
+        if (msg.sender.value == token2Wallet.sender) {
+            token2UserBalance[sender_address] += amount;
+        }
 
     }
+
+
+    function withdrawToken(address withdrawalTokenRoot, address receiveTokenWallet, uint128 amount) public {
+
+    }
+
+    function swap(address swappableTokenRoot,  uint128 swappableTokenAmount) public {
+
+    }
+
+    function getExchangeRate(address swappableTokenRoot, uint128 swappableTokenAmount) view returns (uint256 rate){
+
+    }
+
+    function addLiquidity(uint128 firstTokenAmount, uint128 secondTokenAmount) public {
+
+    }
+
 
 }
