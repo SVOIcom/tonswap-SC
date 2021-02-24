@@ -4,6 +4,7 @@ pragma AbiHeader expire;
 pragma AbiHeader time;
 
 
+
 interface ISwapPairContract  {
     function withdrawToken(address withdrawalTokenRoot, address receiveTokenWallet, uint128 amount) public;
 
@@ -15,15 +16,5 @@ interface ISwapPairContract  {
 
     function getCreationTimestamp() public view returns (uint256 creationTimestamp);
 
-    function tokensReceivedCallback(
-        address token_wallet,
-        address token_root,
-        uint128 amount,
-        uint256 sender_public_key,
-        address sender_address,
-        address sender_wallet,
-        address original_gas_to,
-        uint128 updated_balance,
-        TvmCell payload
-    ) public;
+
 }
