@@ -7,10 +7,18 @@ import "./interfaces/Terminal.sol";
 import "./interfaces/AddressInput.sol";
 import "./interfaces/Sdk.sol";
 import "./interfaces/Menu.sol";
+import "../SwapPair/interfaces/ISwapPairContract.sol";
+import "../RIP-3/interfaces/IRootTokenContract.sol";
 
 interface ISwapPairContract {
     function getUserTokens(uint256 publicKey) external returns (TokensBalance);
     function getPairInfo() external returns (PairInfo);
+}
+
+struct TokensInfo {
+    address rootAddress;
+    uint balance;
+    string symbol;
 }
 
 struct TokensBalance {
@@ -28,6 +36,7 @@ contract SwapDebot is Debot {
     uint static _randomNonce;
     
     address swapPairAddress;
+    TokenInfo token1; TokenInfo token2;
     address token1; address token2;
     string token1Symbol = "A"; string token2Symbol = "B";
     uint128 token1Balance = 100; uint128 token2Balance = 200;
@@ -86,7 +95,7 @@ contract SwapDebot is Debot {
             pubkey: pubkey,
             dest: value,
             call: {
-                TestValue.getValue
+                ISwapPairContract.getUserTokens
             },
         });
         // ISwapPairContract(swapPairAddress).getPairInfo{
@@ -111,13 +120,13 @@ contract SwapDebot is Debot {
 
     function chooseToken() public {
         Menu.select("", "Select active token (for swap - token you want to swap): ", [
-            MenuItem(token1Symbol, "", tvm.functionId(getTokenAmount)),
-            MenuItem(token2Symbol, "", tvm.functionId(getTokenAmount))
+            MenuItem(token1.symbol, "", tvm.functionId(getTokenAmount)),
+            MenuItem(token2.symbol, "", tvm.functionId(getTokenAmount))
         ]);
     }
 
     function getTokenAmount(uint32 index) public {
-        maxTokenAmount = (index == 0) ? token1Balance : token2Balance; 
+        maxTokenAmount = (index == 0) ? token1.balance : token2.balance; 
         Terminal.inputUint(tvm.functionId(validateTokenAmount), "Input token amount: ");
     }
 
@@ -132,6 +141,19 @@ contract SwapDebot is Debot {
     }
 
     function submitSwap() public {
+        TvmCell cell = tvm.buildExtMsg({
+            abiVer: 2,
+            callbackId: tvm.functionId(setTokenInfo),
+            onErrorId: 0,
+            time: uint64(now),
+            expire:  uint64(now) + 100,
+            pubkey: pubkey,
+            dest: swapPairAddress,
+            call: {
+                ISwapPairContract.Swap,
+
+            },
+        });
         Terminal.print(0, "Swap completed");
     }
 
@@ -143,7 +165,36 @@ contract SwapDebot is Debot {
 
     }
 
+    function getInfoAboutTokens(IRootTokenContractDetails rootInfo) {
+        if (msg.sender == token1.root) {
+            token1.symbol = rootInfo.symbol;
+        } else {
+            token2.symbol = rootInfo.symbol;
+        }
+    }
+
     function setTokenInfo(PairInfo pairInfo) public {
-        Terminal.print(tvm.functionId(chooseToken), format("Your balance: {} for {}; {} for {}", token1Balance, token1Symbol, token2Balance, token2Symbol));
+        token1.rootAddress = pairInfo.token1;
+        token2.rootAddress = pairInfo.token2;
+        sendRootMsg(token1.rootAddress);
+        sendRootMsg(token2.rootAddress);
+        
+        //Terminal.print(tvm.functionId(chooseToken), format("Your balance: {} for {}; {} for {}", token1.balance, token1.symbol, token2.balance, token2.symbol));
+    }
+
+    function sendRootMsg(address root) private inline view {
+        TvmCell cell = tvm.buildExtMsg({
+            abiVer: 2,
+            callbackId: tvm.functionId(getInfoAboutTokens),
+            onErrorId: 0,
+            time: uint64(now),
+            expire:  uint64(now) + 100,
+            pubkey: pubkey,
+            dest: swapPairAddress,
+            call: {
+                IRootTokenContract.getDetails,
+            },
+        });
+        tvm.sendrawmsg(cell, 1);
     }
 }
