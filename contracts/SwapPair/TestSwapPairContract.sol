@@ -50,13 +50,13 @@ contract TestSwapPairContract is ISwapPairContract {
     
     function getPairInfo() override external returns (SwapPairInfo info) {
         tvm.accept();
-        return SwapPairInfo;
+        return testPairInfo;
 
     } //+ set ret SwapPairInfo
 
     function getUserBalance() override external returns (UserBalanceInfo ubi) {
         tvm.accept();
-        return UserBalanceInfo;
+        return testBalanceInfo;
 
     } //+ set ret UserBalanceInfo
 }
