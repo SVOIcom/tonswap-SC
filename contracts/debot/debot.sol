@@ -68,15 +68,27 @@ contract SwapDebot is Debot {
     }
 
     function checkIfWalletExists(uint acc_type) public {
-        // if (acc_type != 1) {
-        //     Terminal.print(tvm.functionId(start), "Wallet does not exist or is not active. Going back to main menu");
-        // } else {
+        if (acc_type != 1) {
+            Terminal.print(tvm.functionId(start), "Wallet does not exist or is not active. Going back to main menu");
+        } else {
             Terminal.print(tvm.functionId(getUserTokens), "Looks like wallet exists and is active. Getting info about available tokens...");
-        // }
+        }
     }
 
     function getUserTokens() public {
         optional(uint256) pubkey;
+        TvmCell cell = tvm.buildExtMsg({
+            abiVer: 2,
+            callbackId: tvm.functionId(setTokenInfo),
+            onErrorId: 0,
+            time: uint64(now),
+            expire:  uint64(now) + 100,
+            pubkey: pubkey,
+            dest: value,
+            call: {
+                TestValue.getValue
+            },
+        });
         // ISwapPairContract(swapPairAddress).getPairInfo{
         //     extMsg: true,
         //     time: uint64(now),
@@ -91,7 +103,6 @@ contract SwapDebot is Debot {
         //     pubkey: pubkey,
         //     callbackId: tvm.functionId(setUserTokenBalance)
         // }();
-        Terminal.print(tvm.functionId(chooseToken), format("Your balance: {} for {}; {} for {}", token1Balance, token1Symbol, token2Balance, token2Symbol));
     }
 
     function getTokenInfo() public {
@@ -133,6 +144,6 @@ contract SwapDebot is Debot {
     }
 
     function setTokenInfo(PairInfo pairInfo) public {
-
+        Terminal.print(tvm.functionId(chooseToken), format("Your balance: {} for {}; {} for {}", token1Balance, token1Symbol, token2Balance, token2Symbol));
     }
 }
