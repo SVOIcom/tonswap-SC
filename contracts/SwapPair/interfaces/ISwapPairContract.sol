@@ -5,7 +5,7 @@ pragma AbiHeader time;
 
 import './ISwapPairInformation.sol';
 
-interface ISwapPairContract is ISwapPairInformation   {
+interface ISwapPairContract is ISwapPairInformation {
     function withdrawToken(address withdrawalTokenRoot, address receiveTokenWallet, uint128 amount) external;
 
     function swap(address swappableTokenRoot,  uint128 swappableTokenAmount) external;
@@ -18,5 +18,5 @@ interface ISwapPairContract is ISwapPairInformation   {
     
     function getPairInfo() external returns (SwapPairInfo info);
 
-
+    function getUserBalance() external returns (UserBalanceInfo ubi);
 }
