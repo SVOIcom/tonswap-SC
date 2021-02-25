@@ -134,19 +134,19 @@ contract SwapPairContract is IWalletCreationCallback, ITokensReceivedCallback {
     }
 
 
-    function withdrawToken(address withdrawalTokenRoot, address receiveTokenWallet, uint128 amount) public {
+    function withdrawToken(address withdrawalTokenRoot, address receiveTokenWallet, uint128 amount) external {
 
     }
 
-    function swap(address swappableTokenRoot,  uint128 swappableTokenAmount) public {
+    function swap(address swappableTokenRoot,  uint128 swappableTokenAmount) external {
 
     }
 
-    function getExchangeRate(address swappableTokenRoot, uint128 swappableTokenAmount) view returns (uint256 rate){
+    function getExchangeRate(address swappableTokenRoot, uint128 swappableTokenAmount) external view returns (uint256 rate){
 
     }
 
-    function addLiquidity(uint128 firstTokenAmount, uint128 secondTokenAmount) public {
+    function addLiquidity(uint128 firstTokenAmount, uint128 secondTokenAmount) external {
 
     }
 
