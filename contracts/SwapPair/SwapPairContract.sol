@@ -122,7 +122,7 @@ contract SwapPairContract is IWalletCreationCallback, ITokensReceivedCallback {
     /*
      * Set callback address for wallets
      */
-    function _setWalletsCallbackAddress() public initialized {
+    function _setWalletsCallbackAddress() public inline {
         ITONTokenWalletWithNotifiableTransfers(token1Wallet).setReceiveCallback{
             value: 200 milliton
         }(address(this));
