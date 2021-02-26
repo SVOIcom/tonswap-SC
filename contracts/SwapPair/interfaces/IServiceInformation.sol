@@ -7,7 +7,7 @@ interface IServiceInformation is IRootSwapPairUpgradePairCode {
         uint256 ownerPubkey;
         uint256 contractBalance;
         uint256 creationTimestamp;
-        SwapPairCodeVersion codeVersion;
+        uint32 codeVersion;
         TvmCell swapPairCode;
     }
 }

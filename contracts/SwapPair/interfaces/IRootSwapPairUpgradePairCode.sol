@@ -2,10 +2,6 @@
 pragma solidity >= 0.6.0;
 
 interface IRootSwapPairUpgradePairCode {
-    struct SwapPairCodeVersion {
-        uint contractCodeVersion;
-    }
-    
-    function setSwapPairCode(TvmCell code, SwapPairCodeVersion codeVersion) external;
+    function setSwapPairCode(TvmCell code, uint32 codeVersion) external;
     function upgradeSwapPair(uint256 uniqueID) external view;
 }

@@ -11,9 +11,10 @@ contract SwapPairContract is IWalletCreationCallback, ITokensReceivedCallback {
     address /*static*/ token1;
     address /*static*/ token2;
 
-    address /*static*/ swapPairRootContract;
+    address swapPairRootContract;
+
     uint /*static*/ swapPairID;
-    uint /*static*/ swapPairDeployer;
+    uint swapPairDeployer;
 
     //Deployed token wallets addresses
     address token1Wallet;
@@ -41,9 +42,11 @@ contract SwapPairContract is IWalletCreationCallback, ITokensReceivedCallback {
 
 
 
-    constructor() public {
+    constructor(address rootContract, uint spd) public {
         tvm.accept();
         creationTimestamp = now;
+        swapPairRootContract = rootContract;
+        swapPairDeployer = spd;
 
         //Deploy tokens wallets
         _deployWallets();
@@ -53,8 +56,12 @@ contract SwapPairContract is IWalletCreationCallback, ITokensReceivedCallback {
     * Deploy internal wallets. getWalletAddressCallback
     */
     function _deployWallets() private {
-        IRootTokenContract(token1).deployEmptyWallet{}(200000000, tvm.pubkey(), address(this), address(this));
-        IRootTokenContract(token2).deployEmptyWallet{}(200000000, tvm.pubkey(), address(this), address(this));
+        IRootTokenContract(token1).deployEmptyWallet{
+            value: 400 milliton
+        }(200 milliton, tvm.pubkey(), address(this), address(this));
+        IRootTokenContract(token2).deployEmptyWallet{
+            value: 400 milliton
+        }(200 milliton, tvm.pubkey(), address(this), address(this));
     }
 
     /**
@@ -106,6 +113,22 @@ contract SwapPairContract is IWalletCreationCallback, ITokensReceivedCallback {
             token2Wallet = walletAddress;
             initializedStatus++;
         }
+
+        if (initializedStatus == 2) {
+            _setWalletsCallbackAddress();
+        }
+    }
+
+    /*
+     * Set callback address for wallets
+     */
+    function _setWalletsCallbackAddress() public inline {
+        ITONTokenWalletWithNotifiableTransfers(token1Wallet).setReceiveCallback{
+            value: 200 milliton
+        }(address(this));
+        ITONTokenWalletWithNotifiableTransfers(token2Wallet).setReceiveCallback{
+            value: 200 milliton
+        }(address(this));
     }
 
     /*
@@ -150,5 +173,25 @@ contract SwapPairContract is IWalletCreationCallback, ITokensReceivedCallback {
 
     }
 
+    function getPairInfo() override external view returns (SwapPairInfo info) {
+        return SwapPairInfo(
+            swapPairRootContract,
+            token1,
+            token2,
+            swapPairDeployer,
+            creationTimestamp,
+            address(this),
+            swapPairID
+        );
+    }
 
+    function getUserBalance() override external view returns (UserBalanceInfo ubi) {
+        uint256 pubkey = msg.pubkey();
+        return UserBalanceInfo(
+            token1,
+            token2,
+            token1UserBalance[pubkey],
+            token2UserBalance[pubkey]
+        );
+    }
 }

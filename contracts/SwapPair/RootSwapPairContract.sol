@@ -76,13 +76,10 @@ contract RootSwapPairContract is
             varInit: {
                 token1: tokenRootContract1,
                 token2: tokenRootContract2,
-                swapPairRootContract: address(this),
-                swapPairDeployer: msg.pubkey(),
                 swapPairID: uniqueID
             },
-            pubkey: msg.pubkey(),
             code: swapPairCode
-        }();
+        }(address(this), msg.pubkey());
 
         SwapPairInfo info = SwapPairInfo(
             tokenRootContract1,
@@ -173,7 +170,6 @@ contract RootSwapPairContract is
     function _calculateSwapPairContractAddress(
         address tokenRootContract1,
         address tokenRootContract2,
-        uint256 publicKey,
         uint256 uniqueID
     ) private view inline returns(address) {
         TvmCell stateInit = tvm.buildStateInit({
@@ -181,10 +177,8 @@ contract RootSwapPairContract is
             varInit: {
                 token1: tokenRootContract1,
                 token2: tokenRootContract2,
-                swapPairDeployer: msg.sender,
                 swapPairID: uniqueID
             },
-            pubkey: publicKey,
             code: swapPairCode
         });
 

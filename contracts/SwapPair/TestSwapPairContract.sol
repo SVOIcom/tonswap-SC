@@ -9,6 +9,8 @@ import './interfaces/ISwapPairInformation.sol';
 
 contract TestSwapPairContract is ISwapPairContract {
 
+    uint static _randomNonce;
+
     SwapPairInfo testPairInfo;
 
     UserBalanceInfo testBalanceInfo;
@@ -48,13 +50,13 @@ contract TestSwapPairContract is ISwapPairContract {
         return 1;
     } //twm accept int
     
-    function getPairInfo() override external returns (SwapPairInfo info) {
+    function getPairInfo() override external view returns (SwapPairInfo info) {
         tvm.accept();
         return testPairInfo;
 
     } //+ set ret SwapPairInfo
 
-    function getUserBalance() override external returns (UserBalanceInfo ubi) {
+    function getUserBalance() override external view returns (UserBalanceInfo ubi) {
         tvm.accept();
         return testBalanceInfo;
 
