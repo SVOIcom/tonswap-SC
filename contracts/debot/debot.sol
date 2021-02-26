@@ -110,11 +110,11 @@ contract SwapDebot is Debot, ISwapPairInformation {
     }
 
     // set token information
-    function setTokenInfo(UserBalanceInfo tokenInfo) public {
-        token1.rootAddress = tokenInfo.tokenRoot1;
-        token1.balance = tokenInfo.tokenBalance1;
-        token2.rootAddress = tokenInfo.tokenRoot2;
-        token2.balance = tokenInfo.tokenBalance2;
+    function setTokenInfo(UserBalanceInfo ubi) public {
+        token1.rootAddress = ubi.tokenRoot1;
+        token1.balance = ubi.tokenBalance1;
+        token2.rootAddress = ubi.tokenRoot2;
+        token2.balance = ubi.tokenBalance2;
         Terminal.print(tvm.functionId(chooseToken), format("Your balance: {} for {}; {} for {}", token1.balance, token1.rootAddress, token2.balance, token2.rootAddress));
     }
 
@@ -160,8 +160,8 @@ contract SwapDebot is Debot, ISwapPairInformation {
         }(chosenToken, tokenAmount);
     }
 
-    function showSwapOrderId(uint orderId) public {
-        Terminal.print(0, format("Swap order published. Order Id: {}", orderId));
+    function showSwapOrderId() public {
+        Terminal.print(0, "Swap completed");
     }
 
     function inputAddressForWithdraw() public {
