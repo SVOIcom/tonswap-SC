@@ -2,21 +2,22 @@ pragma solidity >= 0.6.0;
 pragma AbiHeader expire;
 pragma AbiHeader time;
 pragma AbiHeader pubkey;
+
 import "./interfaces/Debot.sol";
 import "./interfaces/Terminal.sol";
 import "./interfaces/AddressInput.sol";
 import "./interfaces/Sdk.sol";
 import "./interfaces/Menu.sol";
 
-import "./interfaces/UserBalanceInfo.sol";
-
+import "../SwapPair/interfaces/ISwapPairInformation.sol";
 import "../SwapPair/interfaces/ISwapPairContract.sol";
+
 import "../RIP-3/interfaces/IRootTokenContract.sol";
 
-interface ISwapPairContract {
-    function getUserTokens(uint256 publicKey) external returns (TokensBalance);
-    function getPairInfo() external returns (PairInfo);
-}
+// interface ISwapPairContract {
+//     function getUserTokens(uint256 publicKey) external returns (TokensBalance);
+//     function getPairInfo() external returns (PairInfo);
+// }
 
 struct TokensInfo {
     address rootAddress;
@@ -34,17 +35,17 @@ struct PairInfo {
     address token2;
 }
 
-contract SwapDebot is Debot {
+contract SwapDebot is Debot, ISwapPairInformation {
     uint static _randomNonce;
 
     // Information about tokens
-    TokenInfo token1; TokenInfo token2;
+    TokensInfo token1; TokensInfo token2;
 
     // Variables to store user input
     uint tokenAmount; 
     address chosenToken;
     address swapPairAddress;    
-    uint128 maxTokenAmount;
+    uint maxTokenAmount;
     
     // Available actions: swap tokens or withdraw tokens
     uint8 state;
@@ -91,7 +92,7 @@ contract SwapDebot is Debot {
     // Checking pair status. Must be active to proceed
     function checkIfPairExitst(uint acc_type) public {
         if (acc_type != 1) {
-            Terminal.print(tvm.functionId(start), "Wallet does not exist or is not active. Going back to main menu");
+            Terminal.print(0, "Wallet does not exist or is not active. Going back to main menu");
         } else {
             Terminal.print(tvm.functionId(getUserTokens), "Looks like wallet exists and is active. Getting info about available tokens...");
         }
@@ -106,29 +107,29 @@ contract SwapDebot is Debot {
             pubkey: pubkey,
             sign: true,
             abiVer: 2,
-            dest: value,
+            dest: swapPairAddress,
             call: {
-                ISwapPairContract.getUserTokens
+                ISwapPairContract.getUserBalance
             },
             callbackId: tvm.functionId(setTokenInfo),
-            onErrorId: 0,
+            onErrorId: 0
         });
     }
 
     // set token information
-    function setTokenInfo(UserTokenInfo tokenInfo) public {
-        token1.rootAddress = tokenInfo.root1;
-        token1.balance = tokenInfo.balance1;
-        token2.rootAddress = tokenInfo.root2;
-        token2.balance = tokenInfo.balance2;
+    function setTokenInfo(UserBalanceInfo tokenInfo) public {
+        token1.rootAddress = tokenInfo.tokenRoot1;
+        token1.balance = tokenInfo.tokenBalance1;
+        token2.rootAddress = tokenInfo.tokenRoot2;
+        token2.balance = tokenInfo.tokenBalance2;
         Terminal.print(tvm.functionId(chooseToken), format("Your balance: {} for {}; {} for {}", token1.balance, token1.rootAddress, token2.balance, token2.rootAddress));
     }
 
     // Choice of token to operate with
     function chooseToken() public {
         Menu.select("", "Select active token (for swap - token you want to swap): ", [
-            MenuItem(token1.rootAddress, "", tvm.functionId(getTokenAmount)),
-            MenuItem(token2.rootAddress, "", tvm.functionId(getTokenAmount))
+            MenuItem(format("{}:{}", token1.rootAddress.wid, token1.rootAddress.value), "", tvm.functionId(getTokenAmount)),
+            MenuItem(format("{}:{}", token2.rootAddress.wid, token2.rootAddress.value), "", tvm.functionId(getTokenAmount))
         ]);
     }
 
@@ -151,6 +152,7 @@ contract SwapDebot is Debot {
     }
 
     function submitSwap() public {
+        optional(uint) pubkey;
         TvmCell cell = tvm.buildExtMsg({
             time: uint64(now),
             expire:  0,
@@ -159,21 +161,22 @@ contract SwapDebot is Debot {
             abiVer: 2,
             dest: swapPairAddress,
             call: {
-                ISwapPairContract.Swap,
+                ISwapPairContract.swap,
                 chosenToken,
                 tokenAmount
             },
             callbackId: tvm.functionId(showSwapOrderId),
-            onErrorId: 0,
+            onErrorId: 0
         });
         tvm.sendrawmsg(cell, 1);
     }
 
-    function showSwapOrderId(uint orderId) {
-        Terminal.print(tvm.functionId(start), format("Swap order published. Order Id: {}", orderId));
+    function showSwapOrderId(uint orderId) public {
+        Terminal.print(0, format("Swap order published. Order Id: {}", orderId));
     }
 
     function submitTokenWithdraw() public {
+        optional(uint) pubkey;
         TvmCell cell = tvm.buildExtMsg({
             time: uint64(now),
             expire:  0,
@@ -182,12 +185,12 @@ contract SwapDebot is Debot {
             abiVer: 2,
             dest: swapPairAddress,
             call: {
-                ISwapPairContract.withdrawTokenб
+                ISwapPairContract.withdrawToken,
                 chosenToken,
                 tokenAmount
             },
             callbackId: tvm.functionId(showTokenWithdrawResullt),
-            onErrorId: 0,
+            onErrorId: 0
         });
         tvm.sendrawmsg(cell, 1);
     }
