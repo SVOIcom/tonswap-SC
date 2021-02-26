@@ -17,7 +17,7 @@ interface ISwapPairInformation {
     struct UserBalanceInfo {
         address tokenRoot1;
         address tokenRoot2;
-        uint256 tokenBalance1;
-        uint256 tokenBalance2;
+        uint128 tokenBalance1;
+        uint128 tokenBalance2;
     }
 }
