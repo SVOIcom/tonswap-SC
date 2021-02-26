@@ -6,6 +6,7 @@ pragma AbiHeader pubkey;
 
 interface ISwapPairInformation {
     struct SwapPairInfo {
+        address rootContract;
         address tokenRoot1;
         address tokenRoot2;
         uint256 deployerPubkey;
