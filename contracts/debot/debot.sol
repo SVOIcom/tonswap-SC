@@ -14,11 +14,6 @@ import "../SwapPair/interfaces/ISwapPairContract.sol";
 
 import "../RIP-3/interfaces/IRootTokenContract.sol";
 
-// interface ISwapPairContract {
-//     function getUserTokens(uint256 publicKey) external returns (TokensBalance);
-//     function getPairInfo() external returns (PairInfo);
-// }
-
 struct TokensInfo {
     address rootAddress;
     uint balance;
@@ -100,20 +95,31 @@ contract SwapDebot is Debot, ISwapPairInformation {
 
     // Requesting information about user's tokens from pair contract
     function getUserTokens() public {
-        optional(uint256) pubkey;
-        TvmCell cell = tvm.buildExtMsg({
-            time: uint64(now),
-            expire:  0,
-            pubkey: pubkey,
-            sign: true,
+        optional(uint256) pubkey = 0;
+
+        ISwapPairContract(swapPairAddress).getUserBalance{
             abiVer: 2,
-            dest: swapPairAddress,
-            call: {
-                ISwapPairContract.getUserBalance
-            },
+            extMsg: true,
+            sign: true,
+            pubkey: pubkey,
+            time: uint64(now),
+            expire: 0,
             callbackId: tvm.functionId(setTokenInfo),
             onErrorId: 0
-        });
+        }();
+        // TvmCell cell = tvm.buildExtMsg({
+        //     time: uint64(now),
+        //     expire:  0,
+        //     pubkey: pubkey,
+        //     sign: true,
+        //     abiVer: 2,
+        //     dest: swapPairAddress,
+        //     call: {
+        //         ISwapPairContract.getUserBalance
+        //     },
+        //     callbackId: tvm.functionId(setTokenInfo),
+        //     onErrorId: 0
+        // });
     }
 
     // set token information
@@ -145,54 +151,79 @@ contract SwapDebot is Debot, ISwapPairInformation {
             Terminal.print(tvm.functionId(chooseToken), "Sum is too high. Please, reenter your token choice and token amount.");
         } else {
             tokenAmount = value;
-            uint32 fid = (state == SWAP) ? tvm.functionId(submitSwap) : tvm.functionId(submitTokenWithdraw);
+            uint32 fid = (state == SWAP) ? tvm.functionId(submitSwap) : tvm.functionId(inputAddressForWithdraw);
             string message = (state == SWAP) ? "Proceeding to token swap submit stage" : "Proceeding to token removal submit stage";
             Terminal.print(fid, message);
         }
     }
 
     function submitSwap() public {
-        optional(uint) pubkey;
-        TvmCell cell = tvm.buildExtMsg({
-            time: uint64(now),
-            expire:  0,
-            pubkey: pubkey,
-            sign: true,
+        optional(uint) pubkey = 0;
+        ISwapPairContract(swapPairAddress).swap{
             abiVer: 2,
-            dest: swapPairAddress,
-            call: {
-                ISwapPairContract.swap,
-                chosenToken,
-                tokenAmount
-            },
+            extMsg: true,
+            sign: true,
+            pubkey: pubkey,
+            time: uint64(now),
+            expire: 0,
             callbackId: tvm.functionId(showSwapOrderId),
             onErrorId: 0
-        });
-        tvm.sendrawmsg(cell, 1);
+        }(chosenToken, tokenAmount);
+        // TvmCell cell = tvm.buildExtMsg({
+        //     time: uint64(now),
+        //     expire:  0,
+        //     pubkey: pubkey,
+        //     sign: true,
+        //     abiVer: 2,
+        //     dest: swapPairAddress,
+        //     call: {
+        //         ISwapPairContract.swap,
+        //         chosenToken,
+        //         tokenAmount
+        //     },
+        //     callbackId: tvm.functionId(showSwapOrderId),
+        //     onErrorId: 0
+        // });
+        // tvm.sendrawmsg(cell, 1);
     }
 
     function showSwapOrderId(uint orderId) public {
         Terminal.print(0, format("Swap order published. Order Id: {}", orderId));
     }
 
-    function submitTokenWithdraw() public {
-        optional(uint) pubkey;
-        TvmCell cell = tvm.buildExtMsg({
-            time: uint64(now),
-            expire:  0,
-            pubkey: pubkey,
-            sign: true,
+    function inputAddressForWithdraw() public {
+        Terminal.print(0, "Please input your wallet address for token withdraw:");
+        AddressInput.select(tvm.functionId(submitTokenWithdraw));
+    }
+
+    function submitTokenWithdraw(address value) public {
+        optional(uint) pubkey = 0;
+        ISwapPairContract(swapPairAddress).withdrawToken{
             abiVer: 2,
-            dest: swapPairAddress,
-            call: {
-                ISwapPairContract.withdrawToken,
-                chosenToken,
-                tokenAmount
-            },
+            extMsg: true,
+            sign: true,
+            pubkey: pubkey,
+            time: uint64(now),
+            expire: 0,
             callbackId: tvm.functionId(showTokenWithdrawResullt),
             onErrorId: 0
-        });
-        tvm.sendrawmsg(cell, 1);
+        }(chosenToken, value, tokenAmount);
+        // TvmCell cell = tvm.buildExtMsg({
+        //     time: uint64(now),
+        //     expire:  0,
+        //     pubkey: pubkey,
+        //     sign: true,
+        //     abiVer: 2,
+        //     dest: swapPairAddress,
+        //     call: {
+        //         ISwapPairContract.withdrawToken,
+        //         chosenToken,
+        //         tokenAmount
+        //     },
+        //     callbackId: tvm.functionId(showTokenWithdrawResullt),
+        //     onErrorId: 0
+        // });
+        // tvm.sendrawmsg(cell, 1);
     }
 
     function showTokenWithdrawResullt() public {
