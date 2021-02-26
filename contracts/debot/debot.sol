@@ -1,4 +1,4 @@
-pragma solidity >= 0.6.0;
+pragma ton-solidity ^0.36.0;
 pragma AbiHeader expire;
 pragma AbiHeader time;
 pragma AbiHeader pubkey;
@@ -16,13 +16,13 @@ import "../RIP-3/interfaces/IRootTokenContract.sol";
 
 struct TokensInfo {
     address rootAddress;
-    uint balance;
+    uint128 balance;
     string symbol;
 }
 
 struct TokensBalance {
-    uint token1;
-    uint token2;
+    uint128 token1;
+    uint128 token2;
 }
 
 struct PairInfo {
@@ -37,10 +37,10 @@ contract SwapDebot is Debot, ISwapPairInformation {
     TokensInfo token1; TokensInfo token2;
 
     // Variables to store user input
-    uint tokenAmount; 
+    uint128 tokenAmount; 
     address chosenToken;
     address swapPairAddress;    
-    uint maxTokenAmount;
+    uint128 maxTokenAmount;
     
     // Available actions: swap tokens or withdraw tokens
     uint8 state;
@@ -107,19 +107,6 @@ contract SwapDebot is Debot, ISwapPairInformation {
             callbackId: tvm.functionId(setTokenInfo),
             onErrorId: 0
         }();
-        // TvmCell cell = tvm.buildExtMsg({
-        //     time: uint64(now),
-        //     expire:  0,
-        //     pubkey: pubkey,
-        //     sign: true,
-        //     abiVer: 2,
-        //     dest: swapPairAddress,
-        //     call: {
-        //         ISwapPairContract.getUserBalance
-        //     },
-        //     callbackId: tvm.functionId(setTokenInfo),
-        //     onErrorId: 0
-        // });
     }
 
     // set token information
@@ -134,8 +121,10 @@ contract SwapDebot is Debot, ISwapPairInformation {
     // Choice of token to operate with
     function chooseToken() public {
         Menu.select("", "Select active token (for swap - token you want to swap): ", [
-            MenuItem(format("{}:{}", token1.rootAddress.wid, token1.rootAddress.value), "", tvm.functionId(getTokenAmount)),
-            MenuItem(format("{}:{}", token2.rootAddress.wid, token2.rootAddress.value), "", tvm.functionId(getTokenAmount))
+            // MenuItem(format("{}:{}", token1.rootAddress.wid, token1.rootAddress.value), "", tvm.functionId(getTokenAmount)),
+            // MenuItem(format("{}:{}", token2.rootAddress.wid, token2.rootAddress.value), "", tvm.functionId(getTokenAmount))
+            MenuItem("fu", "", tvm.functionId(getTokenAmount)),
+            MenuItem("ck", "", tvm.functionId(getTokenAmount))
         ]);
     }
 
@@ -150,7 +139,7 @@ contract SwapDebot is Debot, ISwapPairInformation {
         if (value > maxTokenAmount) {
             Terminal.print(tvm.functionId(chooseToken), "Sum is too high. Please, reenter your token choice and token amount.");
         } else {
-            tokenAmount = value;
+            tokenAmount = uint128(value);
             uint32 fid = (state == SWAP) ? tvm.functionId(submitSwap) : tvm.functionId(inputAddressForWithdraw);
             string message = (state == SWAP) ? "Proceeding to token swap submit stage" : "Proceeding to token removal submit stage";
             Terminal.print(fid, message);
@@ -169,22 +158,6 @@ contract SwapDebot is Debot, ISwapPairInformation {
             callbackId: tvm.functionId(showSwapOrderId),
             onErrorId: 0
         }(chosenToken, tokenAmount);
-        // TvmCell cell = tvm.buildExtMsg({
-        //     time: uint64(now),
-        //     expire:  0,
-        //     pubkey: pubkey,
-        //     sign: true,
-        //     abiVer: 2,
-        //     dest: swapPairAddress,
-        //     call: {
-        //         ISwapPairContract.swap,
-        //         chosenToken,
-        //         tokenAmount
-        //     },
-        //     callbackId: tvm.functionId(showSwapOrderId),
-        //     onErrorId: 0
-        // });
-        // tvm.sendrawmsg(cell, 1);
     }
 
     function showSwapOrderId(uint orderId) public {
@@ -208,22 +181,6 @@ contract SwapDebot is Debot, ISwapPairInformation {
             callbackId: tvm.functionId(showTokenWithdrawResullt),
             onErrorId: 0
         }(chosenToken, value, tokenAmount);
-        // TvmCell cell = tvm.buildExtMsg({
-        //     time: uint64(now),
-        //     expire:  0,
-        //     pubkey: pubkey,
-        //     sign: true,
-        //     abiVer: 2,
-        //     dest: swapPairAddress,
-        //     call: {
-        //         ISwapPairContract.withdrawToken,
-        //         chosenToken,
-        //         tokenAmount
-        //     },
-        //     callbackId: tvm.functionId(showTokenWithdrawResullt),
-        //     onErrorId: 0
-        // });
-        // tvm.sendrawmsg(cell, 1);
     }
 
     function showTokenWithdrawResullt() public {
