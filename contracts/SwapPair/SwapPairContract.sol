@@ -202,6 +202,10 @@ contract SwapPairContract is IWalletCreationCallback, ITokensReceivedCallback {
 
     }
 
+    function _getUserLiquidityPoolTokens() override external view returns (_DebugLPInfo dlpi) {
+
+    }
+
     function _getExchangeRateSimulation(
         uint256 token1, 
         uint256 token2, 
