@@ -6,8 +6,11 @@ pragma AbiHeader time;
 import '../RIP-3/interfaces/IRootTokenContract.sol';
 import '../RIP-3/interfaces/IWalletCreationCallback.sol';
 import '../RIP-3/interfaces/ITokensReceivedCallback.sol';
+import './interfaces/ISwapPairContract.sol';
+import './interfaces/ISwapPairInformation.sol';
+import './interfaces/IUpgradeSwapPairCode.sol';
 
-contract SwapPairContract is IWalletCreationCallback, ITokensReceivedCallback {
+contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSwapPairCode, IWalletCreationCallback, ITokensReceivedCallback {
     address /*static*/ token1;
     address /*static*/ token2;
 
@@ -20,6 +23,10 @@ contract SwapPairContract is IWalletCreationCallback, ITokensReceivedCallback {
     address token1Wallet;
     address token2Wallet;
 
+    // Initial balance managing
+    uint constant walletInitialBalanceAmount = 200 milli;
+    uint constant walletDeployMessageValue   = 400 milli;
+
     //Users balances
     mapping(address => uint128) token1UserBalance;
     mapping(address => uint128) token2UserBalance;
@@ -29,10 +36,11 @@ contract SwapPairContract is IWalletCreationCallback, ITokensReceivedCallback {
     mapping(address => uint128) token2LiquidityUserBalance;
 
     //Error codes
-    uint8 ERROR_CONTRACT_ALREADY_INITIALIZED = 100;
-    uint8 ERROR_CONTRACT_NOT_INITIALIZED = 101;
-    uint8 ERROR_CALLER_IS_NOT_TOKEN_ROOT = 102;
-    uint8 ERROR_CALLER_IS_NOT_TOKEN_WALLET = 103;
+    uint8 ERROR_CONTRACT_ALREADY_INITIALIZED = 100; string ERROR_CONTRACT_ALREADY_INITIALIZED_MSG = "Error: contract is already initialized";
+    uint8 ERROR_CONTRACT_NOT_INITIALIZED     = 101; string ERROR_CONTRACT_NOT_INITIALIZED_MSG     = "Error: contract is not initialized"; 
+    uint8 ERROR_CALLER_IS_NOT_TOKEN_ROOT     = 102; string ERROR_CALLER_IS_NOT_TOKEN_ROOT_MSG     = "Error: msg.sender is not token root";
+    uint8 ERROR_CALLER_IS_NOT_TOKEN_WALLET   = 103; string ERROR_CALLER_IS_NOT_TOKEN_WALLET_MSG   = "Error: msg.sender is not token wallet";
+    uint8 ERROR_CALLER_IS_NOT_SWAP_PAIR_ROOT = 104; string ERROR_CALLER_IS_NOT_SWAP_PAIR_ROOT_MSG = "Error: msg.sender is not swap pair root contract";
 
     //Pair creation timestamp
     uint256 creationTimestamp;
@@ -51,15 +59,26 @@ contract SwapPairContract is IWalletCreationCallback, ITokensReceivedCallback {
     }
 
     /**
-    * Deploy internal wallets. getWalletAddressCallback
+    * Deploy internal wallets. getWalletAddressCallback to get their addresses
     */
     function _deployWallets() private {
         IRootTokenContract(token1).deployEmptyWallet{
-            value: 400 milliton
-        }(200 milliton, tvm.pubkey(), address(this), address(this));
+            value: walletDeployMessageValue
+        }(
+            walletInitialBalanceAmount milliton, 
+            tvm.pubkey(),
+            address(this), 
+            address(this)
+        );
+
         IRootTokenContract(token2).deployEmptyWallet{
-            value: 400 milliton
-        }(200 milliton, tvm.pubkey(), address(this), address(this));
+            value: walletDeployMessageValue
+        }(
+            walletInitialBalanceAmount milliton, 
+            tvm.pubkey(), 
+            address(this), 
+            address(this)
+        );
     }
 
     /**
@@ -77,19 +96,71 @@ contract SwapPairContract is IWalletCreationCallback, ITokensReceivedCallback {
 
     }
 
+    //============Upgrade swap pair code part============
+
+    function updateSwapPairCode(TvmCell newCode, uint32 newCodeVersion) override external onlySwapPairRoot {
+        tvm.accept();
+
+        tvm.setcode(code);
+        tvm.setCurrentCode(code);
+        _initializeAfterCodeUpdate(
+            token1UserBalance,
+            token2UserBalance,
+            rewardUserBalance,
+            token1LiquidityUserBalance,
+            token2LiquidityUserBalance,
+            token1Wallet,
+            token2Wallet,
+            swapPairRootContract,
+            swapPairDeployer
+        )
+    }
+
+    function _initializeAfterCodeUpdate(
+        mapping(address => uint128) token1UB, // user balance for token1
+        mapping(address => uint128) token2UB, // user balance for token2
+        mapping(address => uint128) rewardUB, // rewards user balance
+        mapping(address => uint128) token1LPUB, // user balance at LP for token1
+        mapping(address => uint128) token2LPUB, // user balance at LP for token2 
+        address token1W,  // token1 wallet address
+        address token2W,  // token2 wallet address
+        address spRootContract,  // address of swap pair root contract
+        uint    spDeployer // pubkey of swap pair deployer
+    ) inline private {
+
+    }
+ 
     //============Modifiers============
+
     modifier initialized() {
-        require(initializedStatus == 2, ERROR_CONTRACT_NOT_INITIALIZED);
+        require(initializedStatus == 2, ERROR_CONTRACT_NOT_INITIALIZED, ERROR_CONTRACT_NOT_INITIALIZED_MSG);
         _;
     }
 
     modifier onlyTokenRoot() {
-        require(msg.sender.value == token1.sender || msg.sender.value == token2.sender, ERROR_CALLER_IS_NOT_TOKEN_ROOT);
+        require(
+            msg.sender.value == token1.sender || msg.sender.value == token2.sender, 
+            ERROR_CALLER_IS_NOT_TOKEN_ROOT, 
+            ERROR_CALLER_IS_NOT_TOKEN_ROOT_MSG
+        );
         _;
     }
 
     modifier onlyOwnWallet() {
-        require(msg.sender.value == token1Wallet.sender || msg.sender.value == token2Wallet.sender, ERROR_CALLER_IS_NOT_TOKEN_WALLET);
+        require(
+            msg.sender.value == token1Wallet.sender || msg.sender.value == token2Wallet.sender, 
+            ERROR_CALLER_IS_NOT_TOKEN_WALLET, 
+            ERROR_CALLER_IS_NOT_TOKEN_WALLET_MSG
+        );
+        _;
+    }
+
+    modifier onlySwapPairRoot() {
+        require(
+            msg.sender.value == swapPairRootContract, 
+            ERROR_CALLER_IS_NOT_SWAP_PAIR_ROOT,
+            ERROR_CALLER_IS_NOT_SWAP_PAIR_ROOT_MSG
+        );
         _;
     }
 
