@@ -13,9 +13,9 @@ interface ISwapPairContract is ISwapPairInformation {
 
     function getExchangeRate(address swappableTokenRoot, uint128 swappableTokenAmount) external view returns (uint256 rate);
 
-    function addLiquidity(uint128 firstTokenAmount, uint128 secondTokenAmount) external;
+    function provideLiquidity(uint128 firstTokenAmount, uint128 secondTokenAmount) external;
 
-    function removeLiquidity(uint128 firstTokenAmount, uint128 secondTokenAmount) external;
+    function withdrawLiquidity(uint128 firstTokenAmount, uint128 secondTokenAmount) external;
 
     function getCreationTimestamp() external view returns (uint256 creationTimestamp);
 

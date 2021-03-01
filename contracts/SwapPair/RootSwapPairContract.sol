@@ -8,6 +8,7 @@ import './interfaces/ISwapPairInformation.sol';
 import './interfaces/IRootSwapPairContract.sol';
 import './interfaces/IRootSwapPairUpgradePairCode.sol';
 import './interfaces/IServiceInformation.sol';
+import './interfaces/IUpgradeSwapPairContract.sol';
 import './SwapPairContract.sol';
 
 contract RootSwapPairContract is
@@ -187,9 +188,15 @@ contract RootSwapPairContract is
         swapPairCodeVersion = codeVersion;
     }
 
-    function upgradeSwapPair(uint256 uniqueID) external view override pairExists(uniqueID, true) onlyPairDeployer(uniqueID) {
+    function upgradeSwapPair(uint256 uniqueID) 
+        external 
+        view 
+        override 
+        pairExists(uniqueID, true) 
+        onlyPairDeployer(uniqueID) 
+    {
         tvm.accept();
-        // TODO: update magic
+        IUpgradeSwapPairContract()
     }
 
     //============Private functions============
