@@ -15,6 +15,8 @@ interface ISwapPairContract is ISwapPairInformation {
 
     function addLiquidity(uint128 firstTokenAmount, uint128 secondTokenAmount) external;
 
+    function removeLiquidity(uint128 firstTokenAmount, uint128 secondTokenAmount) external;
+
     function getCreationTimestamp() external view returns (uint256 creationTimestamp);
 
     function getPairInfo() external view returns (SwapPairInfo info);
