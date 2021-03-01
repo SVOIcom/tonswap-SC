@@ -119,7 +119,8 @@ contract RootSwapPairContract is
             msg.pubkey(),
             currentTimestamp,
             contractAddress,
-            uniqueID
+            uniqueID,
+            swapPairCodeVersion
         );
         swapPairDB.add(uniqueID, info);
 
@@ -196,7 +197,15 @@ contract RootSwapPairContract is
         onlyPairDeployer(uniqueID) 
     {
         tvm.accept();
-        IUpgradeSwapPairContract()
+        SwapPairInfo info = swapPairDB.at(uniqueID);
+        require(
+            info.swapPairCodeVersion < swapPairCodeVersion, 
+            error_code_is_not_updated_or_is_downgraded,
+            error_code_is_not_updated_or_is_downgraded_msg
+        );
+        IUpgradeSwapPairContract(info.swapPairAddress).updateSwapPairCode(swapPairCode, swapPairCodeVersion);
+        info.swapPairCodeVersion = swapPairCodeVersion;
+        swapPairDB.replace(uniqueID, info);
     }
 
     //============Private functions============
