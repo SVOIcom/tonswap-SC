@@ -33,6 +33,8 @@ interface ISwapPairContract is ISwapPairInformation {
     struct _DebugERInfo {
         uint256 numerator;
         uint256 denominator;
+        uint256 exchangeResultToken1;
+        uint256 exchangeResultToken2;
     }
 
     function _getLiquidityPoolTokens() external view returns (_DebugLPInfo dlpi);
