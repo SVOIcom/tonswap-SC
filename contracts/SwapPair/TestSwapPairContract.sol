@@ -41,7 +41,7 @@ contract TestSwapPairContract is ISwapPairContract {
         return 1;
     } //int twm accept
 
-    function addLiquidity(uint128 firstTokenAmount, uint128 secondTokenAmount) override external {
+    function provideLiquidity(uint128 firstTokenAmount, uint128 secondTokenAmount) override external {
         tvm.accept();
     } //twm accept
 

@@ -239,7 +239,7 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
 
     }
 
-    function addLiquidity(uint128 firstTokenAmount, uint128 secondTokenAmount) external {
+    function provideLiquidity(uint128 firstTokenAmount, uint128 secondTokenAmount) external {
 
     }
 
