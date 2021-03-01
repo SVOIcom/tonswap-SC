@@ -15,6 +15,7 @@ interface ISwapPairInformation {
         uint256 deployTimestamp;
         address swapPairAddress; 
         uint256 uniqueId;
+        uint32  swapPairCodeVersion;
     }
 
     struct UserBalanceInfo {
