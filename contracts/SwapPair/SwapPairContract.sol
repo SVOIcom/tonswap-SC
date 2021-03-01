@@ -162,7 +162,7 @@ contract SwapPairContract is IWalletCreationCallback, ITokensReceivedCallback {
 
     }
 
-    function swap(address swappableTokenRoot,  uint128 swappableTokenAmount) external {
+    function swap(address swappableTokenRoot,  uint128 swappableTokenAmount) external initialized {
 
     }
 
