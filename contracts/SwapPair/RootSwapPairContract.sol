@@ -18,7 +18,7 @@ contract RootSwapPairContract is
 
     // Code of swap pair info
     TvmCell static swapPairCode;
-    SwapPairCodeVersion static swapPairCodeVersion;
+    uint32 static swapPairCodeVersion;
     // Owner public key
     uint256 static ownerPubkey;
     // Minimum required message value
@@ -84,6 +84,8 @@ contract RootSwapPairContract is
         SwapPairInfo info = SwapPairInfo(
             tokenRootContract1,
             tokenRootContract2,
+            address.makeAddrStd(0, 0),
+            address.makeAddrStd(0, 0),
             msg.pubkey(),
             currentTimestamp,
             contractAddress,
