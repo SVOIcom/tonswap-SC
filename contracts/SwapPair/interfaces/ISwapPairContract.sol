@@ -20,4 +20,22 @@ interface ISwapPairContract is ISwapPairInformation {
     function getPairInfo() external view returns (SwapPairInfo info);
 
     function getUserBalance() external view returns (UserBalanceInfo ubi);
+
+    //============DEBUG============
+
+    struct _DebugLPInfo {
+        address token1;
+        address token2;
+        uint256 token1LPAmount;
+        uint256 token2LPAmount;
+    }
+
+    struct _DebugERInfo {
+        uint256 numerator;
+        uint256 denominator;
+    }
+
+    function _getLiquidityPoolTokens() external view returns (_DebugLPInfo dlpi);
+
+    function _getExchangeRateSimulation(uint256 token1, uint256 token2, uint256 swapToken1, uint256 swapToken2) external view returns (_DebugERInfo deri);
 }

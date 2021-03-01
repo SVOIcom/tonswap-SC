@@ -40,8 +40,6 @@ contract SwapPairContract is IWalletCreationCallback, ITokensReceivedCallback {
     //Initialization status. 0 - new, 1 - one wallet created, 2 - fully initialized
     uint private initializedStatus = 0;
 
-
-
     constructor(address rootContract, uint spd) public {
         tvm.accept();
         creationTimestamp = now;
@@ -179,6 +177,8 @@ contract SwapPairContract is IWalletCreationCallback, ITokensReceivedCallback {
             swapPairRootContract,
             token1,
             token2,
+            token1Wallet,
+            token2Wallet,
             swapPairDeployer,
             creationTimestamp,
             address(this),
@@ -194,5 +194,20 @@ contract SwapPairContract is IWalletCreationCallback, ITokensReceivedCallback {
             token1UserBalance[pubkey],
             token2UserBalance[pubkey]
         );
+    }
+
+    //============DEBUG============
+
+    function _getLiquidityPoolTokens() override external view returns (_DebugLPInfo dlpi) {
+
+    }
+
+    function _getExchangeRateSimulation(
+        uint256 token1, 
+        uint256 token2, 
+        uint256 swapToken1, 
+        uint256 swapToken2
+    ) override external view returns (_DebugERInfo deri) {
+
     }
 }
