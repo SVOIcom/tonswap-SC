@@ -319,6 +319,8 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
     function provideLiquidity(uint128 firstTokenAmount, uint128 secondTokenAmount) override external initialized {
         uint256 pubkey = msg.pubkey();
 
+        //TODO проверки коэф
+
         require(
             token1UserBalance[pubkey] >= firstTokenAmount && token2UserBalance[pubkey] >= secondTokenAmount,
             ERROR_INSUFFICIENT_USER_BALANCE,
