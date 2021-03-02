@@ -190,8 +190,7 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
         _;
     }
     
-    // TODO Модификатор с модификатором??????
-    modifier rightTokenAddress(address _token) initialized {
+    modifier rightTokenAddress(address _token) {
         require(
             _token == token1 || _token == token2,
             ERROR_INVALID_TOKEN_ADDRESS,
@@ -316,8 +315,15 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
     }
 
 
-    function provideLiquidity(uint128 firstTokenAmount, uint128 secondTokenAmount) override external initialized {
+    function provideLiquidity(uint128 firstTokenAmount, uint128 secondTokenAmount) 
+        override 
+        external 
+        initialized
+        userEnoughBalance(token1, firstTokenAmount)
+        userEnoughBalance(token2, secondTokenAmount)
 
+    {
+        liquidity token
     }
 
     function withdrawLiquidity(uint128 firstTokenAmount, uint128 secondTokenAmount) 
@@ -350,6 +356,7 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
     
     function _getWalletsMapping(address _token) 
         private 
+        initialized
         rightTokenAddress(_token)
         returns (mapping(address => uint128)) 
     {
