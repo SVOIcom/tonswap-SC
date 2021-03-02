@@ -12,7 +12,7 @@ contract Giver {
     }
 
     function addAllowedPubkey(uint256 pubkey) public allowedPubkey {
-        tmv.accept();
+        tvm.accept();
         allowedPubkeys[pubkey] = true;
     }
 
