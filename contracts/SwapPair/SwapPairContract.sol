@@ -156,7 +156,7 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
 
     modifier onlyTokenRoot() {
         require(
-            msg.sender.value == token1.sender || msg.sender.value == token2.sender,
+            msg.sender == token1 || msg.sender == token2,
             ERROR_CALLER_IS_NOT_TOKEN_ROOT,
             ERROR_CALLER_IS_NOT_TOKEN_ROOT_MSG
         );
@@ -165,7 +165,7 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
 
     modifier onlyOwnWallet() {
         require(
-            msg.sender.value == token1Wallet.sender || msg.sender.value == token2Wallet.sender,
+            msg.sender == token1Wallet || msg.sender == token2Wallet,
             ERROR_CALLER_IS_NOT_TOKEN_WALLET,
             ERROR_CALLER_IS_NOT_TOKEN_WALLET_MSG
         );
@@ -174,7 +174,7 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
 
     modifier onlySwapPairRoot() {
         require(
-            msg.sender.value == swapPairRootContract,
+            msg.sender == swapPairRootContract,
             ERROR_CALLER_IS_NOT_SWAP_PAIR_ROOT,
             ERROR_CALLER_IS_NOT_SWAP_PAIR_ROOT_MSG
         );
@@ -221,12 +221,12 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
         //Check for initialization
         require(initializedStatus < 2, ERROR_CONTRACT_ALREADY_INITIALIZED);
 
-        if (msg.sender.value == token1.value) {
+        if (msg.sender == token1) {
             token1Wallet = walletAddress;
             initializedStatus++;
         }
 
-        if (msg.sender.value == token2.value) {
+        if (msg.sender == token2) {
             token2Wallet = walletAddress;
             initializedStatus++;
         }
@@ -263,11 +263,11 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
         TvmCell payload
     ) public onlyOwnWallet {
 
-        if (msg.sender.value == token1Wallet.sender) {
+        if (msg.sender == token1Wallet) {
             token1UserBalance[sender_public_key] += amount;
         }
 
-        if (msg.sender.value == token2Wallet.sender) {
+        if (msg.sender == token2Wallet) {
             token2UserBalance[sender_public_key] += amount;
         }
 
