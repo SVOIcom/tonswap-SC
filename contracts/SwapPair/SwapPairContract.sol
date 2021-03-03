@@ -320,8 +320,8 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
         override 
         external 
         initialized 
-        userEnoughBalance(token1, firstTokenAmount)
-        userEnoughBalance(token2, secondTokenAmount)
+        // userEnoughBalance(token1, firstTokenAmount)
+        // userEnoughBalance(token2, secondTokenAmount)
     {
         uint256 pubkey = msg.pubkey();
 
@@ -336,11 +336,11 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
         token1UserBalance[pubkey]-= firstTokenAmount;
         token2UserBalance[pubkey]-= secondTokenAmount;
 
-        token1LiquidityUserBalance[pubkey]+= firstTokenAmount;
-        token2LiquidityUserBalance[pubkey]+= secondTokenAmount;
+        token1LiquidityUserBalance[pubkey] += firstTokenAmount;
+        token2LiquidityUserBalance[pubkey] += secondTokenAmount;
 
-        lp1+= firstTokenAmount;
-        lp2+= secondTokenAmount;
+        lp1 += firstTokenAmount;
+        lp2 += secondTokenAmount;
     }
 
     function withdrawLiquidity(uint128 firstTokenAmount, uint128 secondTokenAmount)
@@ -370,27 +370,62 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
 
 
     //============HELPERS============
-<<<<<<< HEAD
     
     function _getWalletsMapping(address _token) 
         private 
         initialized
-=======
-
-    function _getWalletsMapping(address _token)
-        private
->>>>>>> 0dfdf5ddc0ae031d736a329dca7b6837a60257fb
         rightTokenAddress(_token)
-        returns (mapping(address => uint128))
+        returns( optional(mapping(address => uint128)) )
     {
-        if (_token == token1)
-            return token1UserBalance;
+        optional(mapping(address => uint128)) ) res;
 
-        if (_token == token2)
-            return token2UserBalance;
+        if (_token == token1)
+            res = token1UserBalance;
+        else if (_token == token2)
+            res = token2UserBalance;
+
+        return res;
     }
 
-    // function _get
+
+    function _getLP(address _token)
+        private
+        initialized
+        rightTokenAddress(_token)
+        returns (uint128)
+    {
+        optional(uint128) res;
+
+        if (_token == token1)
+            res = lp1;    
+        else if (_token == token2)
+            res = lp2;
+
+        return res;
+    }
+
+    function _setLP(address _token, uint128 newBalance)
+        private
+        initialized
+        rightTokenAddress(_token)
+    {
+        if (_token == token1)
+            lp1 = lp1;    
+        else if (_token == token2)
+            res = lp2;
+    }
+
+    function _changeLP(address _token, uint128 newBalance)
+        private
+        initialized
+        rightTokenAddress(_token)
+    {
+        if (_token == token1)
+            lp1 = lp1;    
+        else if (_token == token2)
+            res = lp2;
+    }
+
 
 
     //============DEBUG============
