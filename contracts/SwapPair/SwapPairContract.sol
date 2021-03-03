@@ -54,6 +54,7 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
 
     uint8 ERROR_INSUFFICIENT_USER_BALANCE    = 111;     string ERROR_INSUFFICIENT_USER_BALANCE_MSG    = "Error: insufficient user balance";
     uint8 ERROR_INSUFFICIENT_USER_LP_BALANCE = 112;     string ERROR_INSUFFICIENT_USER_LP_BALANCE_MSG = "Error: insufficient user liquidity pool balance";
+    uint8 ERROR_UNKNOWN_USER_PUBKEY          = 113;     string ERROR_UNKNOWN_USER_PUBKEY_MSG          = "Error: unknown user's pubkey"
 
     //Pair creation timestamp
     uint256 creationTimestamp;
@@ -156,7 +157,7 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
 
     modifier onlyTokenRoot() {
         require(
-            msg.sender.value == token1.sender || msg.sender.value == token2.sender,
+            msg.sender == token1 || msg.sender == token2,
             ERROR_CALLER_IS_NOT_TOKEN_ROOT,
             ERROR_CALLER_IS_NOT_TOKEN_ROOT_MSG
         );
@@ -165,7 +166,7 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
 
     modifier onlyOwnWallet() {
         require(
-            msg.sender.value == token1Wallet.sender || msg.sender.value == token2Wallet.sender,
+            msg.sender == token1Wallet || msg.sender == token2Wallet,
             ERROR_CALLER_IS_NOT_TOKEN_WALLET,
             ERROR_CALLER_IS_NOT_TOKEN_WALLET_MSG
         );
@@ -174,7 +175,7 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
 
     modifier onlySwapPairRoot() {
         require(
-            msg.sender.value == swapPairRootContract,
+            msg.sender == swapPairRootContract,
             ERROR_CALLER_IS_NOT_SWAP_PAIR_ROOT,
             ERROR_CALLER_IS_NOT_SWAP_PAIR_ROOT_MSG
         );
@@ -202,7 +203,14 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
 
     modifier userEnoughBalance(address _token, uint128 amount) {
         mapping(address => uint128) m = _getWalletsMapping(_token);
-        uint128 userBalance = m[msg.pubkey()];
+        optional(uint128) userBalanceOptional = m.fetch(msg.pubkey());
+        require(
+            userBalanceOptional.hasValue(), 
+            ERROR_UNKNOWN_USER_PUBKEY,
+            ERROR_UNKNOWN_USER_PUBKEY_MSG
+        );
+        
+        uint128 userBalance = userBalanceOptional.get();
         require(
             userBalance > 0 && userBalance > amount,
             ERROR_INSUFFICIENT_USER_BALANCE,
@@ -221,12 +229,12 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
         //Check for initialization
         require(initializedStatus < 2, ERROR_CONTRACT_ALREADY_INITIALIZED);
 
-        if (msg.sender.value == token1.value) {
+        if (msg.sender == token1) {
             token1Wallet = walletAddress;
             initializedStatus++;
         }
 
-        if (msg.sender.value == token2.value) {
+        if (msg.sender == token2) {
             token2Wallet = walletAddress;
             initializedStatus++;
         }
@@ -263,12 +271,26 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
         TvmCell payload
     ) public onlyOwnWallet {
 
-        if (msg.sender.value == token1Wallet.sender) {
-            token1UserBalance[sender_public_key] += amount;
+        if (msg.sender == token1Wallet) {
+            if (token1UserBalance.exists(sender_public_key)) {
+                token1UserBalance.replace(
+                    sender_public_key,
+                    token1UserBalance.at(sender_public_key) + amount
+                );
+            } else {
+                token1UserBalance.add(sender_public_key, amount);
+            }
         }
 
-        if (msg.sender.value == token2Wallet.sender) {
-            token2UserBalance[sender_public_key] += amount;
+        if (msg.sender == token2Wallet) {
+            if (token2UserBalance.exists(sender_public_key)) {
+                token2UserBalance.replace(
+                    sender_public_key,
+                    token2UserBalance.at(sender_public_key) + amount
+                );
+            } else {
+                token2UserBalance.add(sender_public_key, amount);
+            }
         }
 
     }
@@ -326,6 +348,8 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
         uint256 pubkey = msg.pubkey();
 
         //TODO проверки коэф
+        token1UserBalance[pubkey] -= firstTokenAmount;
+        token2UserBalance[pubkey] -= secondTokenAmount;
 
         require(
             token1UserBalance[pubkey] >= firstTokenAmount && token2UserBalance[pubkey] >= secondTokenAmount,
