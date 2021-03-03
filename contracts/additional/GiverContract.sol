@@ -8,27 +8,35 @@ contract Giver {
 
     constructor() public {
         tvm.accept();
-        allowedPubkeys[msg.pubkey()] = true;
+        allowedPubkeys.add(msg.pubkey(), true);
     }
 
-    function addAllowedPubkey(uint256 pubkey) public allowedPubkey {
+    function addAllowedPubkey(uint256 pubkey) public pubkeyInAllowed {
         tvm.accept();
-        allowedPubkeys[pubkey] = true;
+        if (allowedPubkeys.exists(pubkey)) {
+            allowedPubkeys.replace(pubkey, true);
+        } else {
+            allowedPubkeys.add(pubkey, true);
+        }
     }
 
-    function removeAllowedPubkey(uint256 pubkey) public allowedPubkey {
+    function removeAllowedPubkey(uint256 pubkey) public pubkeyInAllowed {
         tvm.accept();
-        allowedPubkeys[pubkey] = false;
+        if (allowedPubkeys.exists(pubkey)) {
+            allowedPubkeys.replace(pubkey, false);
+        } else {
+            allowedPubkeys.add(pubkey, false);
+        }
     }
 
-    function sendGrams(address dest, uint64 amount) public view allowedPubkey {
-        require(address(this).balance > amount, 60);
+    function sendGrams(address dest, uint64 amount) public view pubkeyInAllowed {
+        // require(address(this).balance > amount, 101);
         tvm.accept();
-        dest.transfer(amount, false, 1);
+        dest.transfer({value: amount, bounce: false});
     }
     
-    modifier allowedPubkey() {
-        require(allowedPubkeys[msg.pubkey()], 100);
+    modifier pubkeyInAllowed() {
+        require(allowedPubkeys.at(msg.pubkey()) == true, 100);
         _;
     }
 }
