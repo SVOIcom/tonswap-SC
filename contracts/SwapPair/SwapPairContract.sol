@@ -54,6 +54,7 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
 
     uint8 ERROR_INSUFFICIENT_USER_BALANCE    = 111;     string ERROR_INSUFFICIENT_USER_BALANCE_MSG    = "Error: insufficient user balance";
     uint8 ERROR_INSUFFICIENT_USER_LP_BALANCE = 112;     string ERROR_INSUFFICIENT_USER_LP_BALANCE_MSG = "Error: insufficient user liquidity pool balance";
+    uint8 ERROR_UNKNOWN_USER_PUBKEY          = 113;     string ERROR_UNKNOWN_USER_PUBKEY_MSG          = "Error: unknown user's pubkey"
 
     //Pair creation timestamp
     uint256 creationTimestamp;
@@ -202,7 +203,14 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
 
     modifier userEnoughBalance(address _token, uint128 amount) {
         mapping(address => uint128) m = _getWalletsMapping(_token);
-        uint128 userBalance = m[msg.pubkey()];
+        optional(uint128) userBalanceOptional = m.fetch(msg.pubkey());
+        require(
+            userBalanceOptional.hasValue(), 
+            ERROR_UNKNOWN_USER_PUBKEY,
+            ERROR_UNKNOWN_USER_PUBKEY_MSG
+        );
+        
+        uint128 userBalance = userBalanceOptional.get();
         require(
             userBalance > 0 && userBalance > amount,
             ERROR_INSUFFICIENT_USER_BALANCE,
@@ -264,11 +272,25 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
     ) public onlyOwnWallet {
 
         if (msg.sender == token1Wallet) {
-            token1UserBalance[sender_public_key] += amount;
+            if (token1UserBalance.exists(sender_public_key)) {
+                token1UserBalance.replace(
+                    sender_public_key,
+                    token1UserBalance.at(sender_public_key) + amount
+                );
+            } else {
+                token1UserBalance.add(sender_public_key, amount);
+            }
         }
 
         if (msg.sender == token2Wallet) {
-            token2UserBalance[sender_public_key] += amount;
+            if (token2UserBalance.exists(sender_public_key)) {
+                token2UserBalance.replace(
+                    sender_public_key,
+                    token2UserBalance.at(sender_public_key) + amount
+                );
+            } else {
+                token2UserBalance.add(sender_public_key, amount);
+            }
         }
 
     }
@@ -326,21 +348,14 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
         uint256 pubkey = msg.pubkey();
 
         //TODO проверки коэф
+        token1UserBalance[pubkey] -= firstTokenAmount;
+        token2UserBalance[pubkey] -= secondTokenAmount;
 
-        require(
-            token1UserBalance[pubkey] >= firstTokenAmount && token2UserBalance[pubkey] >= secondTokenAmount,
-            ERROR_INSUFFICIENT_USER_BALANCE,
-            ERROR_INSUFFICIENT_USER_BALANCE_MSG
-        );
+        token1LiquidityUserBalance[pubkey] += firstTokenAmount;
+        token2LiquidityUserBalance[pubkey] += secondTokenAmount;
 
-        token1UserBalance[pubkey]-= firstTokenAmount;
-        token2UserBalance[pubkey]-= secondTokenAmount;
-
-        token1LiquidityUserBalance[pubkey]+= firstTokenAmount;
-        token2LiquidityUserBalance[pubkey]+= secondTokenAmount;
-
-        lp1+= firstTokenAmount;
-        lp2+= secondTokenAmount;
+        lp1 += firstTokenAmount;
+        lp2 += secondTokenAmount;
     }
 
     function withdrawLiquidity(uint128 firstTokenAmount, uint128 secondTokenAmount)
@@ -370,16 +385,10 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
 
 
     //============HELPERS============
-<<<<<<< HEAD
-    
-    function _getWalletsMapping(address _token) 
-        private 
-        initialized
-=======
 
     function _getWalletsMapping(address _token)
         private
->>>>>>> 0dfdf5ddc0ae031d736a329dca7b6837a60257fb
+        inline
         rightTokenAddress(_token)
         returns (mapping(address => uint128))
     {
