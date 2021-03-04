@@ -294,7 +294,7 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
     public 
     onlyOwnWallet 
     {   
-        const _p = tokensWallets[T1] == msg.sender ? T1 : T2; // onlyWallets eliminates other validational
+        const _p = tokensWallets[T1] == msg.sender ? T1 : T2; // `onlyWallets` eliminates other validational
         if (tokenUserBalances[_p].exists(sender_public_key)) {
             tokenUserBalances[_p].replace(
                 sender_public_key,
@@ -375,7 +375,8 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
         lps[T2] += secondTokenAmount;
     }
 
-
+    // anton note: неправильный интерфейс снятия ликвидности, ибо снимаются одновременно 2 токена в количестве зависящем от kLast
+    // Можно написать внутренний рассчет для снятия
     function withdrawLiquidity(uint128 firstTokenAmount, uint128 secondTokenAmount)
         override
         external
@@ -386,19 +387,13 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
     }
 
 
-    function swap(address swappableTokenRoot,  uint128 swappableTokenAmount)
+    function swap(address swappableTokenRoot, uint128 swappableTokenAmount)
         override
         external
         initialized
         liquidityProvided
         userEnoughBalance(swappableTokenRoot, swappableTokenAmount)
     {
-        // TODO doesn't done
-        // Тот факт, что в одном месте мы юзаем названия типа `token1`, а в другом аддресса - это пиздец.
-        // Оно нам так надо? Мб создать маппинг на 2 места и положить в них структуры с нужной инфой?
-        // Иначе надо под всё писать функции, которые будут искать нужноре тебе поле {token, lp, tokenWallet, tokenUserBalance, LPBalance}{1,2}
-        // а это такое себе
-
     }
 
 
