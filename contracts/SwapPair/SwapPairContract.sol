@@ -219,6 +219,16 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         _;
     }
 
+    modifier checkUserTokens(address token1_, uint128 token1Amount, address token2_, uint128 token2Amount) {
+        require(
+            tokenUserBalances[tokensPositions[token1_]][msg.pubkey()] > token1Amount &&
+            tokenUserBalances[tokensPositions[token2_]][msg.pubkey()] > token2Amount,
+            ERROR_INSUFFICIENT_USER_BALANCE,
+            ERROR_INSUFFICIENT_USER_BALANCE_MSG
+        );
+        _;
+    }
+
 
     //============Callbacks============
 
@@ -343,8 +353,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         override 
         external 
         initialized 
-        userEnoughBalance(token1, firstTokenAmount)
-        userEnoughBalance(token2, secondTokenAmount)
+        checkUserTokens(token1, firstTokenAmount, token2, secondTokenAmount)
     {
         uint256 pubkey = msg.pubkey();
 

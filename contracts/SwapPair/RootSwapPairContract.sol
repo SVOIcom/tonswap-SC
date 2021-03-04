@@ -8,7 +8,7 @@ import './interfaces/ISwapPairInformation.sol';
 import './interfaces/IRootSwapPairContract.sol';
 import './interfaces/IRootSwapPairUpgradePairCode.sol';
 import './interfaces/IServiceInformation.sol';
-import './interfaces/IUpgradeSwapPairContract.sol';
+import './interfaces/IUpgradeSwapPairCode.sol';
 import './SwapPairContract.sol';
 
 contract RootSwapPairContract is
@@ -27,7 +27,7 @@ contract RootSwapPairContract is
     // 1 ton required for swap pair
     // 2x0.4 ton required for swap pair wallets deployment
     // 0.2 required for initial stage of swap pair 
-    uint256 constant sendToNewSwapPair = 2000 milli;
+    uint128 constant sendToNewSwapPair = 2000 milli;
 
     //============Used variables============
 
@@ -203,7 +203,7 @@ contract RootSwapPairContract is
             error_code_is_not_updated_or_is_downgraded,
             error_code_is_not_updated_or_is_downgraded_msg
         );
-        IUpgradeSwapPairContract(info.swapPairAddress).updateSwapPairCode(swapPairCode, swapPairCodeVersion);
+        IUpgradeSwapPairCode(info.swapPairAddress).updateSwapPairCode(swapPairCode, swapPairCodeVersion);
         info.swapPairCodeVersion = swapPairCodeVersion;
         swapPairDB.replace(uniqueID, info);
     }
