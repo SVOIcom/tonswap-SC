@@ -1,4 +1,4 @@
-pragma solidity >= 0.6.0;
+pragma ton-solidity ^ 0.36.0;
 pragma AbiHeader pubkey;
 pragma AbiHeader expire;
 pragma AbiHeader time;
@@ -6,16 +6,17 @@ pragma AbiHeader time;
 import '../RIP-3/interfaces/IRootTokenContract.sol';
 import '../RIP-3/interfaces/IWalletCreationCallback.sol';
 import '../RIP-3/interfaces/ITokensReceivedCallback.sol';
+import '../RIP-3/interfaces/ITONTokenWalletWithNotifiableTransfers.sol';
 import './interfaces/ISwapPairContract.sol';
 import './interfaces/ISwapPairInformation.sol';
 import './interfaces/IUpgradeSwapPairCode.sol';
 
-contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSwapPairCode, IWalletCreationCallback, ITokensReceivedCallback {
+contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpgradeSwapPairCode, IWalletCreationCallback, ISwapPairContract {
     address static token1;  // TODO Хз, можно ли делать статический маппинг, поэтому оставил так
     address static token2;
     uint    static swapPairID;
 
-
+    uint32 swapPairCodeVersion = 1;
     uint swapPairDeployer;
     address swapPairRootContract;
 
@@ -26,9 +27,9 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
     mapping(uint8 => address) tokensWallets;
 
     //Users balances
-    mapping( uint8 => mapping(address => uint128) ) tokenUserBalances;
-    mapping(uint8 => mapping(address => uint128)) liquidityUserBalances
-    mapping(address => uint128) rewardUserBalance;
+    mapping(uint8 => mapping(uint256 => uint128)) tokenUserBalances;
+    mapping(uint8 => mapping(uint256 => uint128)) liquidityUserBalances;
+    mapping(uint256 => uint128) rewardUserBalance;
 
     //Liquidity Pools
     mapping(uint8 => uint128) private lps;
@@ -42,8 +43,8 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
     uint private initializedStatus = 0;
 
     // Initial balance managing
-    uint constant walletInitialBalanceAmount = 200 milli;
-    uint constant walletDeployMessageValue   = 400 milli;
+    uint128 constant walletInitialBalanceAmount = 200 milli;
+    uint128 constant walletDeployMessageValue   = 400 milli;
 
     // Tokens positions
     uint8 constant T1 = 0;
@@ -61,7 +62,7 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
 
     uint8 constant ERROR_INSUFFICIENT_USER_BALANCE    = 111;     string constant ERROR_INSUFFICIENT_USER_BALANCE_MSG    = "Error: insufficient user balance";
     uint8 constant ERROR_INSUFFICIENT_USER_LP_BALANCE = 112;     string constant ERROR_INSUFFICIENT_USER_LP_BALANCE_MSG = "Error: insufficient user liquidity pool balance";
-    uint8 constant ERROR_UNKNOWN_USER_PUBKEY          = 113;     string constant ERROR_UNKNOWN_USER_PUBKEY_MSG          = "Error: unknown user's pubkey"
+    uint8 constant ERROR_UNKNOWN_USER_PUBKEY          = 113;     string constant ERROR_UNKNOWN_USER_PUBKEY_MSG          = "Error: unknown user's pubkey";
 
 
 
@@ -91,7 +92,7 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
         IRootTokenContract(token1).deployEmptyWallet{
             value: walletDeployMessageValue
         }(
-            walletInitialBalanceAmount milliton,
+            walletInitialBalanceAmount,
             tvm.pubkey(),
             address(this),
             address(this)
@@ -100,7 +101,7 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
         IRootTokenContract(token2).deployEmptyWallet{
             value: walletDeployMessageValue
         }(
-            walletInitialBalanceAmount milliton,
+            walletInitialBalanceAmount,
             tvm.pubkey(),
             address(this),
             address(this)
@@ -110,7 +111,7 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
     /**
     * Get pair creation timestamp
     */
-    function getCreationTimestamp() public view returns (uint256 creationTimestamp) {
+    function getCreationTimestamp() override public view returns (uint256) {
         return creationTimestamp;
     }
 
@@ -120,33 +121,30 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
 
 
     //============Upgrade swap pair code part============
-    // TODO: Переделать на маппинги, просто не хочется что-то сломать
     function updateSwapPairCode(TvmCell newCode, uint32 newCodeVersion) override external onlySwapPairRoot {
         tvm.accept();
 
-        tvm.setcode(code);
-        tvm.setCurrentCode(code);
+        tvm.setcode(newCode);
+        tvm.setCurrentCode(newCode);
         _initializeAfterCodeUpdate(
-            token1UserBalance,
-            token2UserBalance,
+            tokens,
+            tokensPositions,
+            tokensWallets,
+            tokenUserBalances,
+            liquidityUserBalances,
             rewardUserBalance,
-            token1LiquidityUserBalance,
-            token2LiquidityUserBalance,
-            token1Wallet,
-            token2Wallet,
             swapPairRootContract,
             swapPairDeployer
-        )
+        );
     }
 
     function _initializeAfterCodeUpdate(
-        mapping(address => uint128) token1UB, // user balance for token1
-        mapping(address => uint128) token2UB, // user balance for token2
-        mapping(address => uint128) rewardUB, // rewards user balance
-        mapping(address => uint128) token1LPUB, // user balance at LP for token1
-        mapping(address => uint128) token2LPUB, // user balance at LP for token2
-        address token1W,  // token1 wallet address
-        address token2W,  // token2 wallet address
+        mapping(uint8 => address) tokens_,
+        mapping(address => uint8) tokensPositions_,
+        mapping(uint8 => address) tokensWallets_,
+        mapping(uint8 => mapping(uint256 => uint128)) tokenUserBalances_,
+        mapping(uint8 => mapping(uint256 => uint128)) liquidityUserBalances_,
+        mapping(uint256 => uint128) rewardUserBalance_,  
         address spRootContract,  // address of swap pair root contract
         uint    spDeployer // pubkey of swap pair deployer
     ) inline private {
@@ -171,8 +169,8 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
     }
 
     modifier onlyOwnWallet() {
-        bool b1 = tokensWallets.exist(T1) && msg.sender == tokensWallets[T1];
-        bool b2 = tokensWallets.exist(T2) && msg.sender == tokensWallets[T2];
+        bool b1 = tokensWallets.exists(T1) && msg.sender == tokensWallets[T1];
+        bool b2 = tokensWallets.exists(T2) && msg.sender == tokensWallets[T2];
         require(
             b1 || b2,
             ERROR_CALLER_IS_NOT_TOKEN_WALLET,
@@ -202,7 +200,7 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
     
     modifier tokenExistsInPair(address _token) {
         require(
-            tokensPositions.exist(_token),
+            tokensPositions.exists(_token),
             ERROR_INVALID_TOKEN_ADDRESS,
             ERROR_INVALID_TOKEN_ADDRESS_MSG
         );
@@ -240,18 +238,18 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
     */
     // TODO: если 2 раза инициализировать один и тот же кошелёк, новый адрес затрёт предыдущий. 
     // Более того в этот момент, счётчик станет равен 2. Эту хрень поправил, предыдущее оставил как фичу.
-    function getWalletAddressCallback(address walletAddress) public {
+    function getWalletAddressCallback(address walletAddress) override public {
         //Check for initialization
         require(initializedStatus < 2, ERROR_CONTRACT_ALREADY_INITIALIZED);
 
         if (msg.sender == token1) {
-            if( !tokensWallets.exist(T1) )
+            if( !tokensWallets.exists(T1) )
                 initializedStatus++;
             tokensWallets[T1] = walletAddress;
         }
 
         if (msg.sender == token2) {
-            if( !tokensWallets.exist(T2) )
+            if( !tokensWallets.exists(T2) )
                 initializedStatus++;
             tokensWallets[T2] = walletAddress;
         }
@@ -288,9 +286,11 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
         address sender_wallet,
         address original_gas_to,
         uint128 updated_balance,
-        TvmCell payload) 
-    public 
-    onlyOwnWallet 
+        TvmCell payload
+    ) 
+        override
+        public
+        onlyOwnWallet
     {   
         uint8 _p = tokensWallets[T1] == msg.sender ? T1 : T2; // `onlyWallets` eliminates other validational
         if (tokenUserBalances[_p].exists(sender_public_key)) {
@@ -315,7 +315,8 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
             swapPairDeployer,
             creationTimestamp,
             address(this),
-            swapPairID
+            swapPairID,
+            swapPairCodeVersion
         );
     }
 
@@ -340,7 +341,6 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
     function getExchangeRate(address swappableTokenRoot, uint128 swappableTokenAmount)
         override
         external
-        view
         returns (uint256 rate)
     {
         return _getRates(swappableTokenRoot, swappableTokenAmount);
@@ -418,8 +418,8 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
     }
 
     function _getExchangeRateSimulation(
-        uint256 token1,
-        uint256 token2,
+        uint256 t1,
+        uint256 t2,
         uint256 swapToken1,
         uint256 swapToken2
     ) override external view returns (_DebugERInfo deri) {

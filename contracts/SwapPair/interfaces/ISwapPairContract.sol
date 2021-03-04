@@ -1,5 +1,5 @@
+pragma ton-solidity ^ 0.36.0;
 
-pragma solidity >= 0.6.0;
 pragma AbiHeader expire;
 pragma AbiHeader time;
 pragma AbiHeader pubkey;
@@ -11,7 +11,7 @@ interface ISwapPairContract is ISwapPairInformation {
 
     function swap(address swappableTokenRoot,  uint128 swappableTokenAmount) external;
 
-    function getExchangeRate(address swappableTokenRoot, uint128 swappableTokenAmount) external view returns (uint256 rate);
+    function getExchangeRate(address swappableTokenRoot, uint128 swappableTokenAmount) external returns (uint256 rate);
 
     function provideLiquidity(uint128 firstTokenAmount, uint128 secondTokenAmount) external;
 
