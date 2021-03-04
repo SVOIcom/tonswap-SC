@@ -20,6 +20,9 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     uint swapPairDeployer;
     address swapPairRootContract;
 
+    uint128 constant feeNominator = 997;
+    uint128 constant feeDenominator = 1000;
+
     mapping(uint8 => address) tokens;
     mapping(address => uint8) tokensPositions;
 
@@ -59,6 +62,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     uint8 constant ERROR_NO_LIQUIDITY_PROVIDED        = 105;     string constant ERROR_NO_LIQUIDITY_PROVIDED_MSG        = "Error: no liquidity provided";
  
     uint8 constant ERROR_INVALID_TOKEN_ADDRESS        = 106;     string constant ERROR_INVALID_TOKEN_ADDRESS_MSG        = "Error: invalid token address";
+    uint8 constant ERROR_INVALID_TOKEN_AMOUNT         = 107;     string constant ERROR_INVALID_TOKEN_AMOUNT_MSG         = "Error: invalid token amount";
 
     uint8 constant ERROR_INSUFFICIENT_USER_BALANCE    = 111;     string constant ERROR_INSUFFICIENT_USER_BALANCE_MSG    = "Error: insufficient user balance";
     uint8 constant ERROR_INSUFFICIENT_USER_LP_BALANCE = 112;     string constant ERROR_INSUFFICIENT_USER_LP_BALANCE_MSG = "Error: insufficient user liquidity pool balance";
@@ -207,12 +211,16 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         _;
     }
 
+    modifier notEmptyAmount(uint128 _amount) {
+        require (amount > 0,  ERROR_INVALID_TOKEN_AMOUNT, ERROR_INVALID_TOKEN_AMOUNT_MSG);
+        _;
+    }
 
     modifier userEnoughBalance(address _token, uint128 amount) {
         uint8 _p = _getTokenPosition(_token);        
         uint128 userBalance = tokenUserBalances[_p][msg.pubkey()];
         require(
-            userBalance > 0 && userBalance > amount,
+            userBalance > 0 && userBalance >= amount,
             ERROR_INSUFFICIENT_USER_BALANCE,
             ERROR_INSUFFICIENT_USER_BALANCE_MSG
         );
@@ -220,9 +228,10 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
     modifier checkUserTokens(address token1_, uint128 token1Amount, address token2_, uint128 token2Amount) {
+        bool b1 = tokenUserBalances[tokensPositions[token1_]][msg.pubkey()] >= token1Amount;
+        bool b2 = tokenUserBalances[tokensPositions[token2_]][msg.pubkey()] >= token2Amount;
         require(
-            tokenUserBalances[tokensPositions[token1_]][msg.pubkey()] > token1Amount &&
-            tokenUserBalances[tokensPositions[token2_]][msg.pubkey()] > token2Amount,
+            b1 && b2,
             ERROR_INSUFFICIENT_USER_BALANCE,
             ERROR_INSUFFICIENT_USER_BALANCE_MSG
         );
@@ -355,6 +364,11 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         initialized 
         checkUserTokens(token1, firstTokenAmount, token2, secondTokenAmount)
     {
+        require(
+            firstTokenAmount > 0 && secondTokenAmount > 0, 
+            ERROR_INVALID_TOKEN_AMOUNT, 
+            ERROR_INVALID_TOKEN_AMOUNT_MSG
+        );
         uint256 pubkey = msg.pubkey();
 
         //TODO проверки коэф
@@ -386,8 +400,28 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         external
         initialized
         liquidityProvided
+        notEmptyAmount(swappableTokenAmount)
         userEnoughBalance(swappableTokenRoot, swappableTokenAmount)
+        returns (uint128)     
     {
+        uint256 pubK = msg.pubkey();
+        uint8 fromK = _getTokenPosition(swappableTokenRoot); // if tokenRoot doesn't exist, throws exception
+        uint8 toK = fromK == T1 ? T2 : T1;
+
+        uint128 fee = swappableTokenAmount * feeNominator / feeDenominator;
+        uint128 newFromPool = lps[fromK] + swapableTokenAmount;
+        uint128 newToPool = uint128( (newFromPool - fee) / kLast);
+
+        uint128 profit = lps[toK] - newToPool;
+
+        tokenUserBalances[fromK][pubK] -= swappableTokenAmount;
+        tokenUserBalances[toK][pubK] += profit;
+
+        lps[fromK] = newFromPool;
+        lps[toK] = newToPool;
+        kLast = newFromPool * newToPool;
+
+        return profit;
     }
 
 
