@@ -12,7 +12,7 @@ import './interfaces/ISwapPairInformation.sol';
 import './interfaces/IUpgradeSwapPairCode.sol';
 
 contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpgradeSwapPairCode, IWalletCreationCallback, ISwapPairContract {
-    address static token1;  // TODO Хз, можно ли делать статический маппинг, поэтому оставил так
+    address static token1;
     address static token2;
     uint    static swapPairID;
 
@@ -209,19 +209,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
 
     modifier userEnoughBalance(address _token, uint128 amount) {
-        uint8 _p = _getTokenPosition(_token);
-        optional(uint128) userBalanceOptional = tokenUserBalances[_p].fetch(msg.pubkey());
-
-        // TODO: хз, стоит ли тут кидать эксепшн.  
-        // Потому что если юзер не закидывал токены на баланс, то у него просто пустой баланс. 
-        // И в сущности нет разницы, взаимодействовал ли он когда-нибудь с этим контрактом
-        require(
-            userBalanceOptional.hasValue(), 
-            ERROR_UNKNOWN_USER_PUBKEY,
-            ERROR_UNKNOWN_USER_PUBKEY_MSG
-        );
-        
-        uint128 userBalance = userBalanceOptional.get();
+        uint8 _p = _getTokenPosition(_token);        
+        uint128 userBalance = tokenUserBalances[_p][msg.pubkey()];
         require(
             userBalance > 0 && userBalance > amount,
             ERROR_INSUFFICIENT_USER_BALANCE,
@@ -236,8 +225,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     /*
     * Deployed wallet address callback
     */
-    // TODO: если 2 раза инициализировать один и тот же кошелёк, новый адрес затрёт предыдущий. 
-    // Более того в этот момент, счётчик станет равен 2. Эту хрень поправил, предыдущее оставил как фичу.
     function getWalletAddressCallback(address walletAddress) override public {
         //Check for initialization
         require(initializedStatus < 2, ERROR_CONTRACT_ALREADY_INITIALIZED);
