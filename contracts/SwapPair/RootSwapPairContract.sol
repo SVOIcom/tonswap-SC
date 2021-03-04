@@ -112,6 +112,7 @@ contract RootSwapPairContract is
 
         // Storing info about deployed swap pair contracts 
         SwapPairInfo info = SwapPairInfo(
+            address(this),
             tokenRootContract1,
             tokenRootContract2,
             address.makeAddrStd(0, 0),
@@ -122,6 +123,7 @@ contract RootSwapPairContract is
             uniqueID,
             swapPairCodeVersion
         );
+
         swapPairDB.add(uniqueID, info);
 
         return contractAddress;
@@ -190,8 +192,7 @@ contract RootSwapPairContract is
     }
 
     function upgradeSwapPair(uint256 uniqueID) 
-        external 
-        view 
+        external  
         override 
         pairExists(uniqueID, true) 
         onlyPairDeployer(uniqueID) 
