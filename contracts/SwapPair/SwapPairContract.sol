@@ -410,7 +410,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
         uint128 fee = swappableTokenAmount * feeNominator / feeDenominator;
         uint128 newFromPool = lps[fromK] + swapableTokenAmount;
-        uint128 newToPool = uint128( (newFromPool - fee) / kLast);
+        uint128 newToPool = uint128( kLast / (newFromPool - fee));
 
         uint128 profit = lps[toK] - newToPool;
 
