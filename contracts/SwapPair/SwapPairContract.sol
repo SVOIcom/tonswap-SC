@@ -23,7 +23,7 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
     mapping(address => uint8) tokensPositions;
 
     //Deployed token wallets addresses
-    mapping(uint8 => address) tokensWallets
+    mapping(uint8 => address) tokensWallets;
 
     //Users balances
     mapping( uint8 => mapping(address => uint128) ) tokenUserBalances;
@@ -264,11 +264,9 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
     /*
      * Set callback address for wallets
      */
-    // TODO: я туповат, тут модификатор `public` правильно стоит?
     function _setWalletsCallbackAddress() 
-        public 
+        private 
         inline 
-        initialized // TODO: на всякий добавил, если что-то ломает, поправьте
     {
         ITONTokenWalletWithNotifiableTransfers(tokensWallets[T1]).setReceiveCallback{
             value: 200 milliton
@@ -294,7 +292,7 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
     public 
     onlyOwnWallet 
     {   
-        const _p = tokensWallets[T1] == msg.sender ? T1 : T2; // `onlyWallets` eliminates other validational
+        uint8 _p = tokensWallets[T1] == msg.sender ? T1 : T2; // `onlyWallets` eliminates other validational
         if (tokenUserBalances[_p].exists(sender_public_key)) {
             tokenUserBalances[_p].replace(
                 sender_public_key,
@@ -321,8 +319,14 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
         );
     }
 
-    // TODO Мб стоит добавить модификатор `initialized`
-    function getUserBalance() override external view returns (UserBalanceInfo ubi) {
+
+    function getUserBalance() 
+        override   
+        external 
+        view 
+        initialized
+        returns (UserBalanceInfo ubi) 
+    {
         uint256 pubkey = msg.pubkey();
         return UserBalanceInfo(
             token1,
@@ -358,13 +362,7 @@ contract SwapPairContract is ISwapPairContract, ISwapPairInformation, IUpgradeSw
         uint256 pubkey = msg.pubkey();
 
         //TODO проверки коэф
-
-        require(
-            tokenUserBalances[T1][pubkey] >= firstTokenAmount && tokenUserBalances[T2][pubkey] >= secondTokenAmount,
-            ERROR_INSUFFICIENT_USER_BALANCE,
-            ERROR_INSUFFICIENT_USER_BALANCE_MSG
-        );
-
+        
         tokenUserBalances[T1][pubkey]-= firstTokenAmount;
         tokenUserBalances[T2][pubkey]-= secondTokenAmount;
 
