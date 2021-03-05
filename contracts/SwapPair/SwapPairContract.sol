@@ -54,21 +54,22 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     uint8 constant T2 = 1;
 
     //Error codes    
-    uint8 constant ERROR_CONTRACT_ALREADY_INITIALIZED = 100;         string constant ERROR_CONTRACT_ALREADY_INITIALIZED_MSG = "Error: contract is already initialized";
-    uint8 constant ERROR_CONTRACT_NOT_INITIALIZED     = 101;         string constant ERROR_CONTRACT_NOT_INITIALIZED_MSG     = "Error: contract is not initialized";
-    uint8 constant ERROR_CALLER_IS_NOT_TOKEN_ROOT     = 102;         string constant ERROR_CALLER_IS_NOT_TOKEN_ROOT_MSG     = "Error: msg.sender is not token root";
-    uint8 constant ERROR_CALLER_IS_NOT_TOKEN_WALLET   = 103;         string constant ERROR_CALLER_IS_NOT_TOKEN_WALLET_MSG   = "Error: msg.sender is not token wallet";
-    uint8 constant ERROR_CALLER_IS_NOT_SWAP_PAIR_ROOT = 104;         string constant ERROR_CALLER_IS_NOT_SWAP_PAIR_ROOT_MSG = "Error: msg.sender is not swap pair root contract";
-    uint8 constant ERROR_NO_LIQUIDITY_PROVIDED        = 105;         string constant ERROR_NO_LIQUIDITY_PROVIDED_MSG        = "Error: no liquidity provided";
+    uint8 constant ERROR_CONTRACT_ALREADY_INITIALIZED  = 100; string constant ERROR_CONTRACT_ALREADY_INITIALIZED_MSG  = "Error: contract is already initialized";
+    uint8 constant ERROR_CONTRACT_NOT_INITIALIZED      = 101; string constant ERROR_CONTRACT_NOT_INITIALIZED_MSG      = "Error: contract is not initialized";
+    uint8 constant ERROR_CALLER_IS_NOT_TOKEN_ROOT      = 102; string constant ERROR_CALLER_IS_NOT_TOKEN_ROOT_MSG      = "Error: msg.sender is not token root";
+    uint8 constant ERROR_CALLER_IS_NOT_TOKEN_WALLET    = 103; string constant ERROR_CALLER_IS_NOT_TOKEN_WALLET_MSG    = "Error: msg.sender is not token wallet";
+    uint8 constant ERROR_CALLER_IS_NOT_SWAP_PAIR_ROOT  = 104; string constant ERROR_CALLER_IS_NOT_SWAP_PAIR_ROOT_MSG  = "Error: msg.sender is not swap pair root contract";
+    uint8 constant ERROR_NO_LIQUIDITY_PROVIDED         = 105; string constant ERROR_NO_LIQUIDITY_PROVIDED_MSG         = "Error: no liquidity provided";
      
-    uint8 constant ERROR_INVALID_TOKEN_ADDRESS        = 106;         string constant ERROR_INVALID_TOKEN_ADDRESS_MSG        = "Error: invalid token address";
-    uint8 constant ERROR_INVALID_TOKEN_AMOUNT         = 107;         string constant ERROR_INVALID_TOKEN_AMOUNT_MSG         = "Error: invalid token amount";
+    uint8 constant ERROR_INVALID_TOKEN_ADDRESS         = 106; string constant ERROR_INVALID_TOKEN_ADDRESS_MSG         = "Error: invalid token address";
+    uint8 constant ERROR_INVALID_TOKEN_AMOUNT          = 107; string constant ERROR_INVALID_TOKEN_AMOUNT_MSG          = "Error: invalid token amount";
     
-    uint8 constant ERROR_INSUFFICIENT_USER_BALANCE    = 111;         string constant ERROR_INSUFFICIENT_USER_BALANCE_MSG    = "Error: insufficient user balance";
-    uint8 constant ERROR_INSUFFICIENT_USER_LP_BALANCE = 112;         string constant ERROR_INSUFFICIENT_USER_LP_BALANCE_MSG = "Error: insufficient user liquidity pool balance";
-    uint8 constant ERROR_UNKNOWN_USER_PUBKEY          = 113;         string constant ERROR_UNKNOWN_USER_PUBKEY_MSG          = "Error: unknown user's pubkey";
+    uint8 constant ERROR_INSUFFICIENT_USER_BALANCE     = 111; string constant ERROR_INSUFFICIENT_USER_BALANCE_MSG     = "Error: insufficient user balance";
+    uint8 constant ERROR_INSUFFICIENT_USER_LP_BALANCE  = 112; string constant ERROR_INSUFFICIENT_USER_LP_BALANCE_MSG  = "Error: insufficient user liquidity pool balance";
+    uint8 constant ERROR_UNKNOWN_USER_PUBKEY           = 113; string constant ERROR_UNKNOWN_USER_PUBKEY_MSG           = "Error: unknown user's pubkey";
     
-    uint8 constant ERROR_LIQUIDITY_PROVIDING_RATE     = 115;         string constant ERROR_LIQUIDITY_PROVIDING_RATE_MSG     = "Error:  added liquidity disrupts the rate";
+    uint8 constant ERROR_LIQUIDITY_PROVIDING_RATE      = 115; string constant ERROR_LIQUIDITY_PROVIDING_RATE_MSG      = "Error: added liquidity disrupts the rate";
+    uint8 constant ERROR_INSUFFICIENT_LIQUIDITY_AMOUNT = 116; string constant ERROR_INSUFFICIENT_LIQUIDITY_AMOUNT_MSG = "Error: zero liquidity tokens provided";
 
 
 
@@ -214,7 +215,16 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
     modifier notEmptyAmount(uint128 _amount) {
-        require (amount > 0,  ERROR_INVALID_TOKEN_AMOUNT, ERROR_INVALID_TOKEN_AMOUNT_MSG);
+        require (_amount > 0,  ERROR_INVALID_TOKEN_AMOUNT, ERROR_INVALID_TOKEN_AMOUNT_MSG);
+        _;
+    }
+
+    modifier notZeroLiquidity(uint128 _amount1, uint128 _amount2) {
+        require(
+            _amount1 > 0 || _amount2 > 0,
+            ERROR_INSUFFICIENT_LIQUIDITY_AMOUNT,
+            ERROR_INSUFFICIENT_LIQUIDITY_AMOUNT_MSG
+        );
         _;
     }
 
@@ -366,25 +376,21 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         override 
         external 
         initialized 
+        notZeroLiquidity(maxFirstTokenAmount, maxSecondTokenAmount)
         checkUserTokens(token1, maxFirstTokenAmount, token2, maxSecondTokenAmount)
-        returns (uint128 providedFirstTokenAmount, uint128 providedSecondTokenAmount);
-    {   
-        if (maxFirstTokenAmount == 0 || maxSecondTokenAmount == 0) {
-            providedFirstTokenAmount = 0;
-            providedSecondTokenAmount = 0;
-            return;
-        }
-
+        returns (uint128 providedFirstTokenAmount, uint128 providedSecondTokenAmount)
+    {
         uint256 pubkey = msg.pubkey();
-        uint128 provided1 = 0, provided2 = 0;
+        uint128 provided1 = 0;
+        uint128 provided2 = 0;
 
         if ( !checkIsLiquidityProvided() ) {
             provided1 = maxFirstTokenAmount;
-            provided2 = secondTokenAmount;
+            provided2 = maxSecondTokenAmount;
         }
         else {
             uint128 maxToProvide1 = maxSecondTokenAmount != 0 ? (maxSecondTokenAmount * lps[T1] / lps[T2]) : 0;
-            uint128 maxToProvide2 = maxFirstTokenAmount  != 0 ? (maxFirstTokenAmount * lps[T2] / lps[T1])   : 0;
+            uint128 maxToProvide2 = maxFirstTokenAmount  != 0 ? (maxFirstTokenAmount * lps[T2] / lps[T1])  : 0;
             if (maxToProvide1 <= maxFirstTokenAmount ) {
                 provided1 = maxToProvide1;
                 provided2 = maxSecondTokenAmount;
@@ -417,8 +423,10 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         liquidityProvided
         returns (uint128 withdrawedFirstTokenAmount, uint128 withdrawedSecondTokenAmount)
     {
+        uint256 pubkey = msg.pubkey();
         require(
-            liquidityUserBalances[T1] >= minFirstTokenAmount && liquidityUserBalances[T2] >= minSecondTokenAmount, 
+            liquidityUserBalances[T1][pubkey] >= minFirstTokenAmount && 
+            liquidityUserBalances[T2][pubkey] >= minSecondTokenAmount, 
             ERROR_INSUFFICIENT_USER_LP_BALANCE,
             ERROR_INSUFFICIENT_USER_LP_BALANCE_MSG
         );
@@ -433,12 +441,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             withdrawed1 = minFirstTokenAmount;
         }
         else {
-            withdrawedFirstTokenAmount = 0;
-            withdrawedSecondTokenAmount = 0;
-            return;
+            return (0, 0);
         }
-
-        uint256 pubkey = msg.pubkey();
 
         lps[T1] -= withdrawed1;
         lps[T2] -= withdrawed2;
@@ -469,7 +473,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         uint8 toK = fromK == T1 ? T2 : T1;
 
         uint128 fee = swappableTokenAmount * feeNominator / feeDenominator;
-        uint128 newFromPool = lps[fromK] + swapableTokenAmount;
+        uint128 newFromPool = lps[fromK] + swappableTokenAmount;
         uint128 newToPool = uint128( kLast / (newFromPool - fee));
 
         uint128 profit = lps[toK] - newToPool;
