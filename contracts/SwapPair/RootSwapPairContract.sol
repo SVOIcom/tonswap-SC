@@ -1,5 +1,5 @@
 
-pragma ton-solidity ^ 0.36.0;
+pragma solidity >= 0.6.0;
 pragma AbiHeader expire;
 pragma AbiHeader pubkey;
 pragma AbiHeader time;
@@ -27,7 +27,7 @@ contract RootSwapPairContract is
     // 1 ton required for swap pair
     // 2x0.4 ton required for swap pair wallets deployment
     // 0.2 required for initial stage of swap pair 
-    uint128 constant sendToNewSwapPair = 2000 milli;
+    uint128 constant sendToNewSwapPair = 4000 milli;
 
     //============Used variables============
 
@@ -92,11 +92,12 @@ contract RootSwapPairContract is
     returns (address) {
         uint256 uniqueID = tokenRootContract1.value^tokenRootContract2.value;
         require(!swapPairDB.exists(uniqueID), error_pair_already_exists, error_pair_already_exists_msg);
+        // require(msg.value > contractServicePayment + sendToNewSwapPair, error_message_value_is_too_low, error_message_value_is_too_low_msg);
         // Uncomment to use debug balance manager variant (just disable it :) )
-        // tvm.accept();
+        tvm.accept();
         // The rest will be used to execute current function and keep swap pairs
         // alive if they request tons
-        tvm.rawReserve(msg.value - contractServicePayment - sendToNewSwapPair, 2);
+        // tvm.rawReserve(msg.value - contractServicePayment - sendToNewSwapPair, 2);
 
         uint256 currentTimestamp = now; 
 

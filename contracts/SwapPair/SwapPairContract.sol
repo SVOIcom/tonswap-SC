@@ -1,4 +1,4 @@
-pragma ton-solidity ^ 0.36.0;
+pragma solidity >= 0.6.0;
 pragma AbiHeader pubkey;
 pragma AbiHeader expire;
 pragma AbiHeader time;
@@ -97,6 +97,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     * Deploy internal wallets. getWalletAddressCallback to get their addresses
     */
     function _deployWallets() private {
+        tvm.accept();
         IRootTokenContract(token1).deployEmptyWallet{
             value: walletDeployMessageValue
         }(
@@ -114,6 +115,14 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             address(this),
             address(this)
         );
+
+        _getWalletAddresses();
+    }
+
+    function _getWalletAddresses() private {
+        tvm.accept();
+        IRootTokenContract(token1).getWalletAddress{value: 1 ton, callback: getWalletAddressCallback}(tvm.pubkey(), address(this));
+        IRootTokenContract(token2).getWalletAddress{value: 1 ton, callback: getWalletAddressCallback}(tvm.pubkey(), address(this));
     }
 
     /**
@@ -308,7 +317,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         TvmCell payload
     ) 
         override
-        public
+        external
         onlyOwnWallet
     {   
         uint8 _p = tokensWallets[T1] == msg.sender ? T1 : T2; // `onlyWallets` eliminates other validational
@@ -517,11 +526,21 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     //============DEBUG============
 
     function _getLiquidityPoolTokens() override external view returns (_DebugLPInfo dlpi) {
-
+        return _DebugLPInfo(
+            token1,
+            token2,
+            lps[T1],
+            lps[T2]
+        );
     }
 
     function _getUserLiquidityPoolTokens() override external view returns (_DebugLPInfo dlpi) {
-
+        return _DebugLPInfo(
+            token1,
+            token2,
+            liquidityUserBalances[T1][msg.pubkey()],
+            liquidityUserBalances[T2][msg.pubkey()]
+        );
     }
 
     function _getExchangeRateSimulation(
