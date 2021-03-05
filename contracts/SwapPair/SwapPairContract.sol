@@ -22,6 +22,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     uint128 constant feeNominator = 997;
     uint128 constant feeDenominator = 1000;
+    uint256 constant kMin = 0;
 
     mapping(uint8 => address) tokens;
     mapping(address => uint8) tokensPositions;
@@ -411,8 +412,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         kLast = uint256(lps[T1] * lps[T2]);
 
         // Return:
-        providedFirstTokenAmount = provided1;
-        providedSecondTokenAmount = provided2;
+        return (provided1, provided2)
     }
 
 
@@ -425,8 +425,9 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     {
         uint256 pubkey = msg.pubkey();
         require(
-            liquidityUserBalances[T1][pubkey] >= minFirstTokenAmount && 
-            liquidityUserBalances[T2][pubkey] >= minSecondTokenAmount, 
+            liquidityUserBalances[T1][pubkey] >= minFirstTokenAmount 
+                && 
+                liquidityUserBalances[T2][pubkey] >= minSecondTokenAmount, 
             ERROR_INSUFFICIENT_USER_LP_BALANCE,
             ERROR_INSUFFICIENT_USER_LP_BALANCE_MSG
         );
@@ -446,6 +447,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
         lps[T1] -= withdrawed1;
         lps[T2] -= withdrawed2;
+        kLast = uint256(lps[T1] * lps[T2]);
 
         liquidityUserBalances[T1][pubkey] -= withdrawed1;
         liquidityUserBalances[T2][pubkey] -= withdrawed2;
@@ -453,9 +455,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         tokenUserBalances[T1][pubkey] += withdrawed1;
         tokenUserBalances[T2][pubkey] += withdrawed2; 
         
-        // Return
-        withdrawedFirstTokenAmount = withdrawed1;
-        withdrawedSecondTokenAmount = withdrawed2;
+        return (withdrawed1, withdrawed2)
     }
 
 
@@ -510,7 +510,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
     function checkIsLiquidityProvided() private inline returns (bool) {
-        return lps[T1] > 0 && lps[T2] > 0 && kLast > 0;
+        return lps[T1] > 0 && lps[T2] > 0 && kLast > kMin;
     }
 
 
