@@ -412,7 +412,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         kLast = uint256(lps[T1] * lps[T2]);
 
         // Return:
-        return (provided1, provided2)
+        return (provided1, provided2);
     }
 
 
@@ -455,7 +455,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         tokenUserBalances[T1][pubkey] += withdrawed1;
         tokenUserBalances[T2][pubkey] += withdrawed2; 
         
-        return (withdrawed1, withdrawed2)
+        return (withdrawed1, withdrawed2);
     }
 
 
