@@ -13,7 +13,7 @@ interface ISwapPairContract is ISwapPairInformation {
 
     function getExchangeRate(address swappableTokenRoot, uint128 swappableTokenAmount) external returns (uint256 rate);
 
-    function provideLiquidity(uint128 firstTokenAmount, uint128 secondTokenAmount) external;
+    function provideLiquidity(uint128 maxFirstTokenAmount, uint128 maxSecondTokenAmount) external returns (uint128 providedFirstTokenAmount, uint128 providedSecondTokenAmount);
 
     function withdrawLiquidity(uint128 firstTokenAmount, uint128 secondTokenAmount) external;
 

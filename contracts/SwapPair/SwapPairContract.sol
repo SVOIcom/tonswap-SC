@@ -36,7 +36,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     //Liquidity Pools
     mapping(uint8 => uint128) private lps;
-    uint public kLast; // reserve1 * reserve2 after most recent swap
+    uint256 public kLast; // reserve1 * reserve2 after most recent swap
 
 
     //Pair creation timestamp
@@ -67,6 +67,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     uint8 constant ERROR_INSUFFICIENT_USER_BALANCE    = 111;     string constant ERROR_INSUFFICIENT_USER_BALANCE_MSG    = "Error: insufficient user balance";
     uint8 constant ERROR_INSUFFICIENT_USER_LP_BALANCE = 112;     string constant ERROR_INSUFFICIENT_USER_LP_BALANCE_MSG = "Error: insufficient user liquidity pool balance";
     uint8 constant ERROR_UNKNOWN_USER_PUBKEY          = 113;     string constant ERROR_UNKNOWN_USER_PUBKEY_MSG          = "Error: unknown user's pubkey";
+
+    uint8 constant ERROR_LIQUIDITY_PROVIDING_RATE     = 115;     string constant ERROR_LIQUIDITY_PROVIDING_RATE_MSG     = "Error:  added liquidity disrupts the rate";
 
 
 
@@ -194,7 +196,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     modifier liquidityProvided() {
         require(
-            lps[T1] > 0 && lps[T2] > 0 && kLast > 0,
+            checkIsLiquidityProvided(),
             ERROR_NO_LIQUIDITY_PROVIDED,
             ERROR_NO_LIQUIDITY_PROVIDED_MSG
         );
@@ -338,7 +340,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         return UserBalanceInfo(
             token1,
             token2,
-            tokenUserBalances[T1][pubkey],   // Хз, что будет тут, если не будет инициализирован контракт
+            tokenUserBalances[T1][pubkey],
             tokenUserBalances[T2][pubkey]
         );
     }
@@ -357,30 +359,46 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     }
 
-
-    function provideLiquidity(uint128 firstTokenAmount, uint128 secondTokenAmount) 
+    // TODO можно добавить минималку для стартовой инициализации. Чтобы обеспечить минимальный размер пулов на старте
+    // либо изменить проверку `checkIsLiquidityProvided` таким образом, чтобы минималка была не 0, а нормальная
+    function provideLiquidity(uint128 maxFirstTokenAmount, uint128 maxSecondTokenAmount) 
         override 
         external 
         initialized 
-        checkUserTokens(token1, firstTokenAmount, token2, secondTokenAmount)
+        checkUserTokens(token1, maxFirstTokenAmount, token2, maxSecondTokenAmount)
+        returns (uint128 providedFirstTokenAmount, uint128 providedSecondTokenAmount);
     {
-        require(
-            firstTokenAmount > 0 && secondTokenAmount > 0, 
-            ERROR_INVALID_TOKEN_AMOUNT, 
-            ERROR_INVALID_TOKEN_AMOUNT_MSG
-        );
         uint256 pubkey = msg.pubkey();
+        uint128 provided1 = 0, provided2 = 0;
 
-        //TODO проверки коэф
-        
-        tokenUserBalances[T1][pubkey]-= firstTokenAmount;
-        tokenUserBalances[T2][pubkey]-= secondTokenAmount;
+        if ( !checkIsLiquidityProvided() ) {
+            provided1 = maxFirstTokenAmount;
+            provided2 = secondTokenAmount;
+        }
+        else {
+            uint128 maxToProvide1 = maxSecondTokenAmount * lps[T1] / lps[T2];
+            uint128 maxToProvide2 = maxFirstTokenAmount * lps[T2] / lps[T1];
+            if (maxToProvide1 <= maxFirstTokenAmount ) {
+                provided1 = maxToProvide1;
+                provided2 = maxSecondTokenAmount;
+            } else {
+                provided1 = maxFirstTokenAmount;
+                provided2 = maxToProvide2;
+            }
+        }
 
-        liquidityUserBalances[T1][pubkey] += firstTokenAmount;
-        liquidityUserBalances[T2][pubkey] += secondTokenAmount;
+        tokenUserBalances[T1][pubkey]-= provided1;
+        tokenUserBalances[T2][pubkey]-= provided2;        
 
-        lps[T1] += firstTokenAmount;
-        lps[T2] += secondTokenAmount;
+        liquidityUserBalances[T1][pubkey] += provided1;
+        liquidityUserBalances[T2][pubkey] += provided2;
+
+        lps[T1] += provided1;
+        lps[T2] += provided2;
+        kLast = uint256(lps[T1] * lps[T2]);
+
+        providedFirstTokenAmount = provided1;
+        providedSecondTokenAmount = provided2;
     }
 
     // anton note: неправильный интерфейс снятия ликвидности, ибо снимаются одновременно 2 токена в количестве зависящем от kLast
@@ -402,7 +420,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         liquidityProvided
         notEmptyAmount(swappableTokenAmount)
         userEnoughBalance(swappableTokenRoot, swappableTokenAmount)
-        returns (uint128)     
+        returns (uint128 targetTokenAmount)     
     {
         uint256 pubK = msg.pubkey();
         uint8 fromK = _getTokenPosition(swappableTokenRoot); // if tokenRoot doesn't exist, throws exception
@@ -425,6 +443,15 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
 
+    function __kek(address swappableTokenRoot, uint128 swappableTokenAmount) 
+        private 
+        inline
+        returns (uint8 fromK, uint8 toK, uint128 newFromPool, uint128 newToPool, uint128 profit)
+    {
+        
+    }
+
+
     //============HELPERS============
     
     function _getTokenPosition(address _token) 
@@ -434,6 +461,10 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         returns(uint8)
     {
         return tokensPositions.at(_token);
+    }
+
+    function checkIsLiquidityProvided() private inline returns (bool) {
+        return lps[T1] > 0 && lps[T2] > 0 && kLast > 0;
     }
 
 
