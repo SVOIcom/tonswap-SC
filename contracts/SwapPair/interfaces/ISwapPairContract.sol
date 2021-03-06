@@ -21,7 +21,7 @@ interface ISwapPairContract is ISwapPairInformation {
 
     function getPairInfo() external view returns (SwapPairInfo info);
 
-    function getUserBalance() external view returns (UserBalanceInfo ubi);
+    function getUserBalance(uint pubkey) external view returns (UserBalanceInfo ubi);
 
     //============DEBUG============
 

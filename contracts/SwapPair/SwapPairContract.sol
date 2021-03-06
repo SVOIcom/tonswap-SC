@@ -72,7 +72,9 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     uint8 constant ERROR_LIQUIDITY_PROVIDING_RATE      = 115; string constant ERROR_LIQUIDITY_PROVIDING_RATE_MSG      = "Error: added liquidity disrupts the rate";
     uint8 constant ERROR_INSUFFICIENT_LIQUIDITY_AMOUNT = 116; string constant ERROR_INSUFFICIENT_LIQUIDITY_AMOUNT_MSG = "Error: zero liquidity tokens provided";
 
-
+    // Debug
+    address _dbgAddress;
+    uint _dbgPubkey;
 
     constructor(address rootContract, uint spd) public {
         tvm.accept();
@@ -266,7 +268,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     /*
     * Deployed wallet address callback
     */
-    function getWalletAddressCallback(address walletAddress) override public {
+    function getWalletAddressCallback(address walletAddress) override public onlyTokenRoot {
         //Check for initialization
         require(initializedStatus < 2, ERROR_CONTRACT_ALREADY_INITIALIZED);
 
@@ -317,9 +319,11 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         TvmCell payload
     ) 
         override
-        external
-        onlyOwnWallet
+        public
+        // onlyOwnWallet
     {   
+        _dbgAddress = msg.sender;
+        tvm.commit();
         uint8 _p = tokensWallets[T1] == msg.sender ? T1 : T2; // `onlyWallets` eliminates other validational
         if (tokenUserBalances[_p].exists(sender_public_key)) {
             tokenUserBalances[_p].replace(
@@ -348,15 +352,13 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         );
     }
 
-
-    function getUserBalance() 
+    function getUserBalance(uint pubkey) 
         override   
-        external 
-        view 
+        external  
+        view
         initialized
         returns (UserBalanceInfo ubi) 
     {
-        uint256 pubkey = msg.pubkey();
         return UserBalanceInfo(
             token1,
             token2,
@@ -550,5 +552,13 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         uint256 swapToken2
     ) override external view returns (_DebugERInfo deri) {
 
+    }
+
+    function _getT() external view returns(address) {
+        return _dbgAddress;
+    }
+
+    function _getPK() external view returns(uint) {
+        return _dbgPubkey;
     }
 }
