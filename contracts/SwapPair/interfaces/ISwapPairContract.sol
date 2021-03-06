@@ -60,7 +60,7 @@ interface ISwapPairContract is ISwapPairInformation {
 
     // function _getExchangeRateSimulation(uint256 token1, uint256 token2, uint256 swapToken1, uint256 swapToken2) external view returns (_DebugERInfo deri);
 
-    // Тк изначально на контракте нет ликвидности, добавил возможность руками выставить на время тестов (через костыль, но всё же)
+    // Тк изначально на контракте нет ликвидности, добавил возможность руками выставить на этом тесте (через костыль, но всё же)
     function _getExchangeRateSimulation(address swappableTokenRoot, uint128 swappableTokenAmount, uint128 fromLP, uint128 toLP) external returns (_DebugERInfo deri);
 
 }

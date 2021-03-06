@@ -575,7 +575,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         uint128 oldLP1 = lps[T1];
         uint128 oldLP2 = lps[T2];
         
-
         uint8 fromK = _getTokenPosition(swappableTokenRoot); // if tokenRoot doesn't exist, throws exception
         uint8 toK = fromK == T1 ? T2 : T1;
         if(fromLP > 0) lps[fromK] = fromLP;
