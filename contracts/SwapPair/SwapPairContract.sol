@@ -380,7 +380,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
 
-    function withdrawToken(address withdrawalTokenRoot, address receiveTokenWallet, uint128 amount) override external initialized {
+    function withdrawTokens(address withdrawalTokenRoot, address receiveTokenWallet, uint128 amount) override external initialized {
 
     }
 
