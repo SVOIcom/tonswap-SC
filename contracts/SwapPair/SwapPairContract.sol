@@ -134,10 +134,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         return creationTimestamp;
     }
 
-    function _getRates(address swappableTokenRoot, uint128 swappableTokenAmount) private returns (uint256 rates) {
-        //Some fancy math here
-    }
-
 
     //============Upgrade swap pair code part============
     function updateSwapPairCode(TvmCell newCode, uint32 newCodeVersion) override external onlySwapPairRoot {
@@ -368,12 +364,19 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
 
-    function getExchangeRate(address swappableTokenRoot, uint128 swappableTokenAmount)
-        override
+    function getExchangeRate(address swappableTokenRoot, uint128 swappableTokenAmount) 
         external
-        returns (uint256 rate)
+        view
+        initialized
+        tokenExistsInPair(swappableTokenRoot)
+        returns (SwapInfo _SwapInfoInternal)
     {
-        return _getRates(swappableTokenRoot, swappableTokenAmount);
+        if (swappableTokenAmount <= 0)
+            return SwapInfo(0, 0, 0);
+
+        _SwapInfoInternal si = _getSwapInfo(swappableTokenRoot, swappableTokenAmount);
+
+        return SwapInfo(swappableTokenAmount, si.targetTokenAmount, si.fee);
     }
 
 
@@ -477,12 +480,45 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         external
         initialized
         liquidityProvided
+        tokenExistsInPair(swappableTokenRoot)
         notEmptyAmount(swappableTokenAmount)
         userEnoughTokenBalance(swappableTokenRoot, swappableTokenAmount)
-        returns (uint128 targetTokenAmount)     
+        returns (SwapInfo _SwapInfoInternal)  
     {
         tvm.accept();
         uint256 pubK = msg.pubkey();
+        _SwapInfoInternal _si = _getSwapInfo(address swappableTokenRoot, uint128 swappableTokenAmount);
+        uint8 fromK = _si.fromKey;
+        uint8 toK = _si.toKey;
+
+        tokenUserBalances[fromK][pubK] -= swappableTokenAmount;
+        tokenUserBalances[toK][pubK] +=   _si.targetTokenAmount;
+
+        lps[fromK] = _si.newFromPool;
+        lps[toK] = _si.newToPool;
+        kLast = _si.newFromPool * _si.newToPool;
+
+        return SwapInfo(swappableTokenAmount, _si.targetTokenAmount, _si.fee);
+    }
+
+
+    //============HELPERS============
+
+    struct _SwapInfoInternal {
+        uint8 fromKey;
+        uint8 toKey;
+        uint128 newFromPool;
+        uint128 newToPool;
+        uint128 targetTokenAmount;
+        uint128 fee;
+    }
+    
+    function _getSwapInfo(address swappableTokenRoot, uint128 swappableTokenAmount) 
+        private 
+        inline
+        returns (_SwapInfoInternal swapInfo)
+        // returns (uint8 fromK, uint8 toK, uint128 newFromPool, uint128 newToPool, uint128 profit)
+    {
         uint8 fromK = _getTokenPosition(swappableTokenRoot); // if tokenRoot doesn't exist, throws exception
         uint8 toK = fromK == T1 ? T2 : T1;
 
@@ -490,30 +526,14 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         uint128 newFromPool = lps[fromK] + swappableTokenAmount;
         uint128 newToPool = uint128( kLast / (newFromPool - fee));
 
-        uint128 profit = lps[toK] - newToPool;
+        uint128 targetTokenAmount = lps[toK] - newToPool;
 
-        tokenUserBalances[fromK][pubK] -= swappableTokenAmount;
-        tokenUserBalances[toK][pubK] += profit;
+        _SwapInfoInternal result = _SwapInfoInternal( fromK, toK, newFromPool, newToPool, targetTokenAmount, fee);
 
-        lps[fromK] = newFromPool;
-        lps[toK] = newToPool;
-        kLast = newFromPool * newToPool;
-
-        return profit;
+        return result;
     }
 
 
-    function __kek(address swappableTokenRoot, uint128 swappableTokenAmount) 
-        private 
-        inline
-        returns (uint8 fromK, uint8 toK, uint128 newFromPool, uint128 newToPool, uint128 profit)
-    {
-        
-    }
-
-
-    //============HELPERS============
-    
     function _getTokenPosition(address _token) 
         private
         initialized
@@ -549,14 +569,43 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
     function _getExchangeRateSimulation(
-        uint256 t1,
-        uint256 t2,
-        uint256 swapToken1,
-        uint256 swapToken2
-    ) override external view returns (_DebugERInfo deri) {
+        address swappableTokenRoot, 
+        uint128 swappableTokenAmount, 
+        uint128 fromLP, 
+        uint128 toLP
+    ) 
+        external  
+        returns (_DebugERInfo deri)
+    {
+        uint128 oldLP1 = lps[T1];
+        uint128 oldLP2 = lps[T2];
+        
+        uint8 fromK = _getTokenPosition(swappableTokenRoot); // if tokenRoot doesn't exist, throws exception
+        uint8 toK = fromK == T1 ? T2 : T1;
+        if(fromLP > 0) lps[fromK] = fromLP;
+        if(toLP > 0)   lps[toK]   = toLP;
 
+        _SwapInfoInternal si = _getSwapInfo(address swappableTokenRoot, uint128 swappableTokenAmount);
+
+        _DebugLPInfo result = _DebugLPInfo(
+            kLast,
+            si.newFromPool * si.newToPool,
+            swappableTokenAmount,
+            si.targetTokenAmount,
+            si.fee,
+            lps[fromK],
+            lps[ToK],
+            si.newFromPool,
+            si.newToPool
+        );
+        
+        lps[T1] = oldLP1;
+        lps[T2] = oldLP2;
+
+        return result;
     }
 
+<<<<<<< HEAD
     function _getT() external view returns(address) {
         return _dbgAddress;
     }
@@ -569,4 +618,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         tvm.accept();
         return tvm.pubkey();
     }
+=======
+>>>>>>> 42b34de205f2449a84191ea9c3fd929a0395eacf
 }

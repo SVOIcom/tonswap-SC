@@ -24,4 +24,10 @@ interface ISwapPairInformation {
         uint128 tokenBalance1;
         uint128 tokenBalance2;
     }
+
+    struct SwapInfo {
+        uint128 swappableTokenAmount;
+        uint128 targetTokenAmount;
+        uint128 fee;
+    }
 }
