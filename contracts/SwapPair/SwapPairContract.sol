@@ -605,7 +605,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         return result;
     }
 
-<<<<<<< HEAD
     function _getT() external view returns(address) {
         return _dbgAddress;
     }
@@ -618,6 +617,4 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         tvm.accept();
         return tvm.pubkey();
     }
-=======
->>>>>>> 42b34de205f2449a84191ea9c3fd929a0395eacf
 }
