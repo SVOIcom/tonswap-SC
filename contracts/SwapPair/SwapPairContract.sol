@@ -47,8 +47,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     uint private initializedStatus = 0;
 
     // Initial balance managing
-    uint128 constant walletInitialBalanceAmount = 200 milli;
-    uint128 constant walletDeployMessageValue   = 400 milli;
+    uint128 constant walletInitialBalanceAmount = 400 milli;
+    uint128 constant walletDeployMessageValue   = 1000 milli;
 
     // Tokens positions
     uint8 constant T1 = 0;
@@ -123,8 +123,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     function _getWalletAddresses() private {
         tvm.accept();
-        IRootTokenContract(token1).getWalletAddress{value: 1 ton, callback: getWalletAddressCallback}(tvm.pubkey(), address(this));
-        IRootTokenContract(token2).getWalletAddress{value: 1 ton, callback: getWalletAddressCallback}(tvm.pubkey(), address(this));
+        IRootTokenContract(token1).getWalletAddress{value: 1 ton, callback: this.getWalletAddressCallback}(tvm.pubkey(), address(this));
+        IRootTokenContract(token2).getWalletAddress{value: 1 ton, callback: this.getWalletAddressCallback}(tvm.pubkey(), address(this));
     }
 
     /**
@@ -233,7 +233,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     modifier notZeroLiquidity(uint128 _amount1, uint128 _amount2) {
         require(
-            _amount1 > 0 || _amount2 > 0,
+            _amount1 > 0 && _amount2 > 0,
             ERROR_INSUFFICIENT_LIQUIDITY_AMOUNT,
             ERROR_INSUFFICIENT_LIQUIDITY_AMOUNT_MSG
         );
@@ -268,7 +268,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     /*
     * Deployed wallet address callback
     */
-    function getWalletAddressCallback(address walletAddress) override public onlyTokenRoot {
+    function getWalletAddressCallback(address walletAddress) override external onlyTokenRoot {
         //Check for initialization
         require(initializedStatus < 2, ERROR_CONTRACT_ALREADY_INITIALIZED);
 
@@ -354,7 +354,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     function getUserBalance(uint pubkey) 
         override   
-        external  
+        external
         view
         initialized
         returns (UserBalanceInfo ubi) 
@@ -392,6 +392,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         checkUserTokens(token1, maxFirstTokenAmount, token2, maxSecondTokenAmount)
         returns (uint128 providedFirstTokenAmount, uint128 providedSecondTokenAmount)
     {
+        tvm.accept();
         uint256 pubkey = msg.pubkey();
         uint128 provided1 = 0;
         uint128 provided2 = 0;
@@ -434,6 +435,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         liquidityProvided
         returns (uint128 withdrawedFirstTokenAmount, uint128 withdrawedSecondTokenAmount)
     {
+        tvm.accept();
         uint256 pubkey = msg.pubkey();
         require(
             liquidityUserBalances[T1][pubkey] >= minFirstTokenAmount 
@@ -479,6 +481,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         userEnoughTokenBalance(swappableTokenRoot, swappableTokenAmount)
         returns (uint128 targetTokenAmount)     
     {
+        tvm.accept();
         uint256 pubK = msg.pubkey();
         uint8 fromK = _getTokenPosition(swappableTokenRoot); // if tokenRoot doesn't exist, throws exception
         uint8 toK = fromK == T1 ? T2 : T1;
@@ -560,5 +563,10 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     function _getPK() external view returns(uint) {
         return _dbgPubkey;
+    }
+
+    function _getPubkey() external view returns (uint) {
+        tvm.accept();
+        return tvm.pubkey();
     }
 }
