@@ -487,7 +487,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     {
         tvm.accept();
         uint256 pubK = msg.pubkey();
-        _SwapInfoInternal _si = _getSwapInfo(address swappableTokenRoot, uint128 swappableTokenAmount);
+        _SwapInfoInternal _si = _getSwapInfo(swappableTokenRoot, swappableTokenAmount);
         uint8 fromK = _si.fromKey;
         uint8 toK = _si.toKey;
 
@@ -524,11 +524,11 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
         uint128 fee = swappableTokenAmount * feeNominator / feeDenominator;
         uint128 newFromPool = lps[fromK] + swappableTokenAmount;
-        uint128 newToPool = uint128( kLast / (newFromPool - fee));
+        uint128 newToPool = uint128(kLast / (newFromPool - fee));
 
         uint128 targetTokenAmount = lps[toK] - newToPool;
 
-        _SwapInfoInternal result = _SwapInfoInternal( fromK, toK, newFromPool, newToPool, targetTokenAmount, fee);
+        _SwapInfoInternal result = _SwapInfoInternal(fromK, toK, newFromPool, newToPool, targetTokenAmount, fee);
 
         return result;
     }
