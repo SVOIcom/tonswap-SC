@@ -7,7 +7,7 @@ pragma AbiHeader pubkey;
 import './ISwapPairInformation.sol';
 
 interface ISwapPairContract is ISwapPairInformation {
-    function withdrawToken(address withdrawalTokenRoot, address receiveTokenWallet, uint128 amount) external;
+    function withdrawTokens(address withdrawalTokenRoot, address receiveTokenWallet, uint128 amount) external;
 
     function swap(address swappableTokenRoot,  uint128 swappableTokenAmount) external  returns (SwapInfo _swapInfo);
 
@@ -22,4 +22,6 @@ interface ISwapPairContract is ISwapPairInformation {
     function getPairInfo() external view returns (SwapPairInfo info);
 
     function getUserBalance(uint pubkey) external view returns (UserBalanceInfo ubi);
+
+    function getUserLiquidityPoolBalance(uint pubkey) external view returns (UserBalanceInfo ubi) ;
 }

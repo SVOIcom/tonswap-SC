@@ -4,15 +4,15 @@ pragma AbiHeader expire;
 pragma AbiHeader time;
 
 import '../RIP-3/interfaces/IRootTokenContract.sol';
-import '../RIP-3/interfaces/IWalletCreationCallback.sol';
 import '../RIP-3/interfaces/ITokensReceivedCallback.sol';
 import '../RIP-3/interfaces/ITONTokenWalletWithNotifiableTransfers.sol';
+import '../RIP-3/interfaces/ITONTokenWallet.sol';
 import './interfaces/ISwapPairContract.sol';
 import './interfaces/ISwapPairInformation.sol';
 import './interfaces/IUpgradeSwapPairCode.sol';
 import './interfaces/ISwapPairDebug.sol';
 
-contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpgradeSwapPairCode, IWalletCreationCallback, ISwapPairContract, ISwapPairDebug {
+contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpgradeSwapPairCode, ISwapPairContract, ISwapPairDebug {
     address static token1;
     address static token2;
     uint    static swapPairID;
@@ -26,10 +26,10 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     uint256 constant kMin = 0;
 
     mapping(uint8 => address) tokens;
-    mapping(address => uint8) tokensPositions;
+    mapping(address => uint8) tokenPositions;
 
     //Deployed token wallets addresses
-    mapping(uint8 => address) tokensWallets;
+    mapping(uint8 => address) tokenWallets;
 
     //Users balances
     mapping(uint8 => mapping(uint256 => uint128)) tokenUserBalances;
@@ -88,8 +88,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
         tokens[T1] = token1;
         tokens[T2] = token2;
-        tokensPositions[token1] = T1;
-        tokensPositions[token2] = T2;
+        tokenPositions[token1] = T1;
+        tokenPositions[token2] = T2;
 
         lps[T1] = 0;
         lps[T2] = 0;
@@ -144,8 +144,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         tvm.setCurrentCode(newCode);
         _initializeAfterCodeUpdate(
             tokens,
-            tokensPositions,
-            tokensWallets,
+            tokenPositions,
+            tokenWallets,
             tokenUserBalances,
             liquidityUserBalances,
             rewardUserBalance,
@@ -156,8 +156,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     function _initializeAfterCodeUpdate(
         mapping(uint8 => address) tokens_,
-        mapping(address => uint8) tokensPositions_,
-        mapping(uint8 => address) tokensWallets_,
+        mapping(address => uint8) tokenPositions_,
+        mapping(uint8 => address) tokenWallets_,
         mapping(uint8 => mapping(uint256 => uint128)) tokenUserBalances_,
         mapping(uint8 => mapping(uint256 => uint128)) liquidityUserBalances_,
         mapping(uint256 => uint128) rewardUserBalance_,  
@@ -185,8 +185,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
     modifier onlyOwnWallet() {
-        bool b1 = tokensWallets.exists(T1) && msg.sender == tokensWallets[T1];
-        bool b2 = tokensWallets.exists(T2) && msg.sender == tokensWallets[T2];
+        bool b1 = tokenWallets.exists(T1) && msg.sender == tokenWallets[T1];
+        bool b2 = tokenWallets.exists(T2) && msg.sender == tokenWallets[T2];
         require(
             b1 || b2,
             ERROR_CALLER_IS_NOT_TOKEN_WALLET,
@@ -216,7 +216,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     
     modifier tokenExistsInPair(address _token) {
         require(
-            tokensPositions.exists(_token),
+            tokenPositions.exists(_token),
             ERROR_INVALID_TOKEN_ADDRESS,
             ERROR_INVALID_TOKEN_ADDRESS_MSG
         );
@@ -249,8 +249,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
     modifier checkUserTokens(address token1_, uint128 token1Amount, address token2_, uint128 token2Amount) {
-        bool b1 = tokenUserBalances[tokensPositions[token1_]][msg.pubkey()] >= token1Amount;
-        bool b2 = tokenUserBalances[tokensPositions[token2_]][msg.pubkey()] >= token2Amount;
+        bool b1 = tokenUserBalances[tokenPositions[token1_]][msg.pubkey()] >= token1Amount;
+        bool b2 = tokenUserBalances[tokenPositions[token2_]][msg.pubkey()] >= token2Amount;
         require(
             b1 && b2,
             ERROR_INSUFFICIENT_USER_BALANCE,
@@ -265,20 +265,20 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     /*
     * Deployed wallet address callback
     */
-    function getWalletAddressCallback(address walletAddress) override external onlyTokenRoot {
+    function getWalletAddressCallback(address walletAddress) external onlyTokenRoot {
         //Check for initialization
         require(initializedStatus < 2, ERROR_CONTRACT_ALREADY_INITIALIZED);
 
         if (msg.sender == token1) {
-            if( !tokensWallets.exists(T1) )
+            if( !tokenWallets.exists(T1) )
                 initializedStatus++;
-            tokensWallets[T1] = walletAddress;
+            tokenWallets[T1] = walletAddress;
         }
 
         if (msg.sender == token2) {
-            if( !tokensWallets.exists(T2) )
+            if( !tokenWallets.exists(T2) )
                 initializedStatus++;
-            tokensWallets[T2] = walletAddress;
+            tokenWallets[T2] = walletAddress;
         }
 
         if (initializedStatus == 2) {
@@ -293,10 +293,10 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         private 
         inline 
     {
-        ITONTokenWalletWithNotifiableTransfers(tokensWallets[T1]).setReceiveCallback{
+        ITONTokenWalletWithNotifiableTransfers(tokenWallets[T1]).setReceiveCallback{
             value: 200 milliton
         }(address(this));
-        ITONTokenWalletWithNotifiableTransfers(tokensWallets[T2]).setReceiveCallback{
+        ITONTokenWalletWithNotifiableTransfers(tokenWallets[T2]).setReceiveCallback{
             value: 200 milliton
         }(address(this));
     }
@@ -321,7 +321,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     {   
         _dbgAddress = msg.sender;
         tvm.commit();
-        uint8 _p = tokensWallets[T1] == msg.sender ? T1 : T2; // `onlyWallets` eliminates other validational
+        uint8 _p = tokenWallets[T1] == msg.sender ? T1 : T2; // `onlyWallets` eliminates other validational
         if (tokenUserBalances[_p].exists(sender_public_key)) {
             tokenUserBalances[_p].replace(
                 sender_public_key,
@@ -339,8 +339,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             swapPairRootContract,
             token1,
             token2,
-            tokensWallets[T1],
-            tokensWallets[T2],
+            tokenWallets[T1],
+            tokenWallets[T2],
             swapPairDeployer,
             creationTimestamp,
             address(this),
@@ -364,6 +364,20 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         );
     }
 
+    function getUserLiquidityPoolBalance(uint pubkey) 
+        override 
+        external 
+        view 
+        returns (UserBalanceInfo ubi) 
+    {
+        return UserBalanceInfo(
+            token1,
+            token2,
+            liquidityUserBalances[T1][pubkey],
+            liquidityUserBalances[T2][pubkey]
+        );
+    }
+
 
     function getExchangeRate(address swappableTokenRoot, uint128 swappableTokenAmount) 
         override
@@ -382,8 +396,28 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
 
-    function withdrawToken(address withdrawalTokenRoot, address receiveTokenWallet, uint128 amount) override external initialized {
-
+    function withdrawTokens(address withdrawalTokenRoot, address receiveTokenWallet, uint128 amount) 
+        override 
+        external 
+        initialized 
+    {
+        uint pubkey = msg.pubkey();
+        uint8 _tn = tokenPositions[withdrawalTokenRoot];
+        require(
+            tokenUserBalances[_tn][pubkey] >= amount && amount != 0
+        );
+        require(
+            receiveTokenWallet.value != 0
+        );
+        tvm.accept();
+        ITONTokenWallet(tokenWallets[_tn]).transfer{
+            value: 110 milliton
+        }(
+            receiveTokenWallet,
+            amount,
+            0
+        );
+        tokenUserBalances[_tn][pubkey] -= amount;
     }
 
     // TODO можно добавить минималку для стартовой инициализации. Чтобы обеспечить минимальный размер пулов на старте
@@ -393,8 +427,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         override 
         external 
         initialized 
-        notZeroLiquidity(maxFirstTokenAmount, maxSecondTokenAmount)
-        checkUserTokens(token1, maxFirstTokenAmount, token2, maxSecondTokenAmount)
+        //notZeroLiquidity(maxFirstTokenAmount, maxSecondTokenAmount)
+        //checkUserTokens(token1, maxFirstTokenAmount, token2, maxSecondTokenAmount)
         returns (uint128 providedFirstTokenAmount, uint128 providedSecondTokenAmount)
     {
         tvm.accept();
@@ -428,7 +462,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         lps[T2] += provided2;
         kLast = uint256(lps[T1] * lps[T2]);
 
-        // Return:
         return (provided1, provided2);
     }
 
@@ -443,9 +476,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         tvm.accept();
         uint256 pubkey = msg.pubkey();
         require(
-            liquidityUserBalances[T1][pubkey] >= minFirstTokenAmount 
-                && 
-                liquidityUserBalances[T2][pubkey] >= minSecondTokenAmount, 
+            liquidityUserBalances[T1][pubkey] >= minFirstTokenAmount && 
+            liquidityUserBalances[T2][pubkey] >= minSecondTokenAmount, 
             ERROR_INSUFFICIENT_USER_LP_BALANCE,
             ERROR_INSUFFICIENT_USER_LP_BALANCE_MSG
         );
@@ -535,7 +567,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         tokenExistsInPair(_token)
         returns(uint8)
     {
-        return tokensPositions.at(_token);
+        return tokenPositions.at(_token);
     }
 
     function checkIsLiquidityProvided() private inline returns (bool) {
@@ -551,15 +583,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             token2,
             lps[T1],
             lps[T2]
-        );
-    }
-
-    function _getUserLiquidityPoolTokens() override external view returns (_DebugLPInfo dlpi) {
-        return _DebugLPInfo(
-            token1,
-            token2,
-            liquidityUserBalances[T1][msg.pubkey()],
-            liquidityUserBalances[T2][msg.pubkey()]
         );
     }
 
