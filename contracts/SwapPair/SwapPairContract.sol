@@ -18,7 +18,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     uint    static swapPairID;
 
     uint32 swapPairCodeVersion = 1;
-    uint swapPairDeployer;
+    uint256 swapPairDeployer;
     address swapPairRootContract;
 
     uint128 constant feeNominator = 997;
@@ -32,6 +32,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     mapping(uint8 => address) tokenWallets;
 
     //Users balances
+    mapping(uint256 => uint256) userTonBalances;
     mapping(uint8 => mapping(uint256 => uint128)) tokenUserBalances;
     mapping(uint8 => mapping(uint256 => uint128)) liquidityUserBalances;
     mapping(uint256 => uint128) rewardUserBalance;
@@ -47,8 +48,15 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     //Initialization status. 0 - new, 1 - one wallet created, 2 - fully initialized
     uint private initializedStatus = 0;
 
-    // Initial balance managing
-    uint128 constant walletInitialBalanceAmount = 400 milli;
+    // Balance managing constants
+    // Average function execution cost + 20-30% reserve
+    uint128 constant heavyFunctionCallCost      = 80   milli;
+    // Required for interaction with wallets for smart-contracts
+    uint128 constant sendToTIP3TokenWallets     = 110  milli;
+    // We don't want to risk, this is one-time procedure
+    // Extra wallet's tons will be transferred with first token transfer operation
+    // Yep, there are transfer losses, but they are pretty small
+    uint128 constant walletInitialBalanceAmount = 400  milli;
     uint128 constant walletDeployMessageValue   = 1000 milli;
 
     // Tokens positions
@@ -61,21 +69,19 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     uint8 constant ERROR_CALLER_IS_NOT_TOKEN_ROOT      = 102; string constant ERROR_CALLER_IS_NOT_TOKEN_ROOT_MSG      = "Error: msg.sender is not token root";
     uint8 constant ERROR_CALLER_IS_NOT_TOKEN_WALLET    = 103; string constant ERROR_CALLER_IS_NOT_TOKEN_WALLET_MSG    = "Error: msg.sender is not token wallet";
     uint8 constant ERROR_CALLER_IS_NOT_SWAP_PAIR_ROOT  = 104; string constant ERROR_CALLER_IS_NOT_SWAP_PAIR_ROOT_MSG  = "Error: msg.sender is not swap pair root contract";
-    uint8 constant ERROR_NO_LIQUIDITY_PROVIDED         = 105; string constant ERROR_NO_LIQUIDITY_PROVIDED_MSG         = "Error: no liquidity provided";
+    uint8 constant ERROR_CALLER_IS_NOT_OWNER           = 105; string constant ERROR_CALLER_IS_NOT_OWNER_MSG           = "Error: message sender is not not owner";
      
-    uint8 constant ERROR_INVALID_TOKEN_ADDRESS         = 106; string constant ERROR_INVALID_TOKEN_ADDRESS_MSG         = "Error: invalid token address";
-    uint8 constant ERROR_INVALID_TOKEN_AMOUNT          = 107; string constant ERROR_INVALID_TOKEN_AMOUNT_MSG          = "Error: invalid token amount";
+    uint8 constant ERROR_INVALID_TOKEN_ADDRESS         = 110; string constant ERROR_INVALID_TOKEN_ADDRESS_MSG         = "Error: invalid token address";
+    uint8 constant ERROR_INVALID_TOKEN_AMOUNT          = 111; string constant ERROR_INVALID_TOKEN_AMOUNT_MSG          = "Error: invalid token amount";
     
-    uint8 constant ERROR_INSUFFICIENT_USER_BALANCE     = 111; string constant ERROR_INSUFFICIENT_USER_BALANCE_MSG     = "Error: insufficient user balance";
-    uint8 constant ERROR_INSUFFICIENT_USER_LP_BALANCE  = 112; string constant ERROR_INSUFFICIENT_USER_LP_BALANCE_MSG  = "Error: insufficient user liquidity pool balance";
-    uint8 constant ERROR_UNKNOWN_USER_PUBKEY           = 113; string constant ERROR_UNKNOWN_USER_PUBKEY_MSG           = "Error: unknown user's pubkey";
+    uint8 constant ERROR_INSUFFICIENT_USER_BALANCE     = 120; string constant ERROR_INSUFFICIENT_USER_BALANCE_MSG     = "Error: insufficient user balance";
+    uint8 constant ERROR_INSUFFICIENT_USER_LP_BALANCE  = 121; string constant ERROR_INSUFFICIENT_USER_LP_BALANCE_MSG  = "Error: insufficient user liquidity pool balance";
+    uint8 constant ERROR_UNKNOWN_USER_PUBKEY           = 122; string constant ERROR_UNKNOWN_USER_PUBKEY_MSG           = "Error: unknown user's pubkey";
+    uint8 constant ERROR_LOW_USER_BALANCE              = 123; string constant ERROR_LOW_USER_BALANCE_MSG              = "Error: user TON balance is too low";
     
-    uint8 constant ERROR_LIQUIDITY_PROVIDING_RATE      = 115; string constant ERROR_LIQUIDITY_PROVIDING_RATE_MSG      = "Error: added liquidity disrupts the rate";
-    uint8 constant ERROR_INSUFFICIENT_LIQUIDITY_AMOUNT = 116; string constant ERROR_INSUFFICIENT_LIQUIDITY_AMOUNT_MSG = "Error: zero liquidity tokens provided";
-
-    // Debug
-    address _dbgAddress;
-    uint _dbgPubkey;
+    uint8 constant ERROR_NO_LIQUIDITY_PROVIDED         = 130; string constant ERROR_NO_LIQUIDITY_PROVIDED_MSG         = "Error: no liquidity provided";
+    uint8 constant ERROR_LIQUIDITY_PROVIDING_RATE      = 131; string constant ERROR_LIQUIDITY_PROVIDING_RATE_MSG      = "Error: added liquidity disrupts the rate";
+    uint8 constant ERROR_INSUFFICIENT_LIQUIDITY_AMOUNT = 132; string constant ERROR_INSUFFICIENT_LIQUIDITY_AMOUNT_MSG = "Error: zero liquidity tokens provided";
 
     constructor(address rootContract, uint spd) public {
         tvm.accept();
@@ -128,6 +134,20 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         IRootTokenContract(token2).getWalletAddress{value: 1 ton, callback: this.getWalletAddressCallback}(tvm.pubkey(), address(this));
     }
 
+    function _reinitialize() external onlyOwner
+
+    //============TON balance functions============
+
+    receive() external {
+        userTonBalances[msg.pubkey()] += msg.value * 9995 / 10000;
+    }
+
+    fallback() external {
+        userTonBalances[msg.pubkey()] += msg.value * 9995 / 10000;
+    }
+
+    //============Get functions============
+
     /**
     * Get pair creation timestamp
     */
@@ -135,130 +155,257 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         return creationTimestamp;
     }
 
-
-    //============Upgrade swap pair code part============
-    function updateSwapPairCode(TvmCell newCode, uint32 newCodeVersion) override external onlySwapPairRoot {
-        tvm.accept();
-
-        tvm.setcode(newCode);
-        tvm.setCurrentCode(newCode);
-        _initializeAfterCodeUpdate(
-            tokens,
-            tokenPositions,
-            tokenWallets,
-            tokenUserBalances,
-            liquidityUserBalances,
-            rewardUserBalance,
+    function getPairInfo() override external view returns (SwapPairInfo info) {
+        return SwapPairInfo(
             swapPairRootContract,
-            swapPairDeployer
+            token1,
+            token2,
+            tokenWallets[T1],
+            tokenWallets[T2],
+            swapPairDeployer,
+            creationTimestamp,
+            address(this),
+            swapPairID,
+            swapPairCodeVersion
         );
     }
 
-    function _initializeAfterCodeUpdate(
-        mapping(uint8 => address) tokens_,
-        mapping(address => uint8) tokenPositions_,
-        mapping(uint8 => address) tokenWallets_,
-        mapping(uint8 => mapping(uint256 => uint128)) tokenUserBalances_,
-        mapping(uint8 => mapping(uint256 => uint128)) liquidityUserBalances_,
-        mapping(uint256 => uint128) rewardUserBalance_,  
-        address spRootContract,  // address of swap pair root contract
-        uint    spDeployer // pubkey of swap pair deployer
-    ) inline private {
+    function getUserBalance(uint pubkey) 
+        override   
+        external
+        view
+        initialized
+        returns (UserBalanceInfo ubi) 
+    {
+        return UserBalanceInfo(
+            token1,
+            token2,
+            tokenUserBalances[T1][pubkey],
+            tokenUserBalances[T2][pubkey]
+        );
+    }
 
+    function getUserLiquidityPoolBalance(uint pubkey) 
+        override 
+        external 
+        view 
+        returns (UserBalanceInfo ubi) 
+    {
+        return UserBalanceInfo(
+            token1,
+            token2,
+            liquidityUserBalances[T1][pubkey],
+            liquidityUserBalances[T2][pubkey]
+        );
+    }
+
+    function getExchangeRate(address swappableTokenRoot, uint128 swappableTokenAmount) 
+        override
+        external
+        view
+        initialized
+        tokenExistsInPair(swappableTokenRoot)
+        returns (SwapInfo)
+    {
+        if (swappableTokenAmount <= 0)
+            return SwapInfo(0, 0, 0);
+
+        _SwapInfoInternal si = _getSwapInfo(swappableTokenRoot, swappableTokenAmount);
+
+        return SwapInfo(swappableTokenAmount, si.targetTokenAmount, si.fee);
+    }
+
+    //============LP Functions============
+
+    function provideLiquidity(uint128 maxFirstTokenAmount, uint128 maxSecondTokenAmount) 
+        override
+        external
+        initialized
+        onlyPrePaid
+        returns (uint128 providedFirstTokenAmount, uint128 providedSecondTokenAmount)
+    {
+        uint256 pubkey = msg.pubkey();
+        tvm.rawReserve(userTonBalances[pubkey], 2);
+
+        // Heavy checks
+        notZeroLiquidity(maxFirstTokenAmount, maxSecondTokenAmount);
+        checkUserTokens(token1, maxFirstTokenAmount, token2, maxSecondTokenAmount);
+
+        uint128 provided1 = 0;
+        uint128 provided2 = 0;
+
+        if ( !checkIsLiquidityProvided() ) {
+            provided1 = maxFirstTokenAmount;
+            provided2 = maxSecondTokenAmount;
+        }
+        else {
+            uint128 maxToProvide1 = maxSecondTokenAmount != 0 ? (maxSecondTokenAmount * lps[T1] / lps[T2]) : 0;
+            uint128 maxToProvide2 = maxFirstTokenAmount  != 0 ? (maxFirstTokenAmount * lps[T2] / lps[T1])  : 0;
+            if (maxToProvide1 <= maxFirstTokenAmount ) {
+                provided1 = maxToProvide1;
+                provided2 = maxSecondTokenAmount;
+            } else {
+                provided1 = maxFirstTokenAmount;
+                provided2 = maxToProvide2;
+            }
+        }
+
+        tokenUserBalances[T1][pubkey]-= provided1;
+        tokenUserBalances[T2][pubkey]-= provided2;        
+
+        liquidityUserBalances[T1][pubkey] += provided1;
+        liquidityUserBalances[T2][pubkey] += provided2;
+
+        lps[T1] += provided1;
+        lps[T2] += provided2;
+        kLast = uint256(lps[T1] * lps[T2]);
+
+        userTonBalances[pubkey] -= heavyFunctionCallCost;
+
+        return (provided1, provided2);
     }
 
 
-    //============Modifiers============
+    function withdrawLiquidity(uint128 minFirstTokenAmount, uint128 minSecondTokenAmount)
+        override
+        external
+        initialized
+        liquidityProvided
+        onlyPrePaid
+        returns (uint128 withdrawedFirstTokenAmount, uint128 withdrawedSecondTokenAmount)
+    {
+        uint256 pubkey = msg.pubkey();
+        tvm.rawReserve(userTonBalances[pubkey], 2);
+        checkUserLPTokens(minFirstTokenAmount, minSecondTokenAmount, pubkey);
 
-    modifier initialized() {
-        require(initializedStatus == 2, ERROR_CONTRACT_NOT_INITIALIZED, ERROR_CONTRACT_NOT_INITIALIZED_MSG);
-        _;
+        uint128 withdrawed1 = minSecondTokenAmount != 0 ? (lps[T1] * minSecondTokenAmount / lps[T2]) : 0;
+        uint128 withdrawed2 = minFirstTokenAmount  != 0 ? (lps[T2] * minFirstTokenAmount / lps[T1])  : 0;
+
+        if (withdrawed1 > 0 && withdrawed1 >= minFirstTokenAmount) {
+            withdrawed2 = minSecondTokenAmount;
+        }
+        else if (withdrawed2 > 0 && withdrawed2 >= minSecondTokenAmount) {
+            withdrawed1 = minFirstTokenAmount;
+        }
+        else {
+            return (0, 0);
+        }
+
+        lps[T1] -= withdrawed1;
+        lps[T2] -= withdrawed2;
+        kLast = uint256(lps[T1] * lps[T2]);
+
+        liquidityUserBalances[T1][pubkey] -= withdrawed1;
+        liquidityUserBalances[T2][pubkey] -= withdrawed2;
+
+        tokenUserBalances[T1][pubkey] += withdrawed1;
+        tokenUserBalances[T2][pubkey] += withdrawed2; 
+
+        userTonBalances[pubkey] -= heavyFunctionCallCost;
+        
+        return (withdrawed1, withdrawed2);
     }
 
-    modifier onlyTokenRoot() {
+
+    function swap(address swappableTokenRoot, uint128 swappableTokenAmount)
+        override
+        external
+        initialized
+        liquidityProvided
+        onlyPrePaid
+        returns (SwapInfo)  
+    {
+        uint256 pubK = msg.pubkey();
+        tvm.rawReserve(userTonBalances[pubK], 2);
+        // Heavy checks
+        tokenExistsInPair(swappableTokenRoot)
+        notEmptyAmount(swappableTokenAmount)
+        userEnoughTokenBalance(swappableTokenRoot, swappableTokenAmount)
+
+        _SwapInfoInternal _si = _getSwapInfo(swappableTokenRoot, swappableTokenAmount);
+        uint8 fromK = _si.fromKey;
+        uint8 toK = _si.toKey;
+
+        tokenUserBalances[fromK][pubK] -= swappableTokenAmount;
+        tokenUserBalances[toK][pubK] +=   _si.targetTokenAmount;
+
+        lps[fromK] = _si.newFromPool;
+        lps[toK] = _si.newToPool;
+        kLast = _si.newFromPool * _si.newToPool;
+
+        userTonBalances[pubkey] -= heavyFunctionCallCost;
+
+        return SwapInfo(swappableTokenAmount, _si.targetTokenAmount, _si.fee);
+    }
+
+
+    function withdrawTokens(address withdrawalTokenRoot, address receiveTokenWallet, uint128 amount) 
+        override
+        external
+        initialized
+        onlyPrePaid
+        tokenExistsInPair(withdrawalTokenRoot)
+    {
+        uint pubkey = msg.pubkey();
+        uint8 _tn = tokenPositions[withdrawalTokenRoot];
         require(
-            msg.sender == token1 || msg.sender == token2,
-            ERROR_CALLER_IS_NOT_TOKEN_ROOT,
-            ERROR_CALLER_IS_NOT_TOKEN_ROOT_MSG
+            tokenUserBalances[_tn][pubkey] >= amount && amount != 0,
+            ERROR_INVALID_TOKEN_AMOUNT,
+            ERROR_INVALID_TOKEN_AMOUNT_MSG
         );
-        _;
-    }
-
-    modifier onlyOwnWallet() {
-        bool b1 = tokenWallets.exists(T1) && msg.sender == tokenWallets[T1];
-        bool b2 = tokenWallets.exists(T2) && msg.sender == tokenWallets[T2];
         require(
-            b1 || b2,
-            ERROR_CALLER_IS_NOT_TOKEN_WALLET,
-            ERROR_CALLER_IS_NOT_TOKEN_WALLET_MSG
+            receiveTokenWallet.value != 0,
+            ERROR_INVALID_TARGET_WALLET,
+            ERROR_INVALID_TARGET_WALLET_MSG
         );
-        _;
+        tvm.accept();
+        ITONTokenWallet(tokenWallets[_tn]).transfer{
+            value: sendToTIP3TokenWallets
+        }(receiveTokenWallet, amount, 0);
+        tokenUserBalances[_tn][pubkey] -= amount;
+        userTonBalances[pubkey] -= heavyFunctionCallCost;
     }
 
-    modifier onlySwapPairRoot() {
-        require(
-            msg.sender == swapPairRootContract,
-            ERROR_CALLER_IS_NOT_SWAP_PAIR_ROOT,
-            ERROR_CALLER_IS_NOT_SWAP_PAIR_ROOT_MSG
-        );
-        _;
-    }
 
-    modifier liquidityProvided() {
-        require(
-            checkIsLiquidityProvided(),
-            ERROR_NO_LIQUIDITY_PROVIDED,
-            ERROR_NO_LIQUIDITY_PROVIDED_MSG
-        );
-        _;
-    }
-
+    //============HELPERS============
     
-    modifier tokenExistsInPair(address _token) {
-        require(
-            tokenPositions.exists(_token),
-            ERROR_INVALID_TOKEN_ADDRESS,
-            ERROR_INVALID_TOKEN_ADDRESS_MSG
-        );
-        _;
+    function _getSwapInfo(address swappableTokenRoot, uint128 swappableTokenAmount) 
+        private 
+        view
+        inline
+        tokenExistsInPair(swappableTokenRoot)
+        returns (_SwapInfoInternal swapInfo)
+    {
+        uint8 fromK = _getTokenPosition(swappableTokenRoot);
+        uint8 toK = fromK == T1 ? T2 : T1;
+
+        uint128 fee = swappableTokenAmount * feeNominator / feeDenominator;
+        uint128 newFromPool = lps[fromK] + swappableTokenAmount;
+        uint128 newToPool = uint128(kLast / (newFromPool - fee));
+
+        uint128 targetTokenAmount = lps[toK] - newToPool;
+
+        _SwapInfoInternal result = _SwapInfoInternal(fromK, toK, newFromPool, newToPool, targetTokenAmount, fee);
+
+        return result;
     }
 
-    modifier notEmptyAmount(uint128 _amount) {
-        require (_amount > 0,  ERROR_INVALID_TOKEN_AMOUNT, ERROR_INVALID_TOKEN_AMOUNT_MSG);
-        _;
+    /*
+     * Get token position -> 
+     */
+    function _getTokenPosition(address _token) 
+        private
+        view
+        initialized
+        tokenExistsInPair(_token)
+        returns(uint8)
+    {
+        return tokenPositions.at(_token);
     }
 
-    modifier notZeroLiquidity(uint128 _amount1, uint128 _amount2) {
-        require(
-            _amount1 > 0 && _amount2 > 0,
-            ERROR_INSUFFICIENT_LIQUIDITY_AMOUNT,
-            ERROR_INSUFFICIENT_LIQUIDITY_AMOUNT_MSG
-        );
-        _;
+    function checkIsLiquidityProvided() private inline returns (bool) {
+        return lps[T1] > 0 && lps[T2] > 0 && kLast > kMin;
     }
-
-    modifier userEnoughTokenBalance(address _token, uint128 amount) {
-        uint8 _p = _getTokenPosition(_token);        
-        uint128 userBalance = tokenUserBalances[_p][msg.pubkey()];
-        require(
-            userBalance > 0 && userBalance >= amount,
-            ERROR_INSUFFICIENT_USER_BALANCE,
-            ERROR_INSUFFICIENT_USER_BALANCE_MSG
-        );
-        _;
-    }
-
-    modifier checkUserTokens(address token1_, uint128 token1Amount, address token2_, uint128 token2Amount) {
-        bool b1 = tokenUserBalances[tokenPositions[token1_]][msg.pubkey()] >= token1Amount;
-        bool b2 = tokenUserBalances[tokenPositions[token2_]][msg.pubkey()] >= token2Amount;
-        require(
-            b1 && b2,
-            ERROR_INSUFFICIENT_USER_BALANCE,
-            ERROR_INSUFFICIENT_USER_BALANCE_MSG
-        );
-        _;
-    }
-
 
     //============Callbacks============
 
@@ -266,7 +413,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     * Deployed wallet address callback
     */
     function getWalletAddressCallback(address walletAddress) external onlyTokenRoot {
-        //Check for initialization
         require(initializedStatus < 2, ERROR_CONTRACT_ALREADY_INITIALIZED);
 
         if (msg.sender == token1) {
@@ -318,7 +464,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         override
         public
         // onlyOwnWallet
-    {   
+    {
         _dbgAddress = msg.sender;
         tvm.commit();
         uint8 _p = tokenWallets[T1] == msg.sender ? T1 : T2; // `onlyWallets` eliminates other validational
@@ -332,246 +478,153 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         }
     }
 
+    
+    //============Upgrade swap pair code part============
 
-    //============Functions============
-    function getPairInfo() override external view returns (SwapPairInfo info) {
-        return SwapPairInfo(
+    function updateSwapPairCode(TvmCell newCode, uint32 newCodeVersion) override external onlySwapPairRoot {
+        tvm.accept();
+
+        tvm.setcode(newCode);
+        tvm.setCurrentCode(newCode);
+        _initializeAfterCodeUpdate(
+            tokens,
+            tokenPositions,
+            tokenWallets,
+            tokenUserBalances,
+            liquidityUserBalances,
+            rewardUserBalance,
             swapPairRootContract,
-            token1,
-            token2,
-            tokenWallets[T1],
-            tokenWallets[T2],
-            swapPairDeployer,
-            creationTimestamp,
-            address(this),
-            swapPairID,
-            swapPairCodeVersion
+            swapPairDeployer
         );
     }
 
-    function getUserBalance(uint pubkey) 
-        override   
-        external
-        view
-        initialized
-        returns (UserBalanceInfo ubi) 
-    {
-        return UserBalanceInfo(
-            token1,
-            token2,
-            tokenUserBalances[T1][pubkey],
-            tokenUserBalances[T2][pubkey]
-        );
+    function _initializeAfterCodeUpdate(
+        mapping(uint8 => address) tokens_,
+        mapping(address => uint8) tokenPositions_,
+        mapping(uint8 => address) tokenWallets_,
+        mapping(uint8 => mapping(uint256 => uint128)) tokenUserBalances_,
+        mapping(uint8 => mapping(uint256 => uint128)) liquidityUserBalances_,
+        mapping(uint256 => uint128) rewardUserBalance_,  
+        address spRootContract,  // address of swap pair root contract
+        uint    spDeployer // pubkey of swap pair deployer
+    ) inline private {
+
     }
 
-    function getUserLiquidityPoolBalance(uint pubkey) 
-        override 
-        external 
-        view 
-        returns (UserBalanceInfo ubi) 
-    {
-        return UserBalanceInfo(
-            token1,
-            token2,
-            liquidityUserBalances[T1][pubkey],
-            liquidityUserBalances[T2][pubkey]
-        );
+    //============Modifiers============
+
+    modifier initialized() {
+        require(initializedStatus == 2, ERROR_CONTRACT_NOT_INITIALIZED, ERROR_CONTRACT_NOT_INITIALIZED_MSG);
+        _;
     }
 
-
-    function getExchangeRate(address swappableTokenRoot, uint128 swappableTokenAmount) 
-        override
-        external
-        view
-        initialized
-        tokenExistsInPair(swappableTokenRoot)
-        returns (SwapInfo)
-    {
-        if (swappableTokenAmount <= 0)
-            return SwapInfo(0, 0, 0);
-
-        _SwapInfoInternal si = _getSwapInfo(swappableTokenRoot, swappableTokenAmount);
-
-        return SwapInfo(swappableTokenAmount, si.targetTokenAmount, si.fee);
-    }
-
-
-    function withdrawTokens(address withdrawalTokenRoot, address receiveTokenWallet, uint128 amount) 
-        override 
-        external 
-        initialized 
-    {
-        uint pubkey = msg.pubkey();
-        uint8 _tn = tokenPositions[withdrawalTokenRoot];
+    modifier onlyOwner() {
         require(
-            tokenUserBalances[_tn][pubkey] >= amount && amount != 0
-        );
+            msg.pubkey() == swapPairDeployer,
+
+        )
+    }
+
+    modifier onlyTokenRoot() {
         require(
-            receiveTokenWallet.value != 0
+            msg.sender == token1 || msg.sender == token2,
+            ERROR_CALLER_IS_NOT_TOKEN_ROOT,
+            ERROR_CALLER_IS_NOT_TOKEN_ROOT_MSG
         );
-        tvm.accept();
-        ITONTokenWallet(tokenWallets[_tn]).transfer{
-            value: 110 milliton
-        }(
-            receiveTokenWallet,
-            amount,
-            0
-        );
-        tokenUserBalances[_tn][pubkey] -= amount;
+        _;
     }
 
-    // TODO можно добавить минималку для стартовой инициализации. Чтобы обеспечить минимальный размер пулов на старте
-    // либо изменить проверку `checkIsLiquidityProvided` таким образом, чтобы минималка была не 0, а нормальная
-    // Лучший варик - какое-то минимальное значение lp1 * lp2.
-    function provideLiquidity(uint128 maxFirstTokenAmount, uint128 maxSecondTokenAmount) 
-        override 
-        external 
-        initialized 
-        //notZeroLiquidity(maxFirstTokenAmount, maxSecondTokenAmount)
-        //checkUserTokens(token1, maxFirstTokenAmount, token2, maxSecondTokenAmount)
-        returns (uint128 providedFirstTokenAmount, uint128 providedSecondTokenAmount)
-    {
-        tvm.accept();
-        uint256 pubkey = msg.pubkey();
-        uint128 provided1 = 0;
-        uint128 provided2 = 0;
-
-        if ( !checkIsLiquidityProvided() ) {
-            provided1 = maxFirstTokenAmount;
-            provided2 = maxSecondTokenAmount;
-        }
-        else {
-            uint128 maxToProvide1 = maxSecondTokenAmount != 0 ? (maxSecondTokenAmount * lps[T1] / lps[T2]) : 0;
-            uint128 maxToProvide2 = maxFirstTokenAmount  != 0 ? (maxFirstTokenAmount * lps[T2] / lps[T1])  : 0;
-            if (maxToProvide1 <= maxFirstTokenAmount ) {
-                provided1 = maxToProvide1;
-                provided2 = maxSecondTokenAmount;
-            } else {
-                provided1 = maxFirstTokenAmount;
-                provided2 = maxToProvide2;
-            }
-        }
-
-        tokenUserBalances[T1][pubkey]-= provided1;
-        tokenUserBalances[T2][pubkey]-= provided2;        
-
-        liquidityUserBalances[T1][pubkey] += provided1;
-        liquidityUserBalances[T2][pubkey] += provided2;
-
-        lps[T1] += provided1;
-        lps[T2] += provided2;
-        kLast = uint256(lps[T1] * lps[T2]);
-
-        return (provided1, provided2);
+    modifier onlyOwnWallet() {
+        bool b1 = tokenWallets.exists(T1) && msg.sender == tokenWallets[T1];
+        bool b2 = tokenWallets.exists(T2) && msg.sender == tokenWallets[T2];
+        require(
+            b1 || b2,
+            ERROR_CALLER_IS_NOT_TOKEN_WALLET,
+            ERROR_CALLER_IS_NOT_TOKEN_WALLET_MSG
+        );
+        _;
     }
 
+    modifier onlySwapPairRoot() {
+        require(
+            msg.sender == swapPairRootContract,
+            ERROR_CALLER_IS_NOT_SWAP_PAIR_ROOT,
+            ERROR_CALLER_IS_NOT_SWAP_PAIR_ROOT_MSG
+        );
+        _;
+    }
 
-    function withdrawLiquidity(uint128 minFirstTokenAmount, uint128 minSecondTokenAmount)
-        override
-        external
-        initialized
-        liquidityProvided
-        returns (uint128 withdrawedFirstTokenAmount, uint128 withdrawedSecondTokenAmount)
-    {
-        tvm.accept();
-        uint256 pubkey = msg.pubkey();
+    modifier onlyPrePaid() {
+        require(
+            userTonBalances[msg.pubkey()] >= heavyFunctionCallCost,
+            ERROR_LOW_USER_BALANCE,
+            ERROR_LOW_USER_BALANCE_MSG
+        );
+        _;
+    }
+
+    modifier liquidityProvided() {
+        require(
+            checkIsLiquidityProvided(),
+            ERROR_NO_LIQUIDITY_PROVIDED,
+            ERROR_NO_LIQUIDITY_PROVIDED_MSG
+        );
+        _;
+    }
+
+    
+    modifier tokenExistsInPair(address _token) {
+        require(
+            tokenPositions.exists(_token),
+            ERROR_INVALID_TOKEN_ADDRESS,
+            ERROR_INVALID_TOKEN_ADDRESS_MSG
+        );
+        _;
+    }
+
+    
+
+    //============Too big for modifier too small for function============
+
+    function notEmptyAmount(uint128 _amount) private inline {
+        require (_amount > 0,  ERROR_INVALID_TOKEN_AMOUNT, ERROR_INVALID_TOKEN_AMOUNT_MSG);
+    }
+
+    function notZeroLiquidity(uint128 _amount1, uint128 _amount2) private inline {
+        require(
+            _amount1 > 0 && _amount2 > 0,
+            ERROR_INSUFFICIENT_LIQUIDITY_AMOUNT,
+            ERROR_INSUFFICIENT_LIQUIDITY_AMOUNT_MSG
+        );
+    }
+
+    function userEnoughTokenBalance(address _token, uint128 amount, uint pubkey) private inline {
+        uint8 _p = _getTokenPosition(_token);        
+        uint128 userBalance = tokenUserBalances[_p][pubkey];
+        require(
+            userBalance > 0 && userBalance >= amount,
+            ERROR_INSUFFICIENT_USER_BALANCE,
+            ERROR_INSUFFICIENT_USER_BALANCE_MSG
+        );
+    }
+
+    function checkUserTokens(address token1_, uint128 token1Amount, address token2_, uint128 token2Amount, uint pubkey) private inline {
+        bool b1 = tokenUserBalances[tokenPositions[token1_]][pubkey] >= token1Amount;
+        bool b2 = tokenUserBalances[tokenPositions[token2_]][pubkey] >= token2Amount;
+        require(
+            b1 && b2,
+            ERROR_INSUFFICIENT_USER_BALANCE,
+            ERROR_INSUFFICIENT_USER_BALANCE_MSG
+        );
+    }
+
+    function checkUserLPTokens(uint128 minFirstTokenAmount, uint128 minSecondTokenAmount, uint pubkey) private inline {
         require(
             liquidityUserBalances[T1][pubkey] >= minFirstTokenAmount && 
             liquidityUserBalances[T2][pubkey] >= minSecondTokenAmount, 
             ERROR_INSUFFICIENT_USER_LP_BALANCE,
             ERROR_INSUFFICIENT_USER_LP_BALANCE_MSG
         );
-
-        uint128 withdrawed1 = minSecondTokenAmount != 0 ? (lps[T1] * minSecondTokenAmount / lps[T2]) : 0;
-        uint128 withdrawed2 = minFirstTokenAmount  != 0 ? (lps[T2] * minFirstTokenAmount / lps[T1])  : 0;
-
-        if (withdrawed1 > 0 && withdrawed1 >= minFirstTokenAmount) {
-            withdrawed2 = minSecondTokenAmount;
-        }
-        else if (withdrawed2 > 0 && withdrawed2 >= minSecondTokenAmount) {
-            withdrawed1 = minFirstTokenAmount;
-        }
-        else {
-            return (0, 0);
-        }
-
-        lps[T1] -= withdrawed1;
-        lps[T2] -= withdrawed2;
-        kLast = uint256(lps[T1] * lps[T2]);
-
-        liquidityUserBalances[T1][pubkey] -= withdrawed1;
-        liquidityUserBalances[T2][pubkey] -= withdrawed2;
-
-        tokenUserBalances[T1][pubkey] += withdrawed1;
-        tokenUserBalances[T2][pubkey] += withdrawed2; 
-        
-        return (withdrawed1, withdrawed2);
-    }
-
-
-    function swap(address swappableTokenRoot, uint128 swappableTokenAmount)
-        override
-        external
-        initialized
-        liquidityProvided
-        tokenExistsInPair(swappableTokenRoot)
-        notEmptyAmount(swappableTokenAmount)
-        userEnoughTokenBalance(swappableTokenRoot, swappableTokenAmount)
-        returns (SwapInfo)  
-    {
-        tvm.accept();
-        uint256 pubK = msg.pubkey();
-        _SwapInfoInternal _si = _getSwapInfo(swappableTokenRoot, swappableTokenAmount);
-        uint8 fromK = _si.fromKey;
-        uint8 toK = _si.toKey;
-
-        tokenUserBalances[fromK][pubK] -= swappableTokenAmount;
-        tokenUserBalances[toK][pubK] +=   _si.targetTokenAmount;
-
-        lps[fromK] = _si.newFromPool;
-        lps[toK] = _si.newToPool;
-        kLast = _si.newFromPool * _si.newToPool;
-
-        return SwapInfo(swappableTokenAmount, _si.targetTokenAmount, _si.fee);
-    }
-
-
-    //============HELPERS============
-    
-    function _getSwapInfo(address swappableTokenRoot, uint128 swappableTokenAmount) 
-        private 
-        view
-        inline
-        returns (_SwapInfoInternal swapInfo)
-        // returns (uint8 fromK, uint8 toK, uint128 newFromPool, uint128 newToPool, uint128 profit)
-    {
-        uint8 fromK = _getTokenPosition(swappableTokenRoot); // if tokenRoot doesn't exist, throws exception
-        uint8 toK = fromK == T1 ? T2 : T1;
-
-        uint128 fee = swappableTokenAmount * feeNominator / feeDenominator;
-        uint128 newFromPool = lps[fromK] + swappableTokenAmount;
-        uint128 newToPool = uint128(kLast / (newFromPool - fee));
-
-        uint128 targetTokenAmount = lps[toK] - newToPool;
-
-        _SwapInfoInternal result = _SwapInfoInternal(fromK, toK, newFromPool, newToPool, targetTokenAmount, fee);
-
-        return result;
-    }
-
-
-    function _getTokenPosition(address _token) 
-        private
-        view
-        initialized
-        tokenExistsInPair(_token)
-        returns(uint8)
-    {
-        return tokenPositions.at(_token);
-    }
-
-    function checkIsLiquidityProvided() private inline returns (bool) {
-        return lps[T1] > 0 && lps[T2] > 0 && kLast > kMin;
     }
 
 
@@ -598,7 +651,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     {
         uint128 oldLP1 = lps[T1];
         uint128 oldLP2 = lps[T2];
-        
+
         uint8 fromK = _getTokenPosition(swappableTokenRoot); // if tokenRoot doesn't exist, throws exception
         uint8 toK = fromK == T1 ? T2 : T1;
         if(fromLP > 0) lps[fromK] = fromLP;
@@ -617,23 +670,10 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             si.newFromPool,
             si.newToPool
         );
-        
+
         lps[T1] = oldLP1;
         lps[T2] = oldLP2;
 
         return result;
-    }
-
-    function _getT() external view returns(address) {
-        return _dbgAddress;
-    }
-
-    function _getPK() external view returns(uint) {
-        return _dbgPubkey;
-    }
-
-    function _getPubkey() external view returns (uint) {
-        tvm.accept();
-        return tvm.pubkey();
     }
 }
