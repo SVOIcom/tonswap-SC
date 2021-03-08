@@ -4,6 +4,7 @@ pragma AbiHeader expire;
 pragma AbiHeader time;
 
 contract TONHandler {
+    uint static _randomNonce;
     uint owner;
     constructor() public {
         tvm.accept();
