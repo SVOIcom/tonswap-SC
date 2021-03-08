@@ -585,7 +585,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         if(fromLP > 0) lps[fromK] = fromLP;
         if(toLP > 0)   lps[toK]   = toLP;
 
-        _SwapInfoInternal si = _getSwapInfo(address swappableTokenRoot, uint128 swappableTokenAmount);
+        _SwapInfoInternal si = _getSwapInfo(swappableTokenRoot, swappableTokenAmount);
 
         _DebugLPInfo result = _DebugLPInfo(
             kLast,
