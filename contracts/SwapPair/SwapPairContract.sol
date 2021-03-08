@@ -366,11 +366,12 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
 
     function getExchangeRate(address swappableTokenRoot, uint128 swappableTokenAmount) 
+        override
         external
         view
         initialized
         tokenExistsInPair(swappableTokenRoot)
-        returns (SwapInfo _SwapInfoInternal)
+        returns (SwapInfo)
     {
         if (swappableTokenAmount <= 0)
             return SwapInfo(0, 0, 0);
@@ -381,7 +382,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
 
-    function withdrawTokens(address withdrawalTokenRoot, address receiveTokenWallet, uint128 amount) override external initialized {
+    function withdrawToken(address withdrawalTokenRoot, address receiveTokenWallet, uint128 amount) override external initialized {
 
     }
 
@@ -484,7 +485,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         tokenExistsInPair(swappableTokenRoot)
         notEmptyAmount(swappableTokenAmount)
         userEnoughTokenBalance(swappableTokenRoot, swappableTokenAmount)
-        returns (SwapInfo _SwapInfoInternal)  
+        returns (SwapInfo)  
     {
         tvm.accept();
         uint256 pubK = msg.pubkey();
@@ -507,6 +508,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     
     function _getSwapInfo(address swappableTokenRoot, uint128 swappableTokenAmount) 
         private 
+        view
         inline
         returns (_SwapInfoInternal swapInfo)
         // returns (uint8 fromK, uint8 toK, uint128 newFromPool, uint128 newToPool, uint128 profit)
@@ -528,6 +530,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     function _getTokenPosition(address _token) 
         private
+        view
         initialized
         tokenExistsInPair(_token)
         returns(uint8)
@@ -566,6 +569,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         uint128 fromLP, 
         uint128 toLP
     ) 
+        override
         external  
         returns (_DebugERInfo deri)
     {
@@ -579,14 +583,14 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
         _SwapInfoInternal si = _getSwapInfo(swappableTokenRoot, swappableTokenAmount);
 
-        _DebugLPInfo result = _DebugLPInfo(
+        _DebugERInfo result = _DebugERInfo(
             kLast,
             si.newFromPool * si.newToPool,
             swappableTokenAmount,
             si.targetTokenAmount,
             si.fee,
             lps[fromK],
-            lps[ToK],
+            lps[toK],
             si.newFromPool,
             si.newToPool
         );

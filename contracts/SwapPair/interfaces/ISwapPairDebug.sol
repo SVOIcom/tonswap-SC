@@ -14,13 +14,6 @@ interface ISwapPairDebug {
         uint256 token2LPAmount;
     }
 
-    // struct _DebugERInfo {
-    //     uint256 numerator;
-    //     uint256 denominator;
-    //     uint256 exchangeResultToken1;
-    //     uint256 exchangeResultToken2;
-    // }
-
     struct _DebugERInfo {
         uint256 oldK;
         uint256 newK;
