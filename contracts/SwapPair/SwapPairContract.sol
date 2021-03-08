@@ -32,7 +32,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     mapping(uint8 => address) tokenWallets;
 
     //Users balances
-    mapping(uint256 => uint256) userTonBalances;
+    mapping(uint256 => uint256) usersTONBalance;
     mapping(uint8 => mapping(uint256 => uint128)) tokenUserBalances;
     mapping(uint8 => mapping(uint256 => uint128)) liquidityUserBalances;
     mapping(uint256 => uint128) rewardUserBalance;
@@ -108,7 +108,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     /**
     * Deploy internal wallets. getWalletAddressCallback to get their addresses
     */
-    function _deployWallets() private {
+    function _deployWallets() private view {
         tvm.accept();
         IRootTokenContract(token1).deployEmptyWallet{
             value: walletDeployMessageValue
@@ -131,7 +131,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         _getWalletAddresses();
     }
 
-    function _getWalletAddresses() private {
+    function _getWalletAddresses() private view {
         tvm.accept();
         IRootTokenContract(token1).getWalletAddress{value: 1 ton, callback: this.getWalletAddressCallback}(tvm.pubkey(), address(this));
         IRootTokenContract(token2).getWalletAddress{value: 1 ton, callback: this.getWalletAddressCallback}(tvm.pubkey(), address(this));
@@ -147,11 +147,11 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     //============TON balance functions============
 
     receive() external {
-        userTonBalances[msg.pubkey()] += msg.value * 9995 / 10000;
+        usersTONBalance[msg.pubkey()] += msg.value * 9995 / 10000;
     }
 
     fallback() external {
-        userTonBalances[msg.pubkey()] += msg.value * 9995 / 10000;
+        usersTONBalance[msg.pubkey()] += msg.value * 9995 / 10000;
     }
 
     //============Get functions============
@@ -191,6 +191,16 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             tokenUserBalances[T1][pubkey],
             tokenUserBalances[T2][pubkey]
         );
+    }
+
+    function getUserTONBalance(uint pubkey) 
+        override
+        external
+        view
+        initialized
+        returns (uint balance)
+    {
+        return usersTONBalance[pubkey];
     }
 
     function getUserLiquidityPoolBalance(uint pubkey) 
@@ -233,7 +243,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         returns (uint128 providedFirstTokenAmount, uint128 providedSecondTokenAmount)
     {
         uint256 pubkey = msg.pubkey();
-        tvm.rawReserve(userTonBalances[pubkey], 2);
+        tvm.rawReserve(usersTONBalance[pubkey], 2);
 
         // Heavy checks
         notZeroLiquidity(maxFirstTokenAmount, maxSecondTokenAmount);
@@ -268,7 +278,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         lps[T2] += provided2;
         kLast = uint256(lps[T1] * lps[T2]);
 
-        userTonBalances[pubkey] -= heavyFunctionCallCost;
+        usersTONBalance[pubkey] -= heavyFunctionCallCost;
 
         return (provided1, provided2);
     }
@@ -283,7 +293,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         returns (uint128 withdrawedFirstTokenAmount, uint128 withdrawedSecondTokenAmount)
     {
         uint256 pubkey = msg.pubkey();
-        tvm.rawReserve(userTonBalances[pubkey], 2);
+        tvm.rawReserve(usersTONBalance[pubkey], 2);
         checkUserLPTokens(minFirstTokenAmount, minSecondTokenAmount, pubkey);
 
         uint128 withdrawed1 = minSecondTokenAmount != 0 ? (lps[T1] * minSecondTokenAmount / lps[T2]) : 0;
@@ -309,7 +319,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         tokenUserBalances[T1][pubkey] += withdrawed1;
         tokenUserBalances[T2][pubkey] += withdrawed2; 
 
-        userTonBalances[pubkey] -= heavyFunctionCallCost;
+        usersTONBalance[pubkey] -= heavyFunctionCallCost;
         
         return (withdrawed1, withdrawed2);
     }
@@ -325,7 +335,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         returns (SwapInfo)  
     {
         uint256 pubK = msg.pubkey();
-        tvm.rawReserve(userTonBalances[pubK], 2);
+        tvm.rawReserve(usersTONBalance[pubK], 2);
         // Heavy checks
         notEmptyAmount(swappableTokenAmount);
         userEnoughTokenBalance(swappableTokenRoot, swappableTokenAmount, pubK);
@@ -341,7 +351,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         lps[toK] = _si.newToPool;
         kLast = _si.newFromPool * _si.newToPool;
 
-        userTonBalances[pubK] -= heavyFunctionCallCost;
+        usersTONBalance[pubK] -= heavyFunctionCallCost;
 
         return SwapInfo(swappableTokenAmount, _si.targetTokenAmount, _si.fee);
     }
@@ -371,7 +381,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             value: sendToTIP3TokenWallets
         }(receiveTokenWallet, amount, 0);
         tokenUserBalances[_tn][pubkey] -= amount;
-        userTonBalances[pubkey] -= heavyFunctionCallCost;
+        usersTONBalance[pubkey] -= heavyFunctionCallCost;
     }
 
 
@@ -411,7 +421,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         return tokenPositions.at(_token);
     }
 
-    function checkIsLiquidityProvided() private inline returns (bool) {
+    function checkIsLiquidityProvided() private view inline returns (bool) {
         return lps[T1] > 0 && lps[T2] > 0 && kLast > kMin;
     }
 
@@ -445,6 +455,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
      */
     function _setWalletsCallbackAddress() 
         private 
+        view
         inline 
     {
         ITONTokenWalletWithNotifiableTransfers(tokenWallets[T1]).setReceiveCallback{
@@ -564,7 +575,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     modifier onlyPrePaid() {
         require(
-            userTonBalances[msg.pubkey()] >= heavyFunctionCallCost,
+            usersTONBalance[msg.pubkey()] >= heavyFunctionCallCost,
             ERROR_LOW_USER_BALANCE,
             ERROR_LOW_USER_BALANCE_MSG
         );
@@ -594,11 +605,11 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     //============Too big for modifier too small for function============
 
-    function notEmptyAmount(uint128 _amount) private inline {
+    function notEmptyAmount(uint128 _amount) private pure inline {
         require (_amount > 0,  ERROR_INVALID_TOKEN_AMOUNT, ERROR_INVALID_TOKEN_AMOUNT_MSG);
     }
 
-    function notZeroLiquidity(uint128 _amount1, uint128 _amount2) private inline {
+    function notZeroLiquidity(uint128 _amount1, uint128 _amount2) private pure inline {
         require(
             _amount1 > 0 && _amount2 > 0,
             ERROR_INSUFFICIENT_LIQUIDITY_AMOUNT,
@@ -606,7 +617,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         );
     }
 
-    function userEnoughTokenBalance(address _token, uint128 amount, uint pubkey) private inline {
+    function userEnoughTokenBalance(address _token, uint128 amount, uint pubkey) private view inline {
         uint8 _p = _getTokenPosition(_token);        
         uint128 userBalance = tokenUserBalances[_p][pubkey];
         require(
@@ -616,7 +627,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         );
     }
 
-    function checkUserTokens(address token1_, uint128 token1Amount, address token2_, uint128 token2Amount, uint pubkey) private inline {
+    function checkUserTokens(address token1_, uint128 token1Amount, address token2_, uint128 token2Amount, uint pubkey) private view inline {
         bool b1 = tokenUserBalances[tokenPositions[token1_]][pubkey] >= token1Amount;
         bool b2 = tokenUserBalances[tokenPositions[token2_]][pubkey] >= token2Amount;
         require(
@@ -626,7 +637,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         );
     }
 
-    function checkUserLPTokens(uint128 minFirstTokenAmount, uint128 minSecondTokenAmount, uint pubkey) private inline {
+    function checkUserLPTokens(uint128 minFirstTokenAmount, uint128 minSecondTokenAmount, uint pubkey) private view inline {
         require(
             liquidityUserBalances[T1][pubkey] >= minFirstTokenAmount && 
             liquidityUserBalances[T2][pubkey] >= minSecondTokenAmount, 
