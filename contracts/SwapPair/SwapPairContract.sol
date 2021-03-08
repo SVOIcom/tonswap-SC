@@ -10,8 +10,9 @@ import '../RIP-3/interfaces/ITONTokenWalletWithNotifiableTransfers.sol';
 import './interfaces/ISwapPairContract.sol';
 import './interfaces/ISwapPairInformation.sol';
 import './interfaces/IUpgradeSwapPairCode.sol';
+import './interfaces/ISwapPairDebug.sol';
 
-contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpgradeSwapPairCode, IWalletCreationCallback, ISwapPairContract {
+contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpgradeSwapPairCode, IWalletCreationCallback, ISwapPairContract, ISwapPairDebug {
     address static token1;
     address static token2;
     uint    static swapPairID;
@@ -503,15 +504,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
 
     //============HELPERS============
-
-    struct _SwapInfoInternal {
-        uint8 fromKey;
-        uint8 toKey;
-        uint128 newFromPool;
-        uint128 newToPool;
-        uint128 targetTokenAmount;
-        uint128 fee;
-    }
     
     function _getSwapInfo(address swappableTokenRoot, uint128 swappableTokenAmount) 
         private 

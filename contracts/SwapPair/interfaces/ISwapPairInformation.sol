@@ -30,4 +30,13 @@ interface ISwapPairInformation {
         uint128 targetTokenAmount;
         uint128 fee;
     }
+
+    struct _SwapInfoInternal {
+        uint8 fromKey;
+        uint8 toKey;
+        uint128 newFromPool;
+        uint128 newToPool;
+        uint128 targetTokenAmount;
+        uint128 fee;
+    }
 }
