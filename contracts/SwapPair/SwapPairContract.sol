@@ -70,9 +70,11 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     uint8 constant ERROR_CALLER_IS_NOT_TOKEN_WALLET    = 103; string constant ERROR_CALLER_IS_NOT_TOKEN_WALLET_MSG    = "Error: msg.sender is not token wallet";
     uint8 constant ERROR_CALLER_IS_NOT_SWAP_PAIR_ROOT  = 104; string constant ERROR_CALLER_IS_NOT_SWAP_PAIR_ROOT_MSG  = "Error: msg.sender is not swap pair root contract";
     uint8 constant ERROR_CALLER_IS_NOT_OWNER           = 105; string constant ERROR_CALLER_IS_NOT_OWNER_MSG           = "Error: message sender is not not owner";
-     
+    uint8 constant ERROR_LOW_MESSAGE_VALUE             = 106; string constant ERROR_LOW_MESSAGE_VALUE_MSG             = "Error: msg.value is too low";  
+
     uint8 constant ERROR_INVALID_TOKEN_ADDRESS         = 110; string constant ERROR_INVALID_TOKEN_ADDRESS_MSG         = "Error: invalid token address";
     uint8 constant ERROR_INVALID_TOKEN_AMOUNT          = 111; string constant ERROR_INVALID_TOKEN_AMOUNT_MSG          = "Error: invalid token amount";
+    uint8 constant ERROR_INVALID_TARGET_WALLET         = 112; string constant ERROR_INVALID_TARGET_WALLET_MSG         = "Error: specified token wallet cannot be zero address";
     
     uint8 constant ERROR_INSUFFICIENT_USER_BALANCE     = 120; string constant ERROR_INSUFFICIENT_USER_BALANCE_MSG     = "Error: insufficient user balance";
     uint8 constant ERROR_INSUFFICIENT_USER_LP_BALANCE  = 121; string constant ERROR_INSUFFICIENT_USER_LP_BALANCE_MSG  = "Error: insufficient user liquidity pool balance";
@@ -82,6 +84,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     uint8 constant ERROR_NO_LIQUIDITY_PROVIDED         = 130; string constant ERROR_NO_LIQUIDITY_PROVIDED_MSG         = "Error: no liquidity provided";
     uint8 constant ERROR_LIQUIDITY_PROVIDING_RATE      = 131; string constant ERROR_LIQUIDITY_PROVIDING_RATE_MSG      = "Error: added liquidity disrupts the rate";
     uint8 constant ERROR_INSUFFICIENT_LIQUIDITY_AMOUNT = 132; string constant ERROR_INSUFFICIENT_LIQUIDITY_AMOUNT_MSG = "Error: zero liquidity tokens provided";
+    
 
     constructor(address rootContract, uint spd) public {
         tvm.accept();
@@ -134,7 +137,12 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         IRootTokenContract(token2).getWalletAddress{value: 1 ton, callback: this.getWalletAddressCallback}(tvm.pubkey(), address(this));
     }
 
-    function _reinitialize() external onlyOwner
+    function _reinitialize() external onlyOwner {
+        require(msg.value >= 2 ton, ERROR_LOW_MESSAGE_VALUE, ERROR_LOW_MESSAGE_VALUE_MSG);
+        initializedStatus = 0;
+        delete tokenWallets;
+        _deployWallets();
+    }
 
     //============TON balance functions============
 
@@ -229,7 +237,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
         // Heavy checks
         notZeroLiquidity(maxFirstTokenAmount, maxSecondTokenAmount);
-        checkUserTokens(token1, maxFirstTokenAmount, token2, maxSecondTokenAmount);
+        checkUserTokens(token1, maxFirstTokenAmount, token2, maxSecondTokenAmount, pubkey);
 
         uint128 provided1 = 0;
         uint128 provided2 = 0;
@@ -313,14 +321,14 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         initialized
         liquidityProvided
         onlyPrePaid
+        tokenExistsInPair(swappableTokenRoot)
         returns (SwapInfo)  
     {
         uint256 pubK = msg.pubkey();
         tvm.rawReserve(userTonBalances[pubK], 2);
         // Heavy checks
-        tokenExistsInPair(swappableTokenRoot)
-        notEmptyAmount(swappableTokenAmount)
-        userEnoughTokenBalance(swappableTokenRoot, swappableTokenAmount)
+        notEmptyAmount(swappableTokenAmount);
+        userEnoughTokenBalance(swappableTokenRoot, swappableTokenAmount, pubK);
 
         _SwapInfoInternal _si = _getSwapInfo(swappableTokenRoot, swappableTokenAmount);
         uint8 fromK = _si.fromKey;
@@ -333,7 +341,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         lps[toK] = _si.newToPool;
         kLast = _si.newFromPool * _si.newToPool;
 
-        userTonBalances[pubkey] -= heavyFunctionCallCost;
+        userTonBalances[pubK] -= heavyFunctionCallCost;
 
         return SwapInfo(swappableTokenAmount, _si.targetTokenAmount, _si.fee);
     }
@@ -465,8 +473,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         public
         // onlyOwnWallet
     {
-        _dbgAddress = msg.sender;
-        tvm.commit();
         uint8 _p = tokenWallets[T1] == msg.sender ? T1 : T2; // `onlyWallets` eliminates other validational
         if (tokenUserBalances[_p].exists(sender_public_key)) {
             tokenUserBalances[_p].replace(
@@ -521,8 +527,10 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     modifier onlyOwner() {
         require(
             msg.pubkey() == swapPairDeployer,
-
-        )
+            ERROR_CALLER_IS_NOT_OWNER,
+            ERROR_CALLER_IS_NOT_OWNER_MSG
+        );
+        _;
     }
 
     modifier onlyTokenRoot() {
