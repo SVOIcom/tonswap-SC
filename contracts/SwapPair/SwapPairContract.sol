@@ -325,9 +325,12 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
 
-    function swap(address swappableTokenRoot, uint128 swappableTokenAmount)
-        override
-        external
+    function swap(address swappableTokenRoot, uint128 swappableTokenAmount) override external returns(SwapInfo) { 
+        return _swap(swappableTokenRoot, swappableTokenAmount);
+    }
+
+    function _swap(address swappableTokenRoot, uint128 swappableTokenAmount)
+        internal
         initialized
         liquidityProvided
         onlyPrePaid
@@ -735,7 +738,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         uint128 tmpLPto = lps[toK];
 
         // Swap
-        SwapInfo si = swap(swappableTokenRoot, swappableTokenAmount);
+        SwapInfo si = _swap(swappableTokenRoot, swappableTokenAmount);
 
         _DebugERInfo deri = _DebugERInfo(
             lps[fromK] * lps[toK],
