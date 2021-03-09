@@ -3,7 +3,7 @@ pragma AbiHeader pubkey;
 pragma AbiHeader expire;
 pragma AbiHeader time;
 
-contract TONHandler {
+contract DevNetGiver {
     uint static _randomNonce;
     uint owner;
     constructor() public {
@@ -11,8 +11,13 @@ contract TONHandler {
         owner = msg.pubkey();
     }
 
-    function sendTONTo(address dest, uint128 amount) external {
+    function sendGrams(address dest, uint64 amount) public onlyOwner {
         tvm.accept();
-        address(dest).transfer({value: amount});
+        address(dest).transfer({value: amount, bounce: false});
+    }
+
+    modifier onlyOwner() {
+        require(msg.pubkey() == owner);
+        _;
     }
 }
