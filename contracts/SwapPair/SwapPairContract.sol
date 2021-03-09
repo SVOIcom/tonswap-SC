@@ -397,7 +397,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         uint8 fromK = _getTokenPosition(swappableTokenRoot);
         uint8 toK = fromK == T1 ? T2 : T1;
 
-        uint128 fee = swappableTokenAmount * feeNominator / feeDenominator;
+        uint128 fee = swappableTokenAmount - swappableTokenAmount * feeNominator / feeDenominator;
         uint128 newFromPool = lps[fromK] + swappableTokenAmount;
         uint128 newToPool = uint128(kLast / (newFromPool - fee));
 
