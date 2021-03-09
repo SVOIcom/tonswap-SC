@@ -8,6 +8,7 @@ import "./interfaces/Terminal.sol";
 import "./interfaces/AddressInput.sol";
 import "./interfaces/Sdk.sol";
 import "./interfaces/Menu.sol";
+import "../SwapPair/interfaces/ISwapPairInformation.sol";
 
 import "../SwapPair/interfaces/ISwapPairInformation.sol";
 import "../SwapPair/interfaces/ISwapPairContract.sol";
@@ -44,8 +45,10 @@ contract SwapDebot is Debot, ISwapPairInformation {
     
     // Available actions: swap tokens or withdraw tokens
     uint8 state;
-    uint8 SWAP = 0;
-    uint8 WITHDRAW_TOKENS = 1;
+
+    uint8 PROVIDE_LIQUIDITY = 0;
+    uint8 SWAP = 1;
+    uint8 REMOVE_LIQUIDITY = 2;
 
     constructor(string swapDebotAbi) public {
         require(msg.pubkey() == tvm.pubkey(), 100);
@@ -57,18 +60,14 @@ contract SwapDebot is Debot, ISwapPairInformation {
 
     function start() public override {
         Menu.select("Main menu", "Hello, this is debot for swap pairs from SVOI.dev! You can swap tokens and withdraw them from pair.", [
+            MenuItem("Provide liquidity", tvm.functionId(actionChoice)),
             MenuItem("Swap tokens", "", tvm.functionId(actionChoice)),
-            MenuItem("Withdraw tokens", "", tvm.functionId(actionChoice)),
+            MenuItem("Withdraw liquidity", "", tvm.functionId(actionChoice)),
             MenuItem("Exit debot", "", 0)
         ]);
     }
 
-    // Current version is 0.0.1
-    function getVersion() public override returns(string name, uint24 semver) {
-        name = "SwapDeBot"; 
-        semver = 1; 
-    }
-
+    function getVersion() public override returns(string name, uint24 semver) {name = "SwapDeBot"; semver = 1 << 8 + 1; }
     function quit() public override {}
 
     // Input of pair address
@@ -84,12 +83,11 @@ contract SwapDebot is Debot, ISwapPairInformation {
         Sdk.getAccountType(tvm.functionId(checkIfPairExitst), value);
     }
 
-    // Checking pair status. Must be active to proceed
-    function checkIfPairExitst(uint acc_type) public {
+    function checkIfWalletExists(uint acc_type) public {
         if (acc_type != 1) {
-            Terminal.print(0, "Wallet does not exist or is not active. Going back to main menu");
+            Terminal.print(tvm.functionId(start), "Swap pair does not exist or is not active. Going back to main menu");
         } else {
-            Terminal.print(tvm.functionId(getUserTokens), "Looks like wallet exists and is active. Getting info about available tokens...");
+            Terminal.print(tvm.functionId(getUserTokens), "Looks like swap pair exists and is active. Getting info about available tokens...");
         }
     }
 
@@ -106,7 +104,7 @@ contract SwapDebot is Debot, ISwapPairInformation {
             expire: 0,
             callbackId: tvm.functionId(setTokenInfo),
             onErrorId: 0
-        }();
+        }(0);
     }
 
     // set token information
@@ -121,10 +119,8 @@ contract SwapDebot is Debot, ISwapPairInformation {
     // Choice of token to operate with
     function chooseToken() public {
         Menu.select("", "Select active token (for swap - token you want to swap): ", [
-            // MenuItem(format("{}:{}", token1.rootAddress.wid, token1.rootAddress.value), "", tvm.functionId(getTokenAmount)),
-            // MenuItem(format("{}:{}", token2.rootAddress.wid, token2.rootAddress.value), "", tvm.functionId(getTokenAmount))
-            MenuItem("fu", "", tvm.functionId(getTokenAmount)),
-            MenuItem("ck", "", tvm.functionId(getTokenAmount))
+            // MenuItem(format("{}", token1.rootAddress), "", tvm.functionId(getTokenAmount)),
+            // MenuItem(format("{}", token2.rootAddress), "", tvm.functionId(getTokenAmount))
         ]);
     }
 
