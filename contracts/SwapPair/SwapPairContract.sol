@@ -743,7 +743,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         _DebugERInfo deri = _DebugERInfo(
             lps[fromK] * lps[toK],
             kLast,
-            swappableTokenAmount,
             si.swappableTokenAmount,
             si.targetTokenAmount,
             si.fee,
