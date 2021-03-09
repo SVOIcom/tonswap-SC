@@ -7,6 +7,7 @@ import "./interfaces/Terminal.sol";
 import "./interfaces/AddressInput.sol";
 import "./interfaces/Sdk.sol";
 import "./interfaces/Menu.sol";
+import "../SwapPair/interfaces/ISwapPairInformation.sol";
 
 interface ISwapPairContract {
     function getUserTokens(uint256 publicKey) external returns (TokensBalance);
@@ -24,18 +25,18 @@ struct PairInfo {
 }
 
 contract SwapDebot is Debot {
-    // For user usage
+    // For debug purposes
     uint static _randomNonce;
     
     address swapPairAddress;
-    address token1; address token2;
-    string token1Symbol = "A"; string token2Symbol = "B";
-    uint128 token1Balance = 100; uint128 token2Balance = 200;
+    address token1;        address token2;
+    uint128 token1Balance; uint128 token2Balance;
     uint128 maxTokenAmount;
     uint8 state;
 
-    uint8 SWAP = 0;
-    uint8 GET_TOKENS = 1;
+    uint8 PROVIDE_LIQUIDITY = 0;
+    uint8 SWAP = 1;
+    uint8 REMOVE_LIQUIDITY = 2;
 
     constructor(string swapDebotAbi) public {
         require(msg.pubkey() == tvm.pubkey(), 100);
@@ -47,13 +48,14 @@ contract SwapDebot is Debot {
 
     function start() public override {
         Menu.select("Main menu", "Hello, this is debot for swap pairs from SVOI.dev! You can swap tokens and withdraw them from pair.", [
+            MenuItem("Provide liquidity", tvm.functionId(actionChoice)),
             MenuItem("Swap tokens", "", tvm.functionId(actionChoice)),
-            MenuItem("Withdraw tokens", "", tvm.functionId(actionChoice)),
+            MenuItem("Withdraw liquidity", "", tvm.functionId(actionChoice)),
             MenuItem("Exit debot", "", 0)
         ]);
     }
 
-    function getVersion() public override returns(string name, uint24 semver) {name = "SwapDeBot"; semver = 1; }
+    function getVersion() public override returns(string name, uint24 semver) {name = "SwapDeBot"; semver = 1 << 8 + 1; }
     function quit() public override {}
 
     function actionChoice(uint32 index) public { 
@@ -68,34 +70,43 @@ contract SwapDebot is Debot {
     }
 
     function checkIfWalletExists(uint acc_type) public {
-        // if (acc_type != 1) {
-        //     Terminal.print(tvm.functionId(start), "Wallet does not exist or is not active. Going back to main menu");
-        // } else {
-            Terminal.print(tvm.functionId(getUserTokens), "Looks like wallet exists and is active. Getting info about available tokens...");
-        // }
+        if (acc_type != 1) {
+            Terminal.print(tvm.functionId(start), "Swap pair does not exist or is not active. Going back to main menu");
+        } else {
+            Terminal.print(tvm.functionId(getUserTokens), "Looks like swap pair exists and is active. Getting info about available tokens...");
+        }
     }
 
     function getUserTokens() public {
         optional(uint256) pubkey;
-        // ISwapPairContract(swapPairAddress).getPairInfo{
-        //     extMsg: true,
-        //     time: uint64(now),
-        //     sign: false,
-        //     pubkey: pubkey,
-        //     callbackId: tvm.functionId(setTokenInfo)
-        // }();
-        // ISwapPairContract(swapPairAddress).getUserTokens{
-        //     extMsg: true,
-        //     time: uint64(now),
-        //     sign: false,
-        //     pubkey: pubkey,
-        //     callbackId: tvm.functionId(setUserTokenBalance)
-        // }();
-        Terminal.print(tvm.functionId(chooseToken), format("Your balance: {} for {}; {} for {}", token1Balance, token1Symbol, token2Balance, token2Symbol));
+        ISwapPairContract(swapPairAddress).getPairInfo{
+            extMsg: true,
+            time: uint64(now),
+            sign: false,
+            pubkey: pubkey,
+            callbackId: tvm.functionId(setSwapPairInfo)
+        }();
     }
 
-    function getTokenInfo() public {
+    function setSwapPairInfo(SwapPairInfo spi) public {
+        token1 = spi.tokenRoot1;
+        token2 = spi.tokenRoot2;
 
+        optional(uint256) pubkey;
+        ISwapPairContract(swapPairAddress).getUserBalance{
+            extMsg: true,
+            time: uint64(now),
+            sign: true,
+            pubkey: pubkey,
+            callbackId: tvm.functionId(setUserInfo)
+        }(0);
+    }
+
+    function setUserInfo(UserBalanceInfo ubi) public {
+        token1Balance = ubi.tokenBalance1;
+        token2Balance = ubi.tokenBalance2;
+
+        Terminal.print(tvm.functionId(chooseToken), format("Your balance: {} for {}; {} for {}", token1Balance, token1, token2Balance, token2));
     }
 
     function chooseToken() public {

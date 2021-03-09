@@ -50,7 +50,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     // Balance managing constants
     // Average function execution cost + 20-30% reserve
-    uint128 constant heavyFunctionCallCost      = 80   milli;
+    uint128 constant prechecksForHeavyFunctions = 10   milli;
+    uint128 constant heavyFunctionCallCost      = 100  milli;
     // Required for interaction with wallets for smart-contracts
     uint128 constant sendToTIP3TokenWallets     = 110  milli;
     // We don't want to risk, this is one-time procedure
@@ -62,6 +63,11 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     // Tokens positions
     uint8 constant T1 = 0;
     uint8 constant T2 = 1;
+
+    //debug
+    uint pk;
+    uint sum;
+    uint16 bl;
 
     //Error codes    
     uint8 constant ERROR_CONTRACT_ALREADY_INITIALIZED  = 100; string constant ERROR_CONTRACT_ALREADY_INITIALIZED_MSG  = "Error: contract is already initialized";
@@ -147,11 +153,17 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     //============TON balance functions============
 
     receive() external {
-        usersTONBalance[msg.pubkey()] += msg.value * 9995 / 10000;
+        require(msg.value > heavyFunctionCallCost);
+        TvmSlice ts = msg.data;
+        uint pubkey = ts.decode(uint);
+        usersTONBalance[pubkey] += msg.value;
     }
 
     fallback() external {
-        usersTONBalance[msg.pubkey()] += msg.value * 9995 / 10000;
+        require(msg.value > heavyFunctionCallCost);
+        TvmSlice ts = msg.data;
+        uint pubkey = ts.decode(uint);
+        usersTONBalance[pubkey] += msg.value;
     }
 
     //============Get functions============
@@ -185,6 +197,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         initialized
         returns (UserBalanceInfo ubi) 
     {
+        pubkey = pubkey == 0 ? pubkey : msg.sender;
         return UserBalanceInfo(
             token1,
             token2,
@@ -242,12 +255,16 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         onlyPrePaid
         returns (uint128 providedFirstTokenAmount, uint128 providedSecondTokenAmount)
     {
+        //tvm.rawReserve(prechecksForHeavyFunctions, 2);
         uint256 pubkey = msg.pubkey();
-        tvm.rawReserve(usersTONBalance[pubkey], 2);
+        tvm.accept();
 
         // Heavy checks
         notZeroLiquidity(maxFirstTokenAmount, maxSecondTokenAmount);
         checkUserTokens(token1, maxFirstTokenAmount, token2, maxSecondTokenAmount, pubkey);
+        //usersTONBalance[pubkey] -= prechecksForHeavyFunctions;
+
+        //tvm.rawReserve(heavyFunctionCallCost - prechecksForHeavyFunctions, 2);
 
         uint128 provided1 = 0;
         uint128 provided2 = 0;
@@ -293,8 +310,12 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         returns (uint128 withdrawedFirstTokenAmount, uint128 withdrawedSecondTokenAmount)
     {
         uint256 pubkey = msg.pubkey();
-        tvm.rawReserve(usersTONBalance[pubkey], 2);
+        //tvm.rawReserve(prechecksForHeavyFunctions, 2);
+        tvm.accept();
         checkUserLPTokens(minFirstTokenAmount, minSecondTokenAmount, pubkey);
+        //usersTONBalance[pubkey] -= prechecksForHeavyFunctions;
+
+        //tvm.rawReserve(heavyFunctionCallCost - prechecksForHeavyFunctions, 2);
 
         uint128 withdrawed1 = minSecondTokenAmount != 0 ? (lps[T1] * minSecondTokenAmount / lps[T2]) : 0;
         uint128 withdrawed2 = minFirstTokenAmount  != 0 ? (lps[T2] * minFirstTokenAmount / lps[T1])  : 0;
@@ -335,10 +356,13 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         returns (SwapInfo)  
     {
         uint256 pubK = msg.pubkey();
-        tvm.rawReserve(usersTONBalance[pubK], 2);
-        // Heavy checks
+        tvm.accept();
+        //tvm.rawReserve(prechecksForHeavyFunctions, 2);
         notEmptyAmount(swappableTokenAmount);
         userEnoughTokenBalance(swappableTokenRoot, swappableTokenAmount, pubK);
+        usersTONBalance[pubK] -= prechecksForHeavyFunctions;
+
+        //tvm.rawReserve(heavyFunctionCallCost - prechecksForHeavyFunctions, 2);
 
         _SwapInfoInternal _si = _getSwapInfo(swappableTokenRoot, swappableTokenAmount);
         uint8 fromK = _si.fromKey;
