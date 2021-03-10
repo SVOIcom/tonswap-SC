@@ -288,7 +288,7 @@ contract SwapDebot is Debot, ISwapPairInformation {
 
     function enterWalletAddress() public {
         Terminal.print(0, "Input token wallet address");
-        AddressInput.select(tvm.functionId(submitTokenWithdraw));
+        AddressInput.select(tvm.functionId(processPair));
     }
 
     function submitTokenWithdraw(address value) public {

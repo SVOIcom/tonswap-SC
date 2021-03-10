@@ -403,10 +403,15 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         external
         initialized
         onlyPrePaid
-        tokenExistsInPair(withdrawalTokenRoot)
     {
+        require(
+            tokenPositions.exists(withdrawalTokenRoot),
+            ERROR_INVALID_TOKEN_ADDRESS,
+            ERROR_INVALID_TOKEN_ADDRESS_MSG
+        );
         uint pubkey = msg.pubkey();
         uint8 _tn = tokenPositions[withdrawalTokenRoot];
+        tvm.accept();
         require(
             tokenUserBalances[_tn][pubkey] >= amount && amount != 0,
             ERROR_INVALID_TOKEN_AMOUNT,
@@ -417,7 +422,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             ERROR_INVALID_TARGET_WALLET,
             ERROR_INVALID_TARGET_WALLET_MSG
         );
-        tvm.accept();
         ITONTokenWallet(tokenWallets[_tn]).transfer{
             value: sendToTIP3TokenWallets
         }(receiveTokenWallet, amount, 0);
