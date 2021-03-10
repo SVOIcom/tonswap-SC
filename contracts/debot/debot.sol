@@ -52,8 +52,9 @@ contract SwapDebot is Debot, ISwapPairInformation {
     uint8 constant USER_LP_TOKEN_BALANCE     = 1;
     uint8 constant PROVIDE_LIQUIDITY         = 2;
     uint8 constant REMOVE_LIQUIDITY          = 3;
-    uint8 constant SWAP                      = 4;
-    uint8 constant WITHDRAW_TOKENS_FROM_PAIR = 5;
+    uint8 constant GET_EXCHANGE_RATE         = 4;
+    uint8 constant SWAP                      = 5;
+    uint8 constant WITHDRAW_TOKENS_FROM_PAIR = 6;
 
     string constant tokenShowTail = "{} -> {}; {} -> {}";
 
@@ -78,6 +79,7 @@ contract SwapDebot is Debot, ISwapPairInformation {
             MenuItem("Get user LP token balance",      "", tvm.functionId(actionChoice)),
             MenuItem("Provide liquidity",              "", tvm.functionId(actionChoice)),
             MenuItem("Withdraw liquidity",             "", tvm.functionId(actionChoice)),
+            MenuItem("Get current exchange rate",      "", tvm.functionId(actionChoice)),
             MenuItem("Swap tokens",                    "", tvm.functionId(actionChoice)),
             MenuItem("Withdraw tokens from swap pair", "", tvm.functionId(actionChoice)),
             MenuItem("Exit debot", "", 0)
@@ -102,9 +104,9 @@ contract SwapDebot is Debot, ISwapPairInformation {
             Terminal.print(tvm.functionId(mainMenu), "Swap pair does not exist or is not active. Going back to main menu");
         } else {
             if (state > 1) 
-                Terminal.print(tvm.functionId(getUserTokens), "Looks like swap pair exists and is active. Getting info about available tokens...");
-            else 
                 Terminal.print(tvm.functionId(choseNextStep), "Fetching required info...");
+            else 
+                Terminal.print(tvm.functionId(getUserTokens), "Looks like swap pair exists and is active. Getting info about available tokens...");
         }
     }
 
