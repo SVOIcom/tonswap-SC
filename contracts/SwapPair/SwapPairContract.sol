@@ -197,12 +197,12 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         initialized
         returns (UserBalanceInfo ubi) 
     {
-        pubkey = pubkey == 0 ? pubkey : msg.sender;
+        uint pk = pubkey == 0 ? pubkey : msg.pubkey();
         return UserBalanceInfo(
             token1,
             token2,
-            tokenUserBalances[T1][pubkey],
-            tokenUserBalances[T2][pubkey]
+            tokenUserBalances[T1][pk],
+            tokenUserBalances[T2][pk]
         );
     }
 
@@ -509,8 +509,9 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     ) 
         override
         public
-        // onlyOwnWallet
+        onlyOwnWallet
     {
+        tvm.accept();
         uint8 _p = tokenWallets[T1] == msg.sender ? T1 : T2; // `onlyWallets` eliminates other validational
         if (tokenUserBalances[_p].exists(sender_public_key)) {
             tokenUserBalances[_p].replace(
