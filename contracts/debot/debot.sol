@@ -48,12 +48,6 @@ contract SwapDebot is Debot, ISwapPairInformation {
     // Available actions: swap tokens or withdraw tokens
     uint8 state;
 
-<<<<<<< HEAD
-    uint8 PROVIDE_LIQUIDITY = 0;
-    uint8 REMOVE_LIQUIDITY = 1;
-    uint8 SWAP = 2;
-    uint8 WITHDRAW_TOKENS = 3;
-=======
     uint8 constant USER_TOKEN_BALANCE        = 0;
     uint8 constant USER_LP_TOKEN_BALANCE     = 1;
     uint8 constant PROVIDE_LIQUIDITY         = 2;
@@ -62,7 +56,6 @@ contract SwapDebot is Debot, ISwapPairInformation {
     uint8 constant WITHDRAW_TOKENS_FROM_PAIR = 5;
 
     string constant tokenShowTail = "{} -> {}; {} -> {}";
->>>>>>> 3d8f6dba989e12ef6bcc6df06b7707cb796595e7
 
     constructor(string swapDebotAbi) public {
         require(msg.pubkey() == tvm.pubkey(), 100);
@@ -81,20 +74,12 @@ contract SwapDebot is Debot, ISwapPairInformation {
 
     function mainMenu() public {
         Menu.select("Main menu", "", [
-<<<<<<< HEAD
-            MenuItem("Get user token balance",    "", tvm.functionId(actionChoice)),
-            MenuItem("Get user LP token balance", "", tvm.functionId(actionChoice)),
-            MenuItem("Provide liquidity",         "", tvm.functionId(actionChoice)),
-            MenuItem("Swap tokens",               "", tvm.functionId(actionChoice)),
-            MenuItem("Withdraw liquidity",        "", tvm.functionId(actionChoice)),
-=======
             MenuItem("Get user token balance",         "", tvm.functionId(actionChoice)),
             MenuItem("Get user LP token balance",      "", tvm.functionId(actionChoice)),
             MenuItem("Provide liquidity",              "", tvm.functionId(actionChoice)),
             MenuItem("Withdraw liquidity",             "", tvm.functionId(actionChoice)),
             MenuItem("Swap tokens",                    "", tvm.functionId(actionChoice)),
             MenuItem("Withdraw tokens from swap pair", "", tvm.functionId(actionChoice)),
->>>>>>> 3d8f6dba989e12ef6bcc6df06b7707cb796595e7
             MenuItem("Exit debot", "", 0)
         ]);
     }

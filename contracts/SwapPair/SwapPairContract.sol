@@ -197,14 +197,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         initialized
         returns (UserBalanceInfo ubi) 
     {
-<<<<<<< HEAD
-        uint pk = pubkey == 0 ? pubkey : msg.pubkey();
-        return UserBalanceInfo(
-            token1,
-            token2,
-            tokenUserBalances[T1][pk],
-            tokenUserBalances[T2][pk]
-=======
         uint _pk = pubkey != 0 ? pubkey : msg.pubkey();
         tvm.accept();
         return UserBalanceInfo(
@@ -212,7 +204,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             token2,
             tokenUserBalances[T1][_pk],
             tokenUserBalances[T2][_pk]
->>>>>>> 3d8f6dba989e12ef6bcc6df06b7707cb796595e7
         );
     }
 
