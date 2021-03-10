@@ -310,13 +310,17 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         override
         external
         initialized
-        liquidityProvided
         onlyPrePaid
         returns (uint128 withdrawedFirstTokenAmount, uint128 withdrawedSecondTokenAmount)
     {
         uint256 pubkey = msg.pubkey();
         //tvm.rawReserve(prechecksForHeavyFunctions, 2);
         tvm.accept();
+        require(
+            checkIsLiquidityProvided(),
+            ERROR_NO_LIQUIDITY_PROVIDED,
+            ERROR_NO_LIQUIDITY_PROVIDED_MSG
+        );
         checkUserLPTokens(minFirstTokenAmount, minSecondTokenAmount, pubkey);
         //usersTONBalance[pubkey] -= prechecksForHeavyFunctions;
 
@@ -358,13 +362,18 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     function _swap(address swappableTokenRoot, uint128 swappableTokenAmount)
         internal
         initialized
-        liquidityProvided
+        // liquidityProvided
         onlyPrePaid
-        tokenExistsInPair(swappableTokenRoot)
+        // tokenExistsInPair(swappableTokenRoot)
         returns (SwapInfo)  
     {
         uint256 pubK = msg.pubkey();
         tvm.accept();
+        require(
+            checkIsLiquidityProvided(),
+            ERROR_NO_LIQUIDITY_PROVIDED,
+            ERROR_NO_LIQUIDITY_PROVIDED_MSG
+        );
         //tvm.rawReserve(prechecksForHeavyFunctions, 2);
         notEmptyAmount(swappableTokenAmount);
         userEnoughTokenBalance(swappableTokenRoot, swappableTokenAmount, pubK);
