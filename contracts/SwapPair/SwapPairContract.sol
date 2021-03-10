@@ -197,12 +197,22 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         initialized
         returns (UserBalanceInfo ubi) 
     {
+<<<<<<< HEAD
         uint pk = pubkey == 0 ? pubkey : msg.pubkey();
         return UserBalanceInfo(
             token1,
             token2,
             tokenUserBalances[T1][pk],
             tokenUserBalances[T2][pk]
+=======
+        uint _pk = pubkey != 0 ? pubkey : msg.pubkey();
+        tvm.accept();
+        return UserBalanceInfo(
+            token1,
+            token2,
+            tokenUserBalances[T1][_pk],
+            tokenUserBalances[T2][_pk]
+>>>>>>> 3d8f6dba989e12ef6bcc6df06b7707cb796595e7
         );
     }
 
@@ -213,7 +223,9 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         initialized
         returns (uint balance)
     {
-        return usersTONBalance[pubkey];
+        uint _pk = pubkey != 0 ? pubkey : msg.pubkey();
+        tvm.accept();
+        return usersTONBalance[_pk];
     }
 
     function getUserLiquidityPoolBalance(uint pubkey) 
@@ -222,11 +234,13 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         view 
         returns (UserBalanceInfo ubi) 
     {
+        uint _pk = pubkey != 0 ? pubkey : msg.pubkey();
+        tvm.accept();
         return UserBalanceInfo(
             token1,
             token2,
-            liquidityUserBalances[T1][pubkey],
-            liquidityUserBalances[T2][pubkey]
+            liquidityUserBalances[T1][_pk],
+            liquidityUserBalances[T2][_pk]
         );
     }
 
@@ -305,13 +319,17 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         override
         external
         initialized
-        liquidityProvided
         onlyPrePaid
         returns (uint128 withdrawedFirstTokenAmount, uint128 withdrawedSecondTokenAmount)
     {
         uint256 pubkey = msg.pubkey();
         //tvm.rawReserve(prechecksForHeavyFunctions, 2);
         tvm.accept();
+        require(
+            checkIsLiquidityProvided(),
+            ERROR_NO_LIQUIDITY_PROVIDED,
+            ERROR_NO_LIQUIDITY_PROVIDED_MSG
+        );
         checkUserLPTokens(minFirstTokenAmount, minSecondTokenAmount, pubkey);
         //usersTONBalance[pubkey] -= prechecksForHeavyFunctions;
 
@@ -353,13 +371,18 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     function _swap(address swappableTokenRoot, uint128 swappableTokenAmount)
         internal
         initialized
-        liquidityProvided
+        // liquidityProvided
         onlyPrePaid
-        tokenExistsInPair(swappableTokenRoot)
+        // tokenExistsInPair(swappableTokenRoot)
         returns (SwapInfo)  
     {
         uint256 pubK = msg.pubkey();
         tvm.accept();
+        require(
+            checkIsLiquidityProvided(),
+            ERROR_NO_LIQUIDITY_PROVIDED,
+            ERROR_NO_LIQUIDITY_PROVIDED_MSG
+        );
         //tvm.rawReserve(prechecksForHeavyFunctions, 2);
         notEmptyAmount(swappableTokenAmount);
         userEnoughTokenBalance(swappableTokenRoot, swappableTokenAmount, pubK);
@@ -389,10 +412,15 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         external
         initialized
         onlyPrePaid
-        tokenExistsInPair(withdrawalTokenRoot)
     {
+        require(
+            tokenPositions.exists(withdrawalTokenRoot),
+            ERROR_INVALID_TOKEN_ADDRESS,
+            ERROR_INVALID_TOKEN_ADDRESS_MSG
+        );
         uint pubkey = msg.pubkey();
         uint8 _tn = tokenPositions[withdrawalTokenRoot];
+        tvm.accept();
         require(
             tokenUserBalances[_tn][pubkey] >= amount && amount != 0,
             ERROR_INVALID_TOKEN_AMOUNT,
@@ -403,7 +431,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             ERROR_INVALID_TARGET_WALLET,
             ERROR_INVALID_TARGET_WALLET_MSG
         );
-        tvm.accept();
         ITONTokenWallet(tokenWallets[_tn]).transfer{
             value: sendToTIP3TokenWallets
         }(receiveTokenWallet, amount, 0);
