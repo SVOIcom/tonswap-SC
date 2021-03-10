@@ -197,12 +197,13 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         initialized
         returns (UserBalanceInfo ubi) 
     {
-        pubkey = pubkey == 0 ? pubkey : msg.sender;
+        uint _pk = pubkey != 0 ? pubkey : msg.pubkey();
+        tvm.accept();
         return UserBalanceInfo(
             token1,
             token2,
-            tokenUserBalances[T1][pubkey],
-            tokenUserBalances[T2][pubkey]
+            tokenUserBalances[T1][_pk],
+            tokenUserBalances[T2][_pk]
         );
     }
 
@@ -213,7 +214,9 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         initialized
         returns (uint balance)
     {
-        return usersTONBalance[pubkey];
+        uint _pk = pubkey != 0 ? pubkey : msg.pubkey();
+        tvm.accept();
+        return usersTONBalance[_pk];
     }
 
     function getUserLiquidityPoolBalance(uint pubkey) 
@@ -222,11 +225,13 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         view 
         returns (UserBalanceInfo ubi) 
     {
+        uint _pk = pubkey != 0 ? pubkey : msg.pubkey();
+        tvm.accept();
         return UserBalanceInfo(
             token1,
             token2,
-            liquidityUserBalances[T1][pubkey],
-            liquidityUserBalances[T2][pubkey]
+            liquidityUserBalances[T1][_pk],
+            liquidityUserBalances[T2][_pk]
         );
     }
 
