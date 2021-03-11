@@ -16,6 +16,10 @@ interface ISwapPairContract is ISwapPairInformation {
         address swappableTokenRoot, 
         uint128 swappableTokenAmount
     ) external view returns (SwapInfo _swapInfo);
+    
+    function getCurrentExchangeRate() external view returns (uint128, uint128);
+
+    function getCurrentExchangeRateExt() external view returns(uint128, uint128);
 
     function provideLiquidity(
         uint128 maxFirstTokenAmount, 
@@ -37,5 +41,5 @@ interface ISwapPairContract is ISwapPairInformation {
 
     function getUserTONBalance(uint pubkey) external view returns (uint balance);
 
-    function getUserLiquidityPoolBalance(uint pubkey) external view returns (UserBalanceInfo ubi) ;
+    function getUserLiquidityPoolBalance(uint pubkey) external view returns (UserPoolInfo upi) ;
 }
