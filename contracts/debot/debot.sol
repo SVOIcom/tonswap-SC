@@ -56,8 +56,6 @@ contract SwapDebot is Debot, ISwapPairInformation {
     uint8 constant SWAP                      = 5;
     uint8 constant WITHDRAW_TOKENS_FROM_PAIR = 6;
 
-    string constant tokenShowTail = "{} -> {}; {} -> {}";
-
     constructor(string swapDebotAbi) public {
         require(msg.pubkey() == tvm.pubkey(), 100);
         tvm.accept();
@@ -143,7 +141,9 @@ contract SwapDebot is Debot, ISwapPairInformation {
         token1.balance = ubi.tokenBalance1;
         token2.rootAddress = ubi.tokenRoot2;
         token2.balance = ubi.tokenBalance2;
-        Terminal.print(tvm.functionId(choseNextStep), format("Your balance: {} for {}; {} for {}", token1.balance, token1.rootAddress, token2.balance, token2.rootAddress));
+        Terminal.print(0, "Your balance:");
+        Terminal.print(0, format("{} for {}", token1.balance, token1.rootAddress));
+        Terminal.print(tvm.functionId(choseNextStep), format("{} for {}", token2.balance, token2.rootAddress));
     }
 
     // Choice of token to operate with
@@ -159,7 +159,7 @@ contract SwapDebot is Debot, ISwapPairInformation {
         } else if (state == PROVIDE_LIQUIDITY || state == REMOVE_LIQUIDITY) {
             string headT1 = "Input first token amount to ";
             string headT2 = "Input second token amount to ";
-            string tail = state == PROVIDE_LIQUIDITY ?  "add to LP: "                 : "withdraw from LP: ";
+            string tail = state == PROVIDE_LIQUIDITY ?  "add to LP: " : "withdraw from LP: ";
             headT1.append(tail);
             headT2.append(tail);
             Terminal.inputUint(tvm.functionId(setToken1Amount), headT1);
@@ -247,7 +247,7 @@ contract SwapDebot is Debot, ISwapPairInformation {
     }
 
     function showSwapResult(SwapInfo si) public {
-        Terminal.print(tvm.functionId(mainMenu), format("Tokens received after swap: {}", si.targetTokenAmount));
+        Terminal.print(tvm.functionId(mainMenu), format("Swapped: {} for {} with {} fee", si.swappableTokenAmount, si.targetTokenAmount, si.fee));
     }
 
     function submitLiquidityProvide() public {
@@ -315,7 +315,8 @@ contract SwapDebot is Debot, ISwapPairInformation {
         string head = state == USER_TOKEN_BALANCE ? "Tokens not in liquidity pool: " : "Tokens in liquidity pool: ";
 
         Terminal.print(0, head);
-        Terminal.print(tvm.functionId(mainMenu), format( "{} -> {}; {} -> {}", token1.balance, token1.rootAddress, token2.balance, token2.rootAddress));
+        Terminal.print(0, format("{} for {}", token1.balance, token1.rootAddress));
+        Terminal.print(tvm.functionId(mainMenu), format("{} for {}", token2.balance, token2.rootAddress));
     }
 
     function showTokenWithdrawResullt() public {
