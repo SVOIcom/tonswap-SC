@@ -591,7 +591,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         mapping(address => uint8) tokenPositions_,
         mapping(uint8 => address) tokenWallets_,
         mapping(uint8 => mapping(uint256 => uint128)) tokenUserBalances_,
-        uint256 liquidityTokensMinted = 0,
+        uint256 liquidityTokensMinted,
         mapping(uint256 => uint256) liquidityUserTokens,
         mapping(uint256 => uint128) rewardUserBalance_,  
         address spRootContract,  // address of swap pair root contract
