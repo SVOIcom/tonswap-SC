@@ -92,12 +92,12 @@ contract RootSwapPairContract is
     returns (address) {
         uint256 uniqueID = tokenRootContract1.value^tokenRootContract2.value;
         require(!swapPairDB.exists(uniqueID), error_pair_already_exists, error_pair_already_exists_msg);
-        // require(msg.value > contractServicePayment + sendToNewSwapPair, error_message_value_is_too_low, error_message_value_is_too_low_msg);
+        require(msg.value > contractServicePayment + sendToNewSwapPair, error_message_value_is_too_low, error_message_value_is_too_low_msg);
         // Uncomment to use debug balance manager variant (just disable it :) )
-        tvm.accept();
+        // tvm.accept();
         // The rest will be used to execute current function and keep swap pairs
         // alive if they request tons
-        // tvm.rawReserve(msg.value - contractServicePayment - sendToNewSwapPair, 2);
+        tvm.rawReserve(msg.value - contractServicePayment - sendToNewSwapPair, 2);
 
         uint256 currentTimestamp = now; 
 
