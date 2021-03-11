@@ -35,31 +35,31 @@ contract TestSwapPairContract is ISwapPairContract {
 
     function swap(address swappableTokenRoot,  uint128 swappableTokenAmount) override external {
         tvm.accept();
-    } //-- 
+    }
 
     function getExchangeRate(address swappableTokenRoot, uint128 swappableTokenAmount) override external view returns (uint256 rate) {
         tvm.accept();
         return 1;
-    } //int twm accept
+    }
 
     function provideLiquidity(uint128 firstTokenAmount, uint128 secondTokenAmount) override external {
         tvm.accept();
-    } //twm accept
+    }
 
     function getCreationTimestamp() override external view returns (uint256 creationTimestamp) {
         tvm.accept();
         return 1;
-    } //twm accept int
+    }
     
     function getPairInfo() override external view returns (SwapPairInfo info) {
         tvm.accept();
         return testPairInfo;
 
-    } //+ set ret SwapPairInfo
+    }
 
     function getUserBalance() override external view returns (UserBalanceInfo ubi) {
         tvm.accept();
         return testBalanceInfo;
 
-    } //+ set ret UserBalanceInfo
+    }
 }
