@@ -225,7 +225,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         override 
         external 
         view 
-        returns (UserBalanceInfo ubi) 
+        returns (UserPoolInfo ubi) 
     {
         uint _pk = pubkey != 0 ? pubkey : msg.pubkey();
         tvm.accept();
@@ -280,6 +280,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         external
         initialized
         onlyPrePaid
+        returns (uint128 providedFirstTokenAmount, uint128 providedSecondTokenAmount)
     {
         uint256 pubkey = msg.pubkey();
         tvm.accept();
@@ -325,6 +326,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         kLast = uint256(lps[T1] * lps[T2]);
 
         usersTONBalance[pubkey] -= heavyFunctionCallCost;
+
+        return (provided1, provided2);
     }
 
 
