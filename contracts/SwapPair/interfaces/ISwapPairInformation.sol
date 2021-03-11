@@ -25,6 +25,13 @@ interface ISwapPairInformation {
         uint128 tokenBalance2;
     }
 
+    struct UserPoolInfo {
+        address tokenRoot1;
+        address tokenRoot2;
+        uint256 userLiquidityTokenBalance;
+        uint256 liquidityTokensMinted;
+    }
+
     struct SwapInfo {
         uint128 swappableTokenAmount;
         uint128 targetTokenAmount;

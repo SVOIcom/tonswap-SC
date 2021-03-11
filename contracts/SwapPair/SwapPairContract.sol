@@ -25,6 +25,9 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     uint128 constant feeDenominator = 1000;
     uint256 constant kMin = 0;
 
+    uint256 liquidityTokensMinted = 0;
+    mapping(uint256 => uint256) liquidityUserTokens;
+
     mapping(uint8 => address) tokens;
     mapping(address => uint8) tokenPositions;
 
@@ -34,7 +37,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     //Users balances
     mapping(uint256 => uint256) usersTONBalance;
     mapping(uint8 => mapping(uint256 => uint128)) tokenUserBalances;
-    mapping(uint8 => mapping(uint256 => uint128)) liquidityUserBalances;
     mapping(uint256 => uint128) rewardUserBalance;
 
     //Liquidity Pools
@@ -227,11 +229,11 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     {
         uint _pk = pubkey != 0 ? pubkey : msg.pubkey();
         tvm.accept();
-        return UserBalanceInfo(
+        return UserPoolInfo(
             token1,
             token2,
-            liquidityUserBalances[T1][_pk],
-            liquidityUserBalances[T2][_pk]
+            liquidityUserTokens[_pk],
+            liquidityTokensMinted
         );
     }
 
@@ -273,14 +275,12 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     //============LP Functions============
 
-    function provideLiquidity(uint128 maxFirstTokenAmount, uint128 maxSecondTokenAmount) 
+    function provideLiquidity(uint128 maxFirstTokenAmount, uint128 maxSecondTokenAmount)
         override
         external
         initialized
         onlyPrePaid
-        returns (uint128 providedFirstTokenAmount, uint128 providedSecondTokenAmount)
     {
-        //tvm.rawReserve(prechecksForHeavyFunctions, 2);
         uint256 pubkey = msg.pubkey();
         tvm.accept();
 
@@ -293,10 +293,12 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
         uint128 provided1 = 0;
         uint128 provided2 = 0;
+        uint256 minted = 0;
 
         if ( !checkIsLiquidityProvided() ) {
             provided1 = maxFirstTokenAmount;
             provided2 = maxSecondTokenAmount;
+            minted = provided1 * provided2;
         }
         else {
             uint128 maxToProvide1 = maxSecondTokenAmount != 0 ? (maxSecondTokenAmount * lps[T1] / lps[T2]) : 0;
@@ -304,26 +306,27 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             if (maxToProvide1 <= maxFirstTokenAmount ) {
                 provided1 = maxToProvide1;
                 provided2 = maxSecondTokenAmount;
+                minted = uint256( provided2 * uint256(liquidityTokensMinted / lps[T2]) );
             } else {
                 provided1 = maxFirstTokenAmount;
                 provided2 = maxToProvide2;
+                minted = uint256( provided1 * uint256(liquidityTokensMinted / lps[T1]) );
             }
         }
 
         tokenUserBalances[T1][pubkey]-= provided1;
-        tokenUserBalances[T2][pubkey]-= provided2;        
+        tokenUserBalances[T2][pubkey]-= provided2;  
 
-        liquidityUserBalances[T1][pubkey] += provided1;
-        liquidityUserBalances[T2][pubkey] += provided2;
+        liquidityTokensMinted += minted;
+        liquidityUserTokens[pubkey] += minted;
 
         lps[T1] += provided1;
         lps[T2] += provided2;
         kLast = uint256(lps[T1] * lps[T2]);
 
         usersTONBalance[pubkey] -= heavyFunctionCallCost;
-
-        return (provided1, provided2);
     }
+
 
 
     function withdrawLiquidity(uint128 minFirstTokenAmount, uint128 minSecondTokenAmount)
@@ -341,30 +344,31 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             ERROR_NO_LIQUIDITY_PROVIDED,
             ERROR_NO_LIQUIDITY_PROVIDED_MSG
         );
-        checkUserLPTokens(minFirstTokenAmount, minSecondTokenAmount, pubkey);
-        //usersTONBalance[pubkey] -= prechecksForHeavyFunctions;
-
-        //tvm.rawReserve(heavyFunctionCallCost - prechecksForHeavyFunctions, 2);
 
         uint128 withdrawed1 = minSecondTokenAmount != 0 ? (lps[T1] * minSecondTokenAmount / lps[T2]) : 0;
         uint128 withdrawed2 = minFirstTokenAmount  != 0 ? (lps[T2] * minFirstTokenAmount / lps[T1])  : 0;
+        uint256 burned = 0;
 
         if (withdrawed1 > 0 && withdrawed1 >= minFirstTokenAmount) {
             withdrawed2 = minSecondTokenAmount;
+            burned = uint256( withdrawed2 * uint256( liquidityTokensMinted / lps[T2]) );
         }
         else if (withdrawed2 > 0 && withdrawed2 >= minSecondTokenAmount) {
             withdrawed1 = minFirstTokenAmount;
+            burned = uint256( withdrawed1 * uint256( liquidityTokensMinted / lps[T1]) );
         }
         else {
             return (0, 0);
         }
 
+        _checkIfEnoughUserLiquidity(burned, pubkey);
+
         lps[T1] -= withdrawed1;
         lps[T2] -= withdrawed2;
         kLast = uint256(lps[T1] * lps[T2]);
 
-        liquidityUserBalances[T1][pubkey] -= withdrawed1;
-        liquidityUserBalances[T2][pubkey] -= withdrawed2;
+        liquidityTokensMinted -= burned;
+        liquidityUserTokens[pubkey] -= burned;
 
         tokenUserBalances[T1][pubkey] += withdrawed1;
         tokenUserBalances[T2][pubkey] += withdrawed2; 
@@ -574,7 +578,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             tokenPositions,
             tokenWallets,
             tokenUserBalances,
-            liquidityUserBalances,
+            liquidityTokensMinted,
+            liquidityUserTokens,
             rewardUserBalance,
             swapPairRootContract,
             swapPairDeployer
@@ -586,7 +591,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         mapping(address => uint8) tokenPositions_,
         mapping(uint8 => address) tokenWallets_,
         mapping(uint8 => mapping(uint256 => uint128)) tokenUserBalances_,
-        mapping(uint8 => mapping(uint256 => uint128)) liquidityUserBalances_,
+        uint256 liquidityTokensMinted = 0,
+        mapping(uint256 => uint256) liquidityUserTokens,
         mapping(uint256 => uint128) rewardUserBalance_,  
         address spRootContract,  // address of swap pair root contract
         uint    spDeployer // pubkey of swap pair deployer
@@ -703,10 +709,9 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         );
     }
 
-    function checkUserLPTokens(uint128 minFirstTokenAmount, uint128 minSecondTokenAmount, uint pubkey) private view inline {
+    function _checkIfEnoughUserLiquidity(uint256 burned, uint256 pubkey) private view inline {
         require(
-            liquidityUserBalances[T1][pubkey] >= minFirstTokenAmount && 
-            liquidityUserBalances[T2][pubkey] >= minSecondTokenAmount, 
+            liquidityUserTokens[pubkey] >= burned, 
             ERROR_INSUFFICIENT_USER_LP_BALANCE,
             ERROR_INSUFFICIENT_USER_LP_BALANCE_MSG
         );
