@@ -260,6 +260,17 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         return (lps[T1], lps[T2]);
     }
 
+    function getCurrentExchangeRateExt()
+        override
+        external
+        view
+        prePaid
+        returns(uint128, uint128)
+    {
+        tvm.accept();
+        return (lps[T1], lps[T2]);
+    }
+
     //============LP Functions============
 
     function provideLiquidity(uint128 maxFirstTokenAmount, uint128 maxSecondTokenAmount) 
