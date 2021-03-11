@@ -60,10 +60,11 @@ contract RootTokenContract is IRootTokenContract, IBurnableTokenRootContract, IB
         require((owner_address_.value != 0 && wallet_public_key_ == 0) ||
                 (owner_address_.value == 0 && wallet_public_key_ != 0),
                 error_define_wallet_public_key_or_owner_address);
+        // tvm.accept();
         address walletAddress = getExpectedWalletAddress(wallet_public_key_, owner_address_);
-        if ((msg.sender).value != 0) {
-            IWalletCreationCallback(msg.sender).getWalletAddressCallback(walletAddress);
-        }
+        // if (msg.sender.value != 0) {
+        //     IWalletCreationCallback(msg.sender).getWalletAddressCallback(walletAddress);
+        // }
         return walletAddress;
     }
 

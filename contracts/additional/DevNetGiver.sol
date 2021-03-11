@@ -1,0 +1,15 @@
+pragma ton-solc ^0.36.0;
+pragma AbiHeader pubkey;
+pragma AbiHeader expire;
+pragma AbiHeader time;
+
+contract DevNetGiver {
+    constructor() public {
+        tvm.accept();
+    }
+
+    function sendGrams(address dest, uint64 amount) external pure {
+        tvm.accept();
+        address(dest).transfer({value: amount, bounce: false});
+    }
+}
