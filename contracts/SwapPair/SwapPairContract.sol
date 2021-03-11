@@ -51,7 +51,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     // Balance managing constants
     // Average function execution cost + 20-30% reserve
     uint128 constant prechecksForHeavyFunctions = 10   milli;
-    uint128 constant heavyFunctionCallCost      = 100  milli;
+    uint128          heavyFunctionCallCost      = 100  milli;
     // Required for interaction with wallets for smart-contracts
     uint128 constant sendToTIP3TokenWallets     = 110  milli;
     // We don't want to risk, this is one-time procedure
@@ -280,16 +280,12 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         onlyPrePaid
         returns (uint128 providedFirstTokenAmount, uint128 providedSecondTokenAmount)
     {
-        //tvm.rawReserve(prechecksForHeavyFunctions, 2);
         uint256 pubkey = msg.pubkey();
+        uint128 _sb = address(this).balance;
         tvm.accept();
 
-        // Heavy checks
         notZeroLiquidity(maxFirstTokenAmount, maxSecondTokenAmount);
         checkUserTokens(token1, maxFirstTokenAmount, token2, maxSecondTokenAmount, pubkey);
-        //usersTONBalance[pubkey] -= prechecksForHeavyFunctions;
-
-        //tvm.rawReserve(heavyFunctionCallCost - prechecksForHeavyFunctions, 2);
 
         uint128 provided1 = 0;
         uint128 provided2 = 0;
@@ -333,8 +329,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         onlyPrePaid
         returns (uint128 withdrawedFirstTokenAmount, uint128 withdrawedSecondTokenAmount)
     {
+        uint128 _sb = address(this).balance;
         uint256 pubkey = msg.pubkey();
-        //tvm.rawReserve(prechecksForHeavyFunctions, 2);
         tvm.accept();
         require(
             checkIsLiquidityProvided(),
@@ -342,9 +338,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             ERROR_NO_LIQUIDITY_PROVIDED_MSG
         );
         checkUserLPTokens(minFirstTokenAmount, minSecondTokenAmount, pubkey);
-        //usersTONBalance[pubkey] -= prechecksForHeavyFunctions;
-
-        //tvm.rawReserve(heavyFunctionCallCost - prechecksForHeavyFunctions, 2);
 
         uint128 withdrawed1 = minSecondTokenAmount != 0 ? (lps[T1] * minSecondTokenAmount / lps[T2]) : 0;
         uint128 withdrawed2 = minFirstTokenAmount  != 0 ? (lps[T2] * minFirstTokenAmount / lps[T1])  : 0;
@@ -382,11 +375,10 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     function _swap(address swappableTokenRoot, uint128 swappableTokenAmount)
         internal
         initialized
-        // liquidityProvided
         onlyPrePaid
-        // tokenExistsInPair(swappableTokenRoot)
         returns (SwapInfo)  
     {
+        uint128 _sb = address(this).balance;
         uint256 pubK = msg.pubkey();
         tvm.accept();
         require(
@@ -394,12 +386,9 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             ERROR_NO_LIQUIDITY_PROVIDED,
             ERROR_NO_LIQUIDITY_PROVIDED_MSG
         );
-        //tvm.rawReserve(prechecksForHeavyFunctions, 2);
         notEmptyAmount(swappableTokenAmount);
         userEnoughTokenBalance(swappableTokenRoot, swappableTokenAmount, pubK);
         usersTONBalance[pubK] -= prechecksForHeavyFunctions;
-
-        //tvm.rawReserve(heavyFunctionCallCost - prechecksForHeavyFunctions, 2);
 
         _SwapInfoInternal _si = _getSwapInfo(swappableTokenRoot, swappableTokenAmount);
         uint8 fromK = _si.fromKey;
@@ -424,14 +413,15 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         initialized
         onlyPrePaid
     {
+        uint128 _sb = address(this).balance;
+        uint pubkey = msg.pubkey();
+        uint8 _tn = tokenPositions[withdrawalTokenRoot];
+        tvm.accept();
         require(
             tokenPositions.exists(withdrawalTokenRoot),
             ERROR_INVALID_TOKEN_ADDRESS,
             ERROR_INVALID_TOKEN_ADDRESS_MSG
         );
-        uint pubkey = msg.pubkey();
-        uint8 _tn = tokenPositions[withdrawalTokenRoot];
-        tvm.accept();
         require(
             tokenUserBalances[_tn][pubkey] >= amount && amount != 0,
             ERROR_INVALID_TOKEN_AMOUNT,
@@ -447,10 +437,19 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         }(receiveTokenWallet, amount, 0);
         tokenUserBalances[_tn][pubkey] -= amount;
         usersTONBalance[pubkey] -= heavyFunctionCallCost;
+        SwapPairContract(this)._rebalance(_sb);
     }
 
 
     //============HELPERS============
+
+    function _rebalance(uint128 balance) external { 
+        require(msg.sender == address(this));
+        if (address(this).balance + heavyFunctionCallCost > balance)
+            heavyFunctionCallCost = heavyFunctionCallCost * 997  / 1000;
+        else
+            heavyFunctionCallCost = heavyFunctionCallCost * 1008 / 1000;
+    }
     
     function _getSwapInfo(address swappableTokenRoot, uint128 swappableTokenAmount) 
         private 
