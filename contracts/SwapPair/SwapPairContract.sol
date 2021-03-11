@@ -266,7 +266,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         override
         external
         view
-        prePaid
+        onlyPrePaid
         returns(uint128, uint128)
     {
         tvm.accept();
