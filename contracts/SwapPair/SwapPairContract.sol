@@ -302,16 +302,16 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             minted = provided1 * provided2;
         }
         else {
-            uint128 maxToProvide1 = maxSecondTokenAmount != 0 ? (maxSecondTokenAmount * lps[T1] / lps[T2]) : 0;
-            uint128 maxToProvide2 = maxFirstTokenAmount  != 0 ? (maxFirstTokenAmount * lps[T2] / lps[T1])  : 0;
+            uint128 maxToProvide1 = maxSecondTokenAmount != 0 ?  math.muldiv(maxSecondTokenAmount, lps[T1], lps[T2]) : 0;
+            uint128 maxToProvide2 = maxFirstTokenAmount  != 0 ?  math.muldiv(maxFirstTokenAmount,  lps[T2], lps[T1]) : 0;
             if (maxToProvide1 <= maxFirstTokenAmount ) {
                 provided1 = maxToProvide1;
                 provided2 = maxSecondTokenAmount;
-                minted = uint256( provided2 * uint256(liquidityTokensMinted / lps[T2]) );
+                minted =  math.muldiv(uint256(provided2), liquidityTokensMinted, uint256(lps[T2]) );
             } else {
                 provided1 = maxFirstTokenAmount;
                 provided2 = maxToProvide2;
-                minted = uint256( provided1 * uint256(liquidityTokensMinted / lps[T1]) );
+                minted =  math.muldiv(uint256(provided1), liquidityTokensMinted, uint256(lps[T1]) );
             }
         }
 
@@ -348,17 +348,17 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             ERROR_NO_LIQUIDITY_PROVIDED_MSG
         );
 
-        uint128 withdrawed1 = minSecondTokenAmount != 0 ? (lps[T1] * minSecondTokenAmount / lps[T2]) : 0;
-        uint128 withdrawed2 = minFirstTokenAmount  != 0 ? (lps[T2] * minFirstTokenAmount / lps[T1])  : 0;
+        uint128 withdrawed1 = minSecondTokenAmount != 0 ? math.muldiv(lps[T1], minSecondTokenAmount, lps[T2]) : 0;
+        uint128 withdrawed2 = minFirstTokenAmount  != 0 ? math.muldiv(lps[T2], minFirstTokenAmount,  lps[T1]) : 0;
         uint256 burned = 0;
 
         if (withdrawed1 > 0 && withdrawed1 >= minFirstTokenAmount) {
             withdrawed2 = minSecondTokenAmount;
-            burned = uint256( withdrawed2 * uint256( liquidityTokensMinted / lps[T2]) );
+            burned = math.muldiv( uint256(withdrawed2), liquidityTokensMinted, uint256(lps[T2]) );
         }
         else if (withdrawed2 > 0 && withdrawed2 >= minSecondTokenAmount) {
             withdrawed1 = minFirstTokenAmount;
-            burned = uint256( withdrawed1 * uint256( liquidityTokensMinted / lps[T1]) );
+            burned = math.muldiv( uint256(withdrawed1), liquidityTokensMinted, uint256(lps[T1]) );
         }
         else {
             return (0, 0);
@@ -469,9 +469,9 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         uint8 fromK = _getTokenPosition(swappableTokenRoot);
         uint8 toK = fromK == T1 ? T2 : T1;
 
-        uint128 fee = swappableTokenAmount - swappableTokenAmount * feeNominator / feeDenominator;
+        uint128 fee = swappableTokenAmount - math.muldivc(swappableTokenAmount, feeNominator, feeDenominator);
         uint128 newFromPool = lps[fromK] + swappableTokenAmount;
-        uint128 newToPool = uint128(kLast / (newFromPool - fee));
+        uint128 newToPool = uint128( math.divc(kLast, newFromPool - fee) );
 
         uint128 targetTokenAmount = lps[toK] - newToPool;
 
