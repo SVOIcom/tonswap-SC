@@ -52,7 +52,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     // Balance managing constants
     // Average function execution cost + 20-30% reserve
-    uint128 constant prechecksForHeavyFunctions = 10   milli;
     uint128          getterFunctionCallCost     = 10   milli;
     uint128          heavyFunctionCallCost      = 100  milli;
     // Required for interaction with wallets for smart-contracts
@@ -87,7 +86,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     
     uint8 constant ERROR_NO_LIQUIDITY_PROVIDED         = 130; string constant ERROR_NO_LIQUIDITY_PROVIDED_MSG         = "Error: no liquidity provided";
     uint8 constant ERROR_LIQUIDITY_PROVIDING_RATE      = 131; string constant ERROR_LIQUIDITY_PROVIDING_RATE_MSG      = "Error: added liquidity disrupts the rate";
-    uint8 constant ERROR_INSUFFICIENT_LIQUIDITY_AMOUNT = 132; string constant ERROR_INSUFFICIENT_LIQUIDITY_AMOUNT_MSG = "Error: zero liquidity tokens provided";
+    uint8 constant ERROR_INSUFFICIENT_LIQUIDITY_AMOUNT = 132; string constant ERROR_INSUFFICIENT_LIQUIDITY_AMOUNT_MSG = "Error: zero liquidity tokens provided or provided token amount is too low";
     
 
     constructor(address rootContract, uint spd) public {
@@ -199,11 +198,11 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         initialized
         returns (UserBalanceInfo ubi) 
     {
-        uint _pk = pubkey != 0 ? pubkey : msg.pubkey();
-        if (_pk != 0) {
+        if (msg.pubkey() != 0) {
             tvm.accept();
             SwapPairContract(this)._rebalanceGetters(address(this).balance);
         }
+        uint _pk = pubkey != 0 ? pubkey : msg.pubkey();
         return UserBalanceInfo(
             token1,
             token2,
@@ -219,11 +218,11 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         initialized
         returns (uint balance)
     {
-        uint _pk = pubkey != 0 ? pubkey : msg.pubkey();
-        if (_pk != 0) {
+        if (msg.pubkey() != 0) {
             tvm.accept();
             SwapPairContract(this)._rebalanceGetters(address(this).balance);
         }
+        uint _pk = pubkey != 0 ? pubkey : msg.pubkey();
         return usersTONBalance[_pk];
     }
 
@@ -233,11 +232,11 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         view 
         returns (UserPoolInfo upi) 
     {
-        uint _pk = pubkey != 0 ? pubkey : msg.pubkey();
-        if (_pk != 0) {
+        if (msg.pubkey() != 0) {
             tvm.accept();
             SwapPairContract(this)._rebalanceGetters(address(this).balance);
         }
+        uint _pk = pubkey != 0 ? pubkey : msg.pubkey();
         return UserPoolInfo(
             token1,
             token2,
@@ -296,8 +295,10 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         uint256 pubkey = msg.pubkey();
         uint128 _sb = address(this).balance;
         tvm.accept();
-
-        notZeroLiquidity(maxFirstTokenAmount, maxSecondTokenAmount);
+        if (!notZeroLiquidity(maxFirstTokenAmount, maxSecondTokenAmount)) {
+            _initializeRebalance(pubkey, _sb);
+            return (0,0);
+        }
         checkUserTokens(token1, maxFirstTokenAmount, token2, maxSecondTokenAmount, pubkey);
 
         uint128 provided1 = 0;
@@ -333,7 +334,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         lps[T2] += provided2;
         kLast = uint256(lps[T1] * lps[T2]);
 
-        usersTONBalance[pubkey] -= heavyFunctionCallCost;
+        _initializeRebalance(pubkey, _sb);
 
         return (provided1, provided2);
     }
@@ -370,6 +371,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             burned = math.muldiv( uint256(withdrawed1), liquidityTokensMinted, uint256(lps[T1]) );
         }
         else {
+            _initializeRebalance(pubkey, _sb);
             return (0, 0);
         }
 
@@ -385,7 +387,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         tokenUserBalances[T1][pubkey] += withdrawed1;
         tokenUserBalances[T2][pubkey] += withdrawed2; 
 
-        usersTONBalance[pubkey] -= heavyFunctionCallCost;
+        _initializeRebalance(pubkey, _sb);
         
         return (withdrawed1, withdrawed2);
     }
@@ -402,29 +404,37 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         returns (SwapInfo)  
     {
         uint128 _sb = address(this).balance;
-        uint256 pubK = msg.pubkey();
+        uint256 pubkey = msg.pubkey();
         tvm.accept();
+        require(
+            tokenPositions.exists(swappableTokenRoot),
+            ERROR_INVALID_TOKEN_ADDRESS,
+            ERROR_INVALID_TOKEN_ADDRESS_MSG
+        );
         require(
             checkIsLiquidityProvided(),
             ERROR_NO_LIQUIDITY_PROVIDED,
             ERROR_NO_LIQUIDITY_PROVIDED_MSG
         );
         notEmptyAmount(swappableTokenAmount);
-        userEnoughTokenBalance(swappableTokenRoot, swappableTokenAmount, pubK);
-        usersTONBalance[pubK] -= prechecksForHeavyFunctions;
+        userEnoughTokenBalance(swappableTokenRoot, swappableTokenAmount, pubkey);
 
         _SwapInfoInternal _si = _getSwapInfo(swappableTokenRoot, swappableTokenAmount);
+        if (!notZeroLiquidity(swappableTokenAmount, _si.targetTokenAmount)) {
+            _initializeRebalance(pubkey, _sb);
+            return SwapInfo(0,0,0);
+        }
         uint8 fromK = _si.fromKey;
         uint8 toK = _si.toKey;
 
-        tokenUserBalances[fromK][pubK] -= swappableTokenAmount;
-        tokenUserBalances[toK][pubK] +=   _si.targetTokenAmount;
+        tokenUserBalances[fromK][pubkey] -= swappableTokenAmount;
+        tokenUserBalances[toK][pubkey]   += _si.targetTokenAmount;
 
         lps[fromK] = _si.newFromPool;
         lps[toK] = _si.newToPool;
         kLast = _si.newFromPool * _si.newToPool; // kLast shouldn't have changed
 
-        usersTONBalance[pubK] -= heavyFunctionCallCost;
+        _initializeRebalance(pubkey, _sb);
 
         return SwapInfo(swappableTokenAmount, _si.targetTokenAmount, _si.fee);
     }
@@ -459,12 +469,16 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             value: sendToTIP3TokenWallets
         }(receiveTokenWallet, amount, 0);
         tokenUserBalances[_tn][pubkey] -= amount;
-        usersTONBalance[pubkey] -= heavyFunctionCallCost;
-        SwapPairContract(this)._rebalance(_sb);
+        _initializeRebalance(pubkey, _sb);
     }
 
 
     //============HELPERS============
+
+    function _initializeRebalance(uint pubkey, uint128 startBalance) private inline {
+        usersTONBalance[pubkey] -= heavyFunctionCallCost;
+        SwapPairContract(this)._rebalance(startBalance);
+    }
 
     function _rebalance(uint128 balance) external { 
         require(msg.sender == address(this));
@@ -617,8 +631,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         mapping(address => uint8) tokenPositions_,
         mapping(uint8 => address) tokenWallets_,
         mapping(uint8 => mapping(uint256 => uint128)) tokenUserBalances_,
-        uint256 liquidityTokensMinted,
-        mapping(uint256 => uint256) liquidityUserTokens,
+        uint256 lpTokensMinted,
+        mapping(uint256 => uint256) lpUserTokens,
         mapping(uint256 => uint128) rewardUserBalance_,  
         address spRootContract,  // address of swap pair root contract
         uint    spDeployer // pubkey of swap pair deployer
@@ -699,20 +713,14 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         _;
     }
 
-    
-
     //============Too big for modifier too small for function============
 
     function notEmptyAmount(uint128 _amount) private pure inline {
         require (_amount > 0,  ERROR_INVALID_TOKEN_AMOUNT, ERROR_INVALID_TOKEN_AMOUNT_MSG);
     }
 
-    function notZeroLiquidity(uint128 _amount1, uint128 _amount2) private pure inline {
-        require(
-            _amount1 > 0 && _amount2 > 0,
-            ERROR_INSUFFICIENT_LIQUIDITY_AMOUNT,
-            ERROR_INSUFFICIENT_LIQUIDITY_AMOUNT_MSG
-        );
+    function notZeroLiquidity(uint128 _amount1, uint128 _amount2) private pure inline returns(bool) {
+        return _amount1 > 0 && _amount2 > 0;
     }
 
     function userEnoughTokenBalance(address _token, uint128 amount, uint pubkey) private view inline {

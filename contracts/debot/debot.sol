@@ -17,7 +17,7 @@ import "../RIP-3/interfaces/IRootTokenContract.sol";
 
 struct TokensInfo {
     address rootAddress;
-    uint128 balance;
+    uint balance;
     string symbol;
 }
 
@@ -38,10 +38,10 @@ contract SwapDebot is Debot, ISwapPairInformation {
     TokensInfo token1; TokensInfo token2;
 
     // Variables to store user input
-    uint128 tokenAmount; 
+    uint tokenAmount; 
     address chosenToken;
     address swapPairAddress;    
-    uint128 maxTokenAmount;
+    uint maxTokenAmount;
 
     TokensBalance lpAddWithdraw;
     
@@ -100,16 +100,18 @@ contract SwapDebot is Debot, ISwapPairInformation {
     function checkIfPairExitst(uint acc_type) public {
         if (acc_type != 1) {
             Terminal.print(tvm.functionId(mainMenu), "Swap pair does not exist or is not active. Going back to main menu");
-        } else {
+        } else if (state == USER_TOKEN_BALANCE || state == USER_LP_TOKEN_BALANCE) {
             string phrase = (state == USER_TOKEN_BALANCE || state == USER_LP_TOKEN_BALANCE) ? "Fetching required info..." : "Looks like swap pair exists and is active. Getting info about available tokens...";
             Terminal.print(tvm.functionId(getUserTokens), phrase);
+        } else {
+            Terminal.print(tvm.functionId(getLPK), "Getting info about current exchange rate");
         }
     }
 
     // Requesting information about user's tokens from pair contract
     function getUserTokens() public {
         optional(uint256) pubkey = 0;
-        if (state == USER_TOKEN_BALANCE || state == PROVIDE_LIQUIDITY || state == SWAP ||state == WITHDRAW_TOKENS_FROM_PAIR)
+        if (state == USER_TOKEN_BALANCE || state == PROVIDE_LIQUIDITY || state == SWAP || state == WITHDRAW_TOKENS_FROM_PAIR)
             ISwapPairContract(swapPairAddress).getUserBalance{
                 abiVer: 2,
                 extMsg: true,
@@ -147,14 +149,28 @@ contract SwapDebot is Debot, ISwapPairInformation {
     function setLPTokenInfo(UserPoolInfo upi) public {
         token1.rootAddress = upi.tokenRoot1;
         token2.rootAddress = upi.tokenRoot2;
-        token1.balance = uint128(math.muldiv(upi.lpToken1, upi.userLiquidityTokenBalance, upi.liquidityTokensMinted));
-        token2.balance = uint128(math.muldiv(upi.lpToken2, upi.userLiquidityTokenBalance, upi.liquidityTokensMinted));
+        if (upi.liquidityTokensMinted != 0) {
+            token1.balance = math.muldiv(upi.lpToken1, upi.userLiquidityTokenBalance, upi.liquidityTokensMinted);
+            token2.balance = math.muldiv(upi.lpToken2, upi.userLiquidityTokenBalance, upi.liquidityTokensMinted);
+        }
         Terminal.print(0, "Your tokens in liquidity pool:");
         Terminal.print(0, format("{} for {}", token1.balance, token1.rootAddress));
         Terminal.print(tvm.functionId(choseNextStep), format("{} for {}", token2.balance, token2.rootAddress));
     }
 
-    
+    function getLPK() public {
+        optional(uint256) pubkey = 0;
+        ISwapPairContract(swapPairAddress).getCurrentExchangeRateExt{
+            abiVer: 2,
+            extMsg: true,
+            sign: true,
+            pubkey: pubkey,
+            time: uint64(now),
+            expire: 0,
+            callbackId: tvm.functionId(showCurrentExchangeRate),
+            onErrorId: 0
+        }();
+    }
 
     // Choice of token to operate with
     function choseNextStep() public {
@@ -252,7 +268,7 @@ contract SwapDebot is Debot, ISwapPairInformation {
             expire: 0,
             callbackId: tvm.functionId(showSwapResult),
             onErrorId: 0
-        }(chosenToken, tokenAmount);
+        }(chosenToken, uint128(tokenAmount));
     }
 
     function showSwapResult(SwapInfo si) public {
@@ -270,7 +286,7 @@ contract SwapDebot is Debot, ISwapPairInformation {
             expire: 0,
             callbackId: tvm.functionId(showLPres),
             onErrorId: 0
-        }(lpAddWithdraw.token1, lpAddWithdraw.token2);
+        }(uint128(lpAddWithdraw.token1), uint128(lpAddWithdraw.token2));
     }
 
     function submitLiquidityRemoval() public {
@@ -284,10 +300,16 @@ contract SwapDebot is Debot, ISwapPairInformation {
             expire: 0,
             callbackId: tvm.functionId(showLPres),
             onErrorId: 0
-        }(lpAddWithdraw.token1, lpAddWithdraw.token2);
+        }(uint128(lpAddWithdraw.token1), uint128(lpAddWithdraw.token2));
     }
 
     function showLPres(uint128 ftA, uint128 stA) public {
+        if (ftA == 0 || stA == 0) {
+            string phrase = state == PROVIDE_LIQUIDITY ?
+                "If any token amount is 0, than you must provide more tokens to LP. Tokens were not provided to LP." :
+                "If any token amount is 0, than you must withdraw more tokens from LP. Tokens were not withdrawed from LP.";
+            Terminal.print(0, phrase);
+        }
         string head = state == PROVIDE_LIQUIDITY ? "Tokens added to LP:" : "Tokens removed from LP: ";
         Terminal.print(0, head);
         Terminal.print(tvm.functionId(mainMenu), format("{} for first token, {} for second token", ftA, stA));
@@ -313,7 +335,7 @@ contract SwapDebot is Debot, ISwapPairInformation {
             expire: 0,
             callbackId: tvm.functionId(showTokenWithdrawResullt),
             onErrorId: 0
-        }(chosenToken, value, tokenAmount);
+        }(chosenToken, value, uint128(tokenAmount));
     }
 
     // function showUserBalance(UserBalanceInfo ubi) public {
@@ -342,5 +364,9 @@ contract SwapDebot is Debot, ISwapPairInformation {
 
     function showTokenWithdrawResullt() public {
         Terminal.print(tvm.functionId(mainMenu), "Token withdraw successfull");
+    }
+
+    function showCurrentExchangeRate(uint128 fta, uint128 sta) public {
+        Terminal.print(tvm.functionId(mainMenu), format("Current k: {}/{}", fta, sta));
     }
 }
