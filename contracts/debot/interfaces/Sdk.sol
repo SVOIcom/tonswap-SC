@@ -1,4 +1,4 @@
-pragma solidity >= 0.6.0;
+pragma ton-solidity >= 0.6.0;
 interface ISdk {
 //account info
 function getBalance(uint32 answerId, address addr) external returns (uint128 nanotokens);

@@ -1,5 +1,4 @@
-
-pragma solidity >= 0.6.0;
+pragma ton-solidity >= 0.6.0;
 pragma AbiHeader expire;
 pragma AbiHeader pubkey;
 pragma AbiHeader time;
@@ -91,7 +90,7 @@ contract RootSwapPairContract is
         external 
         override
         onlyPaid 
-    returns (address) {
+    returns (address cA) {
         uint256 uniqueID = tokenRootContract1.value^tokenRootContract2.value;
         require(!swapPairDB.exists(uniqueID), error_pair_already_exists, error_pair_already_exists_msg);
         // require(msg.value > contractServicePayment + sendToNewSwapPair, error_message_value_is_too_low, error_message_value_is_too_low_msg);

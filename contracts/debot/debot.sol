@@ -1,4 +1,4 @@
-pragma ton-solidity ^0.36.0;
+pragma ton-solidity >= 0.6.0;
 pragma AbiHeader expire;
 pragma AbiHeader time;
 pragma AbiHeader pubkey;
@@ -193,33 +193,6 @@ contract SwapDebot is Debot, ISwapPairInformation {
         }
     }
 
-    // function getInfoAboutUser() public {
-    //     optional(uint256) pubkey = 0;
-    //     if (state == USER_TOKEN_BALANCE) {
-    //         ISwapPairContract(swapPairAddress).getUserBalance{
-    //             abiVer: 2,
-    //             extMsg: true,
-    //             sign: true,
-    //             pubkey: pubkey,
-    //             time: uint64(now),
-    //             expire: 0,
-    //             callbackId: tvm.functionId(showUserBalance),
-    //             onErrorId: 0
-    //         }(0);
-    //     } else if (state == USER_LP_TOKEN_BALANCE) {
-    //         ISwapPairContract(swapPairAddress).getUserLiquidityPoolBalance{
-    //             abiVer: 2,
-    //             extMsg: true,
-    //             sign: true,
-    //             pubkey: pubkey,
-    //             time: uint64(now),
-    //             expire: 0,
-    //             callbackId: tvm.functionId(showUserLPBalance),
-    //             onErrorId: 0
-    //         }(0);
-    //     }
-    // }
-
     function setToken1Amount(uint value) public {
         lpAddWithdraw.token1 = uint128(value);
     }
@@ -337,30 +310,6 @@ contract SwapDebot is Debot, ISwapPairInformation {
             onErrorId: 0
         }(chosenToken, value, uint128(tokenAmount));
     }
-
-    // function showUserBalance(UserBalanceInfo ubi) public {
-    //     token1.rootAddress = ubi.tokenRoot1;
-    //     token1.balance = ubi.tokenBalance1;
-    //     token2.rootAddress = ubi.tokenRoot2;
-    //     token2.balance = ubi.tokenBalance2;
-    //     string head = state == USER_TOKEN_BALANCE ? "Tokens not in liquidity pool: " : "Tokens in liquidity pool: ";
-
-    //     Terminal.print(0, head);
-    //     Terminal.print(0, format("{} for {}", token1.balance, token1.rootAddress));
-    //     Terminal.print(tvm.functionId(mainMenu), format("{} for {}", token2.balance, token2.rootAddress));
-    // }
-
-    // function showUserLPBalance(UserBalanceInfo ubi) public {
-    //     token1.rootAddress = ubi.tokenRoot1;
-    //     token1.balance = ubi.tokenBalance1;
-    //     token2.rootAddress = ubi.tokenRoot2;
-    //     token2.balance = ubi.tokenBalance2;
-    //     string head = state == USER_TOKEN_BALANCE ? "Tokens not in liquidity pool: " : "Tokens in liquidity pool: ";
-
-    //     Terminal.print(0, head);
-    //     Terminal.print(0, format("{} for {}", token1.balance, token1.rootAddress));
-    //     Terminal.print(tvm.functionId(mainMenu), format("{} for {}", token2.balance, token2.rootAddress));
-    // }
 
     function showTokenWithdrawResullt() public {
         Terminal.print(tvm.functionId(mainMenu), "Token withdraw successfull");
