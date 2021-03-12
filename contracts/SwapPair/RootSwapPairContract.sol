@@ -47,6 +47,9 @@ contract RootSwapPairContract is
     // Required because we want only unique swap pairs
     mapping (uint256 => SwapPairInfo) swapPairDB;
 
+    // Information about user balances
+    mapping (uint256 => uint128) userTONBalances;
+
     //============Errors============
 
     uint8 error_message_sender_is_not_deployer       = 100; string constant error_message_sender_is_not_deployer_msg       = "Message sender is not deployer";
@@ -88,16 +91,15 @@ contract RootSwapPairContract is
         external 
         override
         onlyPaid 
-        pairWithTokensDoesNotExist(tokenRootContract1, tokenRootContract2) 
     returns (address) {
         uint256 uniqueID = tokenRootContract1.value^tokenRootContract2.value;
         require(!swapPairDB.exists(uniqueID), error_pair_already_exists, error_pair_already_exists_msg);
-        require(msg.value > contractServicePayment + sendToNewSwapPair, error_message_value_is_too_low, error_message_value_is_too_low_msg);
+        // require(msg.value > contractServicePayment + sendToNewSwapPair, error_message_value_is_too_low, error_message_value_is_too_low_msg);
         // Uncomment to use debug balance manager variant (just disable it :) )
-        // tvm.accept();
+        tvm.accept();
         // The rest will be used to execute current function and keep swap pairs
         // alive if they request tons
-        tvm.rawReserve(msg.value - contractServicePayment - sendToNewSwapPair, 2);
+        // tvm.rawReserve(msg.value - contractServicePayment - sendToNewSwapPair, 2);
 
         uint256 currentTimestamp = now; 
 
@@ -128,6 +130,22 @@ contract RootSwapPairContract is
         swapPairDB.add(uniqueID, info);
 
         return contractAddress;
+    }
+
+    //============Receive payments============
+
+    receive() external {
+        require(msg.value > minMessageValue);
+        TvmSlice ts = msg.data;
+        uint pubkey = ts.decode(uint);
+        userTONBalances[pubkey] += msg.value;
+    }
+
+    fallback() external {
+        require(msg.value > minMessageValue);
+        TvmSlice ts = msg.data;
+        uint pubkey = ts.decode(uint);
+        userTONBalances[pubkey] += msg.value;
     }
 
     //============Get functions============
@@ -238,7 +256,11 @@ contract RootSwapPairContract is
     }
 
     modifier onlyPaid() {
-        require(msg.value >= minMessageValue, error_message_value_is_too_low);
+        require(
+            msg.value >= minMessageValue ||
+            userTONBalances[msg.pubkey()] >= minMessageValue, 
+            error_message_value_is_too_low
+        );
         _;
     }
 

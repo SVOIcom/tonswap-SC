@@ -344,7 +344,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             ERROR_NO_LIQUIDITY_PROVIDED,
             ERROR_NO_LIQUIDITY_PROVIDED_MSG
         );
-        checkUserLPTokens(minFirstTokenAmount, minSecondTokenAmount, pubkey);
+        // checkUserLPTokens(minFirstTokenAmount, minSecondTokenAmount, pubkey);
 
         uint128 withdrawed1 = minSecondTokenAmount != 0 ? math.muldiv(lps[T1], minSecondTokenAmount, lps[T2]) : 0;
         uint128 withdrawed2 = minFirstTokenAmount  != 0 ? math.muldiv(lps[T2], minFirstTokenAmount,  lps[T1]) : 0;

@@ -68,7 +68,7 @@ contract SwapDebot is Debot, ISwapPairInformation {
         Terminal.print(tvm.functionId(mainMenu), "Hello, this is debot for swap pairs from SVOI.dev! You can swap tokens and withdraw them from pair.");
     }
 
-    function getVersion() public override returns(string name, uint24 semver) {name = "SwapDeBot"; semver = 1 << 8 + 1; }
+    function getVersion() public override returns(string name, uint24 semver) {name = "SwapDeBot"; semver = 1 << 7 + 1; }
     function quit() public override {}
 
     function mainMenu() public {
@@ -101,7 +101,7 @@ contract SwapDebot is Debot, ISwapPairInformation {
         if (acc_type != 1) {
             Terminal.print(tvm.functionId(mainMenu), "Swap pair does not exist or is not active. Going back to main menu");
         } else {
-            if (state > 1) 
+            if (state == USER_TOKEN_BALANCE || state == USER_LP_TOKEN_BALANCE) 
                 Terminal.print(tvm.functionId(choseNextStep), "Fetching required info...");
             else 
                 Terminal.print(tvm.functionId(getUserTokens), "Looks like swap pair exists and is active. Getting info about available tokens...");
@@ -146,6 +146,8 @@ contract SwapDebot is Debot, ISwapPairInformation {
         Terminal.print(tvm.functionId(choseNextStep), format("{} for {}", token2.balance, token2.rootAddress));
     }
 
+    
+
     // Choice of token to operate with
     function choseNextStep() public {
 
@@ -189,7 +191,7 @@ contract SwapDebot is Debot, ISwapPairInformation {
                 pubkey: pubkey,
                 time: uint64(now),
                 expire: 0,
-                callbackId: tvm.functionId(showUserBalance),
+                callbackId: tvm.functionId(showUserLPBalance),
                 onErrorId: 0
             }(0);
         }
@@ -308,6 +310,18 @@ contract SwapDebot is Debot, ISwapPairInformation {
     }
 
     function showUserBalance(UserBalanceInfo ubi) public {
+        token1.rootAddress = ubi.tokenRoot1;
+        token1.balance = ubi.tokenBalance1;
+        token2.rootAddress = ubi.tokenRoot2;
+        token2.balance = ubi.tokenBalance2;
+        string head = state == USER_TOKEN_BALANCE ? "Tokens not in liquidity pool: " : "Tokens in liquidity pool: ";
+
+        Terminal.print(0, head);
+        Terminal.print(0, format("{} for {}", token1.balance, token1.rootAddress));
+        Terminal.print(tvm.functionId(mainMenu), format("{} for {}", token2.balance, token2.rootAddress));
+    }
+
+    function showUserLPBalance(UserBalanceInfo ubi) public {
         token1.rootAddress = ubi.tokenRoot1;
         token1.balance = ubi.tokenBalance1;
         token2.rootAddress = ubi.tokenRoot2;
