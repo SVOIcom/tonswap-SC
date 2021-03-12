@@ -30,6 +30,8 @@ interface ISwapPairInformation {
         address tokenRoot2;
         uint256 userLiquidityTokenBalance;
         uint256 liquidityTokensMinted;
+        uint128 lpToken1;
+        uint128 lpToken2;
     }
 
     struct SwapInfo {

@@ -53,6 +53,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     // Balance managing constants
     // Average function execution cost + 20-30% reserve
     uint128 constant prechecksForHeavyFunctions = 10   milli;
+    uint128          getterFunctionCallCost     = 10   milli;
     uint128          heavyFunctionCallCost      = 100  milli;
     // Required for interaction with wallets for smart-contracts
     uint128 constant sendToTIP3TokenWallets     = 110  milli;
@@ -178,6 +179,11 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
     function getPairInfo() override external view returns (SwapPairInfo info) {
+        uint _pk = pubkey != 0 ? pubkey : msg.pubkey();
+        if (_pk != 0) {
+            tvm.accept();
+            _rebalanceGetters(address(this).balance);
+        }
         return SwapPairInfo(
             swapPairRootContract,
             token1,
@@ -200,7 +206,10 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         returns (UserBalanceInfo ubi) 
     {
         uint _pk = pubkey != 0 ? pubkey : msg.pubkey();
-        tvm.accept();
+        if (_pk != 0) {
+            tvm.accept();
+            _rebalanceGetters(address(this).balance);
+        }
         return UserBalanceInfo(
             token1,
             token2,
@@ -217,7 +226,10 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         returns (uint balance)
     {
         uint _pk = pubkey != 0 ? pubkey : msg.pubkey();
-        tvm.accept();
+        if (_pk != 0) {
+            tvm.accept();
+            _rebalanceGetters(address(this).balance);
+        }
         return usersTONBalance[_pk];
     }
 
@@ -225,15 +237,20 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         override 
         external 
         view 
-        returns (UserPoolInfo ubi) 
+        returns (UserPoolInfo upi) 
     {
         uint _pk = pubkey != 0 ? pubkey : msg.pubkey();
-        tvm.accept();
+        if (_pk != 0) {
+            tvm.accept();
+            _rebalanceGetters(address(this).balance);
+        }
         return UserPoolInfo(
             token1,
             token2,
             liquidityUserTokens[_pk],
-            liquidityTokensMinted
+            liquidityTokensMinted,
+            lps[T1],
+            lps[T2]
         );
     }
 
@@ -457,10 +474,18 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     function _rebalance(uint128 balance) external { 
         require(msg.sender == address(this));
-        if (address(this).balance + heavyFunctionCallCost > balance)
+        if (address(this).balance + heavyFunctionCallCost + getterFunctionCallCost > balance)
             heavyFunctionCallCost = heavyFunctionCallCost * 997  / 1000;
         else
             heavyFunctionCallCost = heavyFunctionCallCost * 1008 / 1000;
+    }
+
+    function _rebalanceGetters(uint128 balance) external {
+        require(msg.sender == address(this));
+        if (address(this).balance + getterFunctionCallCost > balance)
+            getterFunctionCallCost = getterFunctionCallCost * 997  / 1000;
+        else
+            getterFunctionCallCost = getterFunctionCallCost * 1008 / 1000;
     }
     
     function _getSwapInfo(address swappableTokenRoot, uint128 swappableTokenAmount) 
