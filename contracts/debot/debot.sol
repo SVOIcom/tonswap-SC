@@ -147,8 +147,8 @@ contract SwapDebot is Debot, ISwapPairInformation {
     function setLPTokenInfo(UserPoolInfo upi) public {
         token1.rootAddress = upi.tokenRoot1;
         token2.rootAddress = upi.tokenRoot2;
-        token1.balance = math.muldiv(upi.lpToken1, upi.userLiquidityTokenBalance, upi.liquidityTokensMinted);
-        token2.balance = math.muldiv(upi.lpToken2, upi.userLiquidityTokenBalance, upi.liquidityTokensMinted);
+        token1.balance = uint128(math.muldiv(upi.lpToken1, upi.userLiquidityTokenBalance, upi.liquidityTokensMinted));
+        token2.balance = uint128(math.muldiv(upi.lpToken2, upi.userLiquidityTokenBalance, upi.liquidityTokensMinted));
         Terminal.print(0, "Your tokens in liquidity pool:");
         Terminal.print(0, format("{} for {}", token1.balance, token1.rootAddress));
         Terminal.print(tvm.functionId(choseNextStep), format("{} for {}", token2.balance, token2.rootAddress));

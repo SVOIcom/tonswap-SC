@@ -67,11 +67,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     uint8 constant T1 = 0;
     uint8 constant T2 = 1;
 
-    //debug
-    uint pk;
-    uint sum;
-    uint16 bl;
-
     //Error codes    
     uint8 constant ERROR_CONTRACT_ALREADY_INITIALIZED  = 100; string constant ERROR_CONTRACT_ALREADY_INITIALIZED_MSG  = "Error: contract is already initialized";
     uint8 constant ERROR_CONTRACT_NOT_INITIALIZED      = 101; string constant ERROR_CONTRACT_NOT_INITIALIZED_MSG      = "Error: contract is not initialized";
@@ -179,10 +174,9 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
     function getPairInfo() override external view returns (SwapPairInfo info) {
-        uint _pk = pubkey != 0 ? pubkey : msg.pubkey();
-        if (_pk != 0) {
+        if (msg.pubkey() != 0) {
             tvm.accept();
-            _rebalanceGetters(address(this).balance);
+            SwapPairContract(this)._rebalanceGetters(address(this).balance);
         }
         return SwapPairInfo(
             swapPairRootContract,
@@ -208,7 +202,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         uint _pk = pubkey != 0 ? pubkey : msg.pubkey();
         if (_pk != 0) {
             tvm.accept();
-            _rebalanceGetters(address(this).balance);
+            SwapPairContract(this)._rebalanceGetters(address(this).balance);
         }
         return UserBalanceInfo(
             token1,
@@ -228,7 +222,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         uint _pk = pubkey != 0 ? pubkey : msg.pubkey();
         if (_pk != 0) {
             tvm.accept();
-            _rebalanceGetters(address(this).balance);
+            SwapPairContract(this)._rebalanceGetters(address(this).balance);
         }
         return usersTONBalance[_pk];
     }
@@ -242,7 +236,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         uint _pk = pubkey != 0 ? pubkey : msg.pubkey();
         if (_pk != 0) {
             tvm.accept();
-            _rebalanceGetters(address(this).balance);
+            SwapPairContract(this)._rebalanceGetters(address(this).balance);
         }
         return UserPoolInfo(
             token1,
