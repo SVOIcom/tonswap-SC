@@ -93,8 +93,6 @@ contract RootSwapPairContract is
     returns (address cA) {
         uint256 uniqueID = tokenRootContract1.value^tokenRootContract2.value;
         require(!swapPairDB.exists(uniqueID), error_pair_already_exists, error_pair_already_exists_msg);
-        // require(msg.value > contractServicePayment + sendToNewSwapPair, error_message_value_is_too_low, error_message_value_is_too_low_msg);
-        // Uncomment to use debug balance manager variant (just disable it :) )
         tvm.accept();
         // The rest will be used to execute current function and keep swap pairs
         // alive if they request tons
@@ -258,7 +256,8 @@ contract RootSwapPairContract is
         require(
             msg.value >= minMessageValue ||
             userTONBalances[msg.pubkey()] >= minMessageValue, 
-            error_message_value_is_too_low
+            error_message_value_is_too_low,
+            error_message_value_is_too_low_msg
         );
         _;
     }
@@ -266,28 +265,30 @@ contract RootSwapPairContract is
     modifier pairWithTokensDoesNotExist(address t1, address t2) {
         uint256 uniqueID = t1.value^t2.value;
         optional(SwapPairInfo) pairInfo = swapPairDB.fetch(uniqueID);
-        require(!pairInfo.hasValue(), error_pair_already_exists);
+        require(
+            !pairInfo.hasValue(), 
+            error_pair_already_exists,
+            error_pair_already_exists_msg);
         _;
     }
 
     modifier pairExists(uint256 uniqueID, bool exists) {
         optional(SwapPairInfo) pairInfo = swapPairDB.fetch(uniqueID);
-        require(pairInfo.hasValue() == exists, error_pair_does_not_exist);
+        require(
+            pairInfo.hasValue() == exists, 
+            error_pair_does_not_exist,
+            error_pair_does_not_exist_msg
+        );
         _;
     }
 
     modifier onlyPairDeployer(uint256 uniqueID) {
         SwapPairInfo spi = swapPairDB.at(uniqueID);
-        require(spi.deployerPubkey == msg.pubkey(), error_message_sender_is_not_deployer);
+        require(
+            spi.deployerPubkey == msg.pubkey(), 
+            error_message_sender_is_not_deployer,
+            error_message_sender_is_not_deployer_msg
+        );
         _;
-    }
-
-    //============Debug============
-
-    function getXOR(
-        address tokenRootContract1, 
-        address tokenRootContract2
-    ) external returns (uint256) {
-        return tokenRootContract1.value^tokenRootContract2.value;
     }
 }
