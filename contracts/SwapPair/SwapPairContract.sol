@@ -12,7 +12,7 @@ import './interfaces/ISwapPairInformation.sol';
 import './interfaces/IUpgradeSwapPairCode.sol';
 import './interfaces/ISwapPairDebug.sol';
 
-contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpgradeSwapPairCode, ISwapPairContract {
+contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpgradeSwapPairCode, ISwapPairContract, ISwapPairDebug {
     address static token1;
     address static token2;
     uint    static swapPairID;
