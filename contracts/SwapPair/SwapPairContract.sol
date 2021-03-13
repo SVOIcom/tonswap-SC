@@ -63,6 +63,12 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     uint128 constant walletInitialBalanceAmount = 1000 milli;
     uint128 constant walletDeployMessageValue   = 1500 milli;
 
+    // Constants for mechanism of payment rebalance
+    uint128 constant gettersIncrease  = 1015;
+    uint128 constant gettersDecrease  = 997;
+    uint128 constant functionIncrease = 1010;
+    uint128 constant functionDecrease = 998;
+
     // Tokens positions
     uint8 constant T1 = 0;
     uint8 constant T2 = 1;
@@ -256,6 +262,11 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         tokenExistsInPair(swappableTokenRoot)
         returns (SwapInfo)
     {
+        if (msg.pubkey() != 0) {
+            tvm.accept();
+            SwapPairContract(this)._rebalanceGetters(address(this).balance);
+        }
+
         if (swappableTokenAmount <= 0)
             return SwapInfo(0, 0, 0);
 
@@ -280,7 +291,10 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         onlyPrePaid
         returns(uint128, uint128)
     {
-        tvm.accept();
+        if (msg.pubkey() != 0) {
+            tvm.accept();
+            SwapPairContract(this)._rebalanceGetters(address(this).balance);
+        }
         return (lps[T1], lps[T2]);
     }
 
@@ -290,10 +304,13 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         override
         external
         view
-        onlyPrePaid
+        intialized
         returns (uint128 providedFirstTokenAmount, uint128 providedSecondTokenAmount)
     {
-        tvm.accept();
+        if (msg.pubkey() != 0) {
+            tvm.accept();
+            SwapPairContract(this)._rebalanceGetters(address(this).balance);
+        }
         uint256 _m = 0;
         (providedFirstTokenAmount, providedSecondTokenAmount, _m) = _calculateProvidingLiquidityInfo(maxFirstTokenAmount, maxSecondTokenAmount);
         // _initializeRebalance(msg.pubkey(), address(this).balance);
@@ -305,10 +322,13 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         override
         external
         view
-        onlyPrePaid
+        intialized
         returns (uint128 withdrawedFirstTokenAmount, uint128 withdrawedSecondTokenAmount)
     {
-        tvm.accept();
+        if (msg.pubkey() != 0) {
+            tvm.accept();
+            SwapPairContract(this)._rebalanceGetters(address(this).balance);
+        }
         uint256 _b = 0;
         (withdrawedFirstTokenAmount, withdrawedSecondTokenAmount, _b) = _calculateWithdrawingLiquidityInfo(maxFirstTokenAmount, maxSecondTokenAmount);
         // _initializeRebalance(msg.pubkey(), address(this).balance);
@@ -537,17 +557,17 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     function _rebalance(uint128 balance) external { 
         require(msg.sender == address(this));
         if (address(this).balance + heavyFunctionCallCost + getterFunctionCallCost > balance)
-            heavyFunctionCallCost = heavyFunctionCallCost * 997  / 1000;
+            heavyFunctionCallCost = heavyFunctionCallCost * functionDecrease / 1000;
         else
-            heavyFunctionCallCost = heavyFunctionCallCost * 1008 / 1000;
+            heavyFunctionCallCost = heavyFunctionCallCost * functionIncrease / 1000;
     }
 
     function _rebalanceGetters(uint128 balance) external {
         require(msg.sender == address(this));
         if (address(this).balance + getterFunctionCallCost > balance)
-            getterFunctionCallCost = getterFunctionCallCost * 997  / 1000;
+            getterFunctionCallCost = getterFunctionCallCost * gettersDecrease / 1000;
         else
-            getterFunctionCallCost = getterFunctionCallCost * 1008 / 1000;
+            getterFunctionCallCost = getterFunctionCallCost * gettersIncrease / 1000;
     }
     
     function _getSwapInfo(address swappableTokenRoot, uint128 swappableTokenAmount) 
