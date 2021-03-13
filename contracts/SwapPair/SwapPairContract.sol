@@ -298,8 +298,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         return (lps[T1], lps[T2]);
     }
 
-    // TODO я не знаю, нужен ли тут модификатор onlyPrePaid. Ибо этот метод может дёргать фронт, который всё запускает локально
-    // А может и дебот, который должен заплатить. А вычисление само по себе не особо дешевое (дефолтного газа не хватит)
+    // NOTICE: Requires a lot of gas, will only work with runLocal
     function getProvidingLiquidityInfo(uint128 maxFirstTokenAmount, uint128 maxSecondTokenAmount)
         override
         external
@@ -307,17 +306,11 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         intialized
         returns (uint128 providedFirstTokenAmount, uint128 providedSecondTokenAmount)
     {
-        if (msg.pubkey() != 0) {
-            tvm.accept();
-            SwapPairContract(this)._rebalanceGetters(address(this).balance);
-        }
         uint256 _m = 0;
         (providedFirstTokenAmount, providedSecondTokenAmount, _m) = _calculateProvidingLiquidityInfo(maxFirstTokenAmount, maxSecondTokenAmount);
-        // _initializeRebalance(msg.pubkey(), address(this).balance);
     }
 
-    // TODO я не знаю, нужен ли тут модификатор onlyPrePaid. Ибо этот метод может дёргать фронт, который всё запускает локально
-    // А может и дебот, который должен заплатить. А вычисление само по себе не особо дешевое (дефолтного газа не хватит)
+    // NOTICE: Requires a lot of gas, will only work with runLocal
     function getWithdrawingLiquidityInfo(uint128 maxFirstTokenAmount, uint128 maxSecondTokenAmount)
         override
         external
@@ -325,13 +318,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         intialized
         returns (uint128 withdrawedFirstTokenAmount, uint128 withdrawedSecondTokenAmount)
     {
-        if (msg.pubkey() != 0) {
-            tvm.accept();
-            SwapPairContract(this)._rebalanceGetters(address(this).balance);
-        }
         uint256 _b = 0;
         (withdrawedFirstTokenAmount, withdrawedSecondTokenAmount, _b) = _calculateWithdrawingLiquidityInfo(maxFirstTokenAmount, maxSecondTokenAmount);
-        // _initializeRebalance(msg.pubkey(), address(this).balance);
     }
 
     //============LP Functions============
