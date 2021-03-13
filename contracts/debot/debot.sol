@@ -13,7 +13,7 @@ import "../SwapPair/interfaces/ISwapPairInformation.sol";
 import "../SwapPair/interfaces/ISwapPairInformation.sol";
 import "../SwapPair/interfaces/ISwapPairContract.sol";
 
-import "../RIP-3/interfaces/IRootTokenContract.sol";
+import "../TIP-3/interfaces/IRootTokenContract.sol";
 
 struct TokensInfo {
     address rootAddress;

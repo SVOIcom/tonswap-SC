@@ -3,10 +3,10 @@ pragma AbiHeader pubkey;
 pragma AbiHeader expire;
 pragma AbiHeader time;
 
-import '../RIP-3/interfaces/IRootTokenContract.sol';
-import '../RIP-3/interfaces/ITokensReceivedCallback.sol';
-import '../RIP-3/interfaces/ITONTokenWalletWithNotifiableTransfers.sol';
-import '../RIP-3/interfaces/ITONTokenWallet.sol';
+import '../TIP-3/interfaces/IRootTokenContract.sol';
+import '../TIP-3/interfaces/ITokensReceivedCallback.sol';
+import '../TIP-3/interfaces/ITONTokenWalletWithNotifiableTransfers.sol';
+import '../TIP-3/interfaces/ITONTokenWallet.sol';
 import './interfaces/ISwapPairContract.sol';
 import './interfaces/ISwapPairInformation.sol';
 import './interfaces/IUpgradeSwapPairCode.sol';
