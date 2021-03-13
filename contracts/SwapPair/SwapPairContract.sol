@@ -821,4 +821,126 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             ERROR_INSUFFICIENT_USER_LP_BALANCE_MSG
         );
     }
+
+
+        //============DEBUG============
+
+    function _getLiquidityPoolTokens() override external view returns (_DebugLPInfo dlpi) {
+        return _DebugLPInfo(
+            token1,
+            token2,
+            lps[T1],
+            lps[T2]
+        );
+    }
+
+    function _getExchangeRateSimulation(
+        address swappableTokenRoot, 
+        uint128 swappableTokenAmount, 
+        uint128 fromLP, 
+        uint128 toLP
+    ) 
+        override
+        external  
+        returns (_DebugERInfo deri)
+    {
+        uint128 oldLP1 = lps[T1];
+        uint128 oldLP2 = lps[T2];
+
+        uint8 fromK = _getTokenPosition(swappableTokenRoot); // if tokenRoot doesn't exist, throws exception
+        uint8 toK = fromK == T1 ? T2 : T1;
+        if(fromLP > 0) lps[fromK] = fromLP;
+        if(toLP > 0)   lps[toK]   = toLP;
+
+        _SwapInfoInternal si = _getSwapInfo(swappableTokenRoot, swappableTokenAmount);
+
+        _DebugERInfo result = _DebugERInfo(
+            kLast,
+            si.newFromPool * si.newToPool,
+            swappableTokenAmount,
+            si.targetTokenAmount,
+            si.fee,
+            lps[fromK],
+            lps[toK],
+            si.newFromPool,
+            si.newToPool
+        );
+
+        lps[T1] = oldLP1;
+        lps[T2] = oldLP2;
+
+        return result;
+    }
+
+
+    function _simulateSwap(
+        address swappableTokenRoot, 
+        uint128 swappableTokenAmount, 
+        uint128 fromLP, 
+        uint128 toLP,
+        uint128 fromBalance, 
+        uint128 toBalance
+    ) 
+        override
+        external  
+        returns (_DebugSwapInfo dsi)
+    {   
+        tvm.accept();  // Attention!
+        uint pk = msg.pubkey();
+
+        // backup
+        uint128 oldLP1 = lps[T1];
+        uint128 oldLP2 = lps[T2];
+
+        uint128 oldBalance1 = tokenUserBalances[T1][pk];
+        uint128 oldBalance2 = tokenUserBalances[T2][pk];
+
+        uint256 oldK = kLast;
+
+        // setting up new contract stage
+        uint8 fromK = _getTokenPosition(swappableTokenRoot);
+        uint8 toK = fromK == T1 ? T2 : T1;
+        if(fromLP > 0) lps[fromK] = fromLP;
+        if(toLP > 0)   lps[toK]   = toLP;
+        kLast = lps[fromK] * lps[toK];
+        
+        tokenUserBalances[fromK][pk] = fromBalance;
+        tokenUserBalances[toK][pk] = toBalance;
+
+        uint128 tmpLPfrom = lps[fromK];
+        uint128 tmpLPto = lps[toK];
+
+        // Swap
+        SwapInfo si = _swap(swappableTokenRoot, swappableTokenAmount);
+
+        _DebugERInfo deri = _DebugERInfo(
+            lps[fromK] * lps[toK],
+            kLast,
+            si.swappableTokenAmount,
+            si.targetTokenAmount,
+            si.fee,
+            tmpLPfrom,
+            tmpLPto,
+            lps[fromK],
+            lps[toK]
+        );
+
+        _DebugSwapInfo result = _DebugSwapInfo(
+            deri, 
+            fromBalance,
+            toBalance,
+            tokenUserBalances[fromK][pk],
+            tokenUserBalances[toK][pk]
+        );
+
+        //restore old values
+        lps[T1] = oldLP1;
+        lps[T2] = oldLP2;
+
+        tokenUserBalances[T1][pk] = oldBalance1;
+        tokenUserBalances[T2][pk] = oldBalance2;
+        kLast = oldK;
+
+        return result;
+    }
 }
