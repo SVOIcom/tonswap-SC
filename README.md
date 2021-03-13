@@ -1,7 +1,12 @@
 # Introduction
 ![photo_2020-12-15_20-21-41](https://user-images.githubusercontent.com/18599919/111032509-ac9fbd80-841d-11eb-9639-843ef2d758b3.jpg)
 Hello there! 
+SVOI dev team greets you and would like to present you results of creating Decentralized Exchange for FreeTON Community contest: \
+#16 FreeTon DEX Implementation Stage 1 Contest.
 
+Goal of this work is to create Decentralized Exchange based on Liquidity Pool mechanism and develop instruments, such as 
+debot and [site](https://tonswap.com) for interacting with developed smart contracts.
+ 
 # Links
 [![Channel on Telegram](https://img.shields.io/badge/-TON%20Swap%20TG%20chat-blue)](https://t.me/tonswap) 
 
