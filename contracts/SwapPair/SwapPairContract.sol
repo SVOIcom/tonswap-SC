@@ -41,7 +41,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     //Liquidity Pools
     mapping(uint8 => uint128) private lps;
-    uint256 public kLast; // reserve1 * reserve2 after most recent swap
+    uint256 public kLast; // lps[T1] * lps[T2] after most recent swap
 
 
     //Pair creation timestamp
@@ -319,7 +319,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
     // NOTICE: Requires a lot of gas, will only work with runLocal
-    function getWithdrawingLiquidityInfo(uint128 minFirstTokenAmount, uint128 minSecondTokenAmount)
+    function getWithdrawingLiquidityInfo(uint256 liquidityTokensAmount)
         override
         external
         view
@@ -327,7 +327,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         returns (uint128 withdrawedFirstTokenAmount, uint128 withdrawedSecondTokenAmount)
     {
         uint256 _b = 0;
-        (withdrawedFirstTokenAmount, withdrawedSecondTokenAmount, _b) = _calculateWithdrawingLiquidityInfo(minFirstTokenAmount, minSecondTokenAmount);
+        (withdrawedFirstTokenAmount, withdrawedSecondTokenAmount, _b) = _calculateWithdrawingLiquidityInfo(liquidityTokensAmount);
     }
 
     //============LP Functions============
@@ -365,7 +365,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
         lps[T1] += provided1;
         lps[T2] += provided2;
-        kLast = uint256(lps[T1] * lps[T2]);
+        kLast = uint256(lps[T1]) * uint256(lps[T2]);
 
         _initializeRebalance(pubkey, _sb);
 
@@ -378,7 +378,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         external
         initialized
         onlyPrePaid
-        returns (uint128 withdrawedFirstTokenAmount, uint128 withdrawedSecondTokenAmount)
+        returns (uint256 liquidityTokensAmount)
     {
         uint128 _sb = address(this).balance;
         uint256 pubkey = msg.pubkey();
@@ -507,7 +507,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         if ( !_checkIsLiquidityProvided() ) {
             provided1 = maxFirstTokenAmount;
             provided2 = maxSecondTokenAmount;
-            _minted = provided1 * provided2;
+            _minted = uint256(provided1) * uint256(provided2);
         }
         else {
             uint128 maxToProvide1 = maxSecondTokenAmount != 0 ?  math.muldiv(maxSecondTokenAmount, lps[T1], lps[T2]) : 0;
@@ -524,24 +524,39 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         }
     }
 
-    function _calculateWithdrawingLiquidityInfo(uint128 minFirstTokenAmount, uint128 minSecondTokenAmount)
+    // function _calculateWithdrawingLiquidityInfoByAmount(uint128 minFirstTokenAmount, uint128 minSecondTokenAmount)
+    //     private
+    //     view
+    //     inline
+    //     returns (uint128 withdrawed1, uint128 withdrawed2, uint256 _burned)
+    // {
+    //     withdrawed1 = minSecondTokenAmount != 0 ? math.muldiv(lps[T1], minSecondTokenAmount, lps[T2]) : 0;
+    //     withdrawed2 = minFirstTokenAmount  != 0 ? math.muldiv(lps[T2], minFirstTokenAmount,  lps[T1]) : 0;
+    //     _burned = 0;
+
+    //     if (withdrawed1 > 0 && withdrawed1 >= minFirstTokenAmount) {
+    //         withdrawed2 = minSecondTokenAmount;
+    //         _burned = math.muldiv( uint256(withdrawed2), liquidityTokensMinted, uint256(lps[T2]) );
+    //     }
+    //     else if (withdrawed2 > 0 && withdrawed2 >= minSecondTokenAmount) {
+    //         withdrawed1 = minFirstTokenAmount;
+    //         _burned = math.muldiv( uint256(withdrawed1), liquidityTokensMinted, uint256(lps[T1]) );
+    //     }
+    // }
+
+    function _calculateWithdrawingLiquidityInfo(uint256 liquidityTokensAmount)
         private
         view
         inline
         returns (uint128 withdrawed1, uint128 withdrawed2, uint256 _burned)
-    {
-        withdrawed1 = minSecondTokenAmount != 0 ? math.muldiv(lps[T1], minSecondTokenAmount, lps[T2]) : 0;
-        withdrawed2 = minFirstTokenAmount  != 0 ? math.muldiv(lps[T2], minFirstTokenAmount,  lps[T1]) : 0;
-        _burned = 0;
-
-        if (withdrawed1 > 0 && withdrawed1 >= minFirstTokenAmount) {
-            withdrawed2 = minSecondTokenAmount;
-            _burned = math.muldiv( uint256(withdrawed2), liquidityTokensMinted, uint256(lps[T2]) );
-        }
-        else if (withdrawed2 > 0 && withdrawed2 >= minSecondTokenAmount) {
-            withdrawed1 = minFirstTokenAmount;
-            _burned = math.muldiv( uint256(withdrawed1), liquidityTokensMinted, uint256(lps[T1]) );
-        }
+    {   
+        if (liquidityTokensMinted <= 0 || liquidityTokensAmount <= 0)
+            return (0, 0, 0);
+        
+        uint256 pk = msg.pubkey();
+        withdrawed1 = uint128(math.muldiv(uint256(tokenUserBalances[T1][pk]), liquidityTokensAmount, liquidityTokensMinted));
+        withdrawed2 = uint128(math.muldiv(uint256(tokenUserBalances[T2][pk]), liquidityTokensAmount, liquidityTokensMinted));
+        _burned = liquidityTokensAmount;
     }
 
 

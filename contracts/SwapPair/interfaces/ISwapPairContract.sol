@@ -26,10 +26,12 @@ interface ISwapPairContract is ISwapPairInformation {
         uint128 maxSecondTokenAmount
     ) external returns (uint128 providedFirstTokenAmount, uint128 providedSecondTokenAmount);
 
-    function withdrawLiquidity(
-        uint128 minFirstTokenAmount, 
-        uint128 minSecondTokenAmount
-    ) external returns (uint128 withdrawedFirstTokenAmount, uint128 withdrawedSecondTokenAmount);
+    // function withdrawLiquidity(
+    //     uint128 minFirstTokenAmount, 
+    //     uint128 minSecondTokenAmount
+    // ) external returns (uint128 withdrawedFirstTokenAmount, uint128 withdrawedSecondTokenAmount);
+    function withdrawLiquidity(uint256 liquidityTokensAmount)  
+        external returns (uint128 withdrawedFirstTokenAmount, uint128 withdrawedSecondTokenAmount);
     
     function withdrawTokens(address withdrawalTokenRoot, address receiveTokenWallet, uint128 amount) external;
 
@@ -45,10 +47,12 @@ interface ISwapPairContract is ISwapPairInformation {
 
     function getUserLiquidityPoolBalance(uint pubkey) external view returns (UserPoolInfo upi) ;
 
-    function getWithdrawingLiquidityInfo(
-        uint128 maxFirstTokenAmount, 
-        uint128 maxSecondTokenAmount
-    ) external view returns (uint128 withdrawedFirstTokenAmount, uint128 withdrawedSecondTokenAmount);
+    // function getWithdrawingLiquidityInfo(
+    //     uint128 maxFirstTokenAmount, 
+    //     uint128 maxSecondTokenAmount
+    // ) external view returns (uint128 withdrawedFirstTokenAmount, uint128 withdrawedSecondTokenAmount);
+    function getWithdrawingLiquidityInfo(uint256 liquidityTokensAmount)
+        external view returns (uint128 withdrawedFirstTokenAmount, uint128 withdrawedSecondTokenAmount);
 
     function getProvidingLiquidityInfo(
         uint128 maxFirstTokenAmount, 
