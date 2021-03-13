@@ -311,7 +311,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
     // NOTICE: Requires a lot of gas, will only work with runLocal
-    function getWithdrawingLiquidityInfo(uint128 maxFirstTokenAmount, uint128 maxSecondTokenAmount)
+    function getWithdrawingLiquidityInfo(uint128 minFirstTokenAmount, uint128 minSecondTokenAmount)
         override
         external
         view
@@ -319,7 +319,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         returns (uint128 withdrawedFirstTokenAmount, uint128 withdrawedSecondTokenAmount)
     {
         uint256 _b = 0;
-        (withdrawedFirstTokenAmount, withdrawedSecondTokenAmount, _b) = _calculateWithdrawingLiquidityInfo(maxFirstTokenAmount, maxSecondTokenAmount);
+        (withdrawedFirstTokenAmount, withdrawedSecondTokenAmount, _b) = _calculateWithdrawingLiquidityInfo(minFirstTokenAmount, minSecondTokenAmount);
     }
 
     //============LP Functions============
