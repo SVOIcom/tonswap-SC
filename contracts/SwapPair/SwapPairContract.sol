@@ -283,6 +283,36 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         return (lps[T1], lps[T2]);
     }
 
+    // TODO я не знаю, нужен ли тут модификатор onlyPrePaid. Ибо этот метод может дёргать фронт, который всё запускает локально
+    // А может и дебот, который должен заплатить. А вычисление само по себе не особо дешевое (дефолтного газа не хватит)
+    function getProvidingLiquidityInfo(uint128 maxFirstTokenAmount, uint128 maxSecondTokenAmount)
+        override
+        external
+        view
+        onlyPrePaid
+        returns (uint128 providedFirstTokenAmount, uint128 providedSecondTokenAmount)
+    {
+        tvm.accept();
+        uint256 _m = 0;
+        (providedFirstTokenAmount, providedSecondTokenAmount, _m) = _calculateProvidingLiquidityInfo(maxFirstTokenAmount, maxSecondTokenAmount);
+        // _initializeRebalance(msg.pubkey(), address(this).balance);
+    }
+
+    // TODO я не знаю, нужен ли тут модификатор onlyPrePaid. Ибо этот метод может дёргать фронт, который всё запускает локально
+    // А может и дебот, который должен заплатить. А вычисление само по себе не особо дешевое (дефолтного газа не хватит)
+    function getWithdrawingLiquidityInfo(uint128 maxFirstTokenAmount, uint128 maxSecondTokenAmount)
+        override
+        external
+        view
+        onlyPrePaid
+        returns (uint128 withdrawedFirstTokenAmount, uint128 withdrawedSecondTokenAmount)
+    {
+        tvm.accept();
+        uint256 _b = 0;
+        (withdrawedFirstTokenAmount, withdrawedSecondTokenAmount, _b) = _calculateWithdrawingLiquidityInfo(maxFirstTokenAmount, maxSecondTokenAmount);
+        // _initializeRebalance(msg.pubkey(), address(this).balance);
+    }
+
     //============LP Functions============
 
     function provideLiquidity(uint128 maxFirstTokenAmount, uint128 maxSecondTokenAmount)
@@ -294,35 +324,16 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     {
         uint256 pubkey = msg.pubkey();
         uint128 _sb = address(this).balance;
+
         tvm.accept();
+
         if (!notZeroLiquidity(maxFirstTokenAmount, maxSecondTokenAmount)) {
             _initializeRebalance(pubkey, _sb);
             return (0,0);
         }
         checkUserTokens(token1, maxFirstTokenAmount, token2, maxSecondTokenAmount, pubkey);
 
-        uint128 provided1 = 0;
-        uint128 provided2 = 0;
-        uint256 minted = 0;
-
-        if ( !checkIsLiquidityProvided() ) {
-            provided1 = maxFirstTokenAmount;
-            provided2 = maxSecondTokenAmount;
-            minted = provided1 * provided2;
-        }
-        else {
-            uint128 maxToProvide1 = maxSecondTokenAmount != 0 ?  math.muldiv(maxSecondTokenAmount, lps[T1], lps[T2]) : 0;
-            uint128 maxToProvide2 = maxFirstTokenAmount  != 0 ?  math.muldiv(maxFirstTokenAmount,  lps[T2], lps[T1]) : 0;
-            if (maxToProvide1 <= maxFirstTokenAmount ) {
-                provided1 = maxToProvide1;
-                provided2 = maxSecondTokenAmount;
-                minted =  math.muldiv(uint256(provided2), liquidityTokensMinted, uint256(lps[T2]) );
-            } else {
-                provided1 = maxFirstTokenAmount;
-                provided2 = maxToProvide2;
-                minted =  math.muldiv(uint256(provided1), liquidityTokensMinted, uint256(lps[T1]) );
-            }
-        }
+        (uint128 provided1, uint128 provided2, uint256 minted) = _calculateProvidingLiquidityInfo(maxFirstTokenAmount, maxSecondTokenAmount);
 
         if (!notZeroLiquidity(provided1, provided2)) {
             _initializeRebalance(pubkey, _sb);
@@ -345,7 +356,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
 
-
     function withdrawLiquidity(uint128 minFirstTokenAmount, uint128 minSecondTokenAmount)
         override
         external
@@ -357,24 +367,14 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         uint256 pubkey = msg.pubkey();
         tvm.accept();
         require(
-            checkIsLiquidityProvided(),
+            _checkIsLiquidityProvided(),
             ERROR_NO_LIQUIDITY_PROVIDED,
             ERROR_NO_LIQUIDITY_PROVIDED_MSG
         );
 
-        uint128 withdrawed1 = minSecondTokenAmount != 0 ? math.muldiv(lps[T1], minSecondTokenAmount, lps[T2]) : 0;
-        uint128 withdrawed2 = minFirstTokenAmount  != 0 ? math.muldiv(lps[T2], minFirstTokenAmount,  lps[T1]) : 0;
-        uint256 burned = 0;
+        (uint128 withdrawed1, uint128 withdrawed2, uint256 burned) = _calculateWithdrawingLiquidityInfo(minFirstTokenAmount, minSecondTokenAmount);
 
-        if (withdrawed1 > 0 && withdrawed1 >= minFirstTokenAmount) {
-            withdrawed2 = minSecondTokenAmount;
-            burned = math.muldiv( uint256(withdrawed2), liquidityTokensMinted, uint256(lps[T2]) );
-        }
-        else if (withdrawed2 > 0 && withdrawed2 >= minSecondTokenAmount) {
-            withdrawed1 = minFirstTokenAmount;
-            burned = math.muldiv( uint256(withdrawed1), liquidityTokensMinted, uint256(lps[T1]) );
-        }
-        else {
+        if (withdrawed1 <= 0 || withdrawed2 <= 0) {
             _initializeRebalance(pubkey, _sb);
             return (0, 0);
         }
@@ -416,7 +416,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             ERROR_INVALID_TOKEN_ADDRESS_MSG
         );
         require(
-            checkIsLiquidityProvided(),
+            _checkIsLiquidityProvided(),
             ERROR_NO_LIQUIDITY_PROVIDED,
             ERROR_NO_LIQUIDITY_PROVIDED_MSG
         );
@@ -424,7 +424,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         userEnoughTokenBalance(swappableTokenRoot, swappableTokenAmount, pubkey);
 
         _SwapInfoInternal _si = _getSwapInfo(swappableTokenRoot, swappableTokenAmount);
-        
+
         if (!notZeroLiquidity(swappableTokenAmount, _si.targetTokenAmount)) {
             _initializeRebalance(pubkey, _sb);
             return SwapInfo(0, 0, 0);
@@ -481,6 +481,53 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     //============HELPERS============
 
+    function _calculateProvidingLiquidityInfo(uint128 maxFirstTokenAmount, uint128 maxSecondTokenAmount)
+        private
+        view
+        inline
+        returns (uint128 provided1, uint128 provided2, uint256 _minted)
+    {
+        if ( !_checkIsLiquidityProvided() ) {
+            provided1 = maxFirstTokenAmount;
+            provided2 = maxSecondTokenAmount;
+            _minted = provided1 * provided2;
+        }
+        else {
+            uint128 maxToProvide1 = maxSecondTokenAmount != 0 ?  math.muldiv(maxSecondTokenAmount, lps[T1], lps[T2]) : 0;
+            uint128 maxToProvide2 = maxFirstTokenAmount  != 0 ?  math.muldiv(maxFirstTokenAmount,  lps[T2], lps[T1]) : 0;
+            if (maxToProvide1 <= maxFirstTokenAmount ) {
+                provided1 = maxToProvide1;
+                provided2 = maxSecondTokenAmount;
+                _minted =  math.muldiv(uint256(provided2), liquidityTokensMinted, uint256(lps[T2]) );
+            } else {
+                provided1 = maxFirstTokenAmount;
+                provided2 = maxToProvide2;
+                _minted =  math.muldiv(uint256(provided1), liquidityTokensMinted, uint256(lps[T1]) );
+            }
+        }
+    }
+
+    function _calculateWithdrawingLiquidityInfo(uint128 minFirstTokenAmount, uint128 minSecondTokenAmount)
+        private
+        view
+        inline
+        returns (uint128 withdrawed1, uint128 withdrawed2, uint256 _burned)
+    {
+        withdrawed1 = minSecondTokenAmount != 0 ? math.muldiv(lps[T1], minSecondTokenAmount, lps[T2]) : 0;
+        withdrawed2 = minFirstTokenAmount  != 0 ? math.muldiv(lps[T2], minFirstTokenAmount,  lps[T1]) : 0;
+        _burned = 0;
+
+        if (withdrawed1 > 0 && withdrawed1 >= minFirstTokenAmount) {
+            withdrawed2 = minSecondTokenAmount;
+            _burned = math.muldiv( uint256(withdrawed2), liquidityTokensMinted, uint256(lps[T2]) );
+        }
+        else if (withdrawed2 > 0 && withdrawed2 >= minSecondTokenAmount) {
+            withdrawed1 = minFirstTokenAmount;
+            _burned = math.muldiv( uint256(withdrawed1), liquidityTokensMinted, uint256(lps[T1]) );
+        }
+    }
+
+
     function _initializeRebalance(uint pubkey, uint128 startBalance) private inline {
         usersTONBalance[pubkey] -= heavyFunctionCallCost;
         SwapPairContract(this)._rebalance(startBalance);
@@ -536,9 +583,10 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         return tokenPositions.at(_token);
     }
 
-    function checkIsLiquidityProvided() private view inline returns (bool) {
+    function _checkIsLiquidityProvided() private view inline returns (bool) {
         return lps[T1] > 0 && lps[T2] > 0 && kLast > kMin;
     }
+
 
     //============Callbacks============
 
@@ -702,7 +750,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     modifier liquidityProvided() {
         require(
-            checkIsLiquidityProvided(),
+            _checkIsLiquidityProvided(),
             ERROR_NO_LIQUIDITY_PROVIDED,
             ERROR_NO_LIQUIDITY_PROVIDED_MSG
         );
