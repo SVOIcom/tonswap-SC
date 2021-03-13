@@ -179,8 +179,16 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         return creationTimestamp;
     }
 
+    function getLPComission() override external view returns(uint128) {
+        if (msg.sender.value == 0) {
+            tvm.accept();
+            SwapPairContract(this)._rebalanceGetters(address(this).balance);
+        }
+        return heavyFunctionCallCost;
+    }
+
     function getPairInfo() override external view returns (SwapPairInfo info) {
-        if (msg.pubkey() != 0) {
+        if (msg.sender.value == 0) {
             tvm.accept();
             SwapPairContract(this)._rebalanceGetters(address(this).balance);
         }
@@ -205,7 +213,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         initialized
         returns (UserBalanceInfo ubi) 
     {
-        if (msg.pubkey() != 0) {
+        if (msg.sender.value == 0) {
             tvm.accept();
             SwapPairContract(this)._rebalanceGetters(address(this).balance);
         }
@@ -225,7 +233,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         initialized
         returns (uint balance)
     {
-        if (msg.pubkey() != 0) {
+        if (msg.sender.value == 0) {
             tvm.accept();
             SwapPairContract(this)._rebalanceGetters(address(this).balance);
         }
@@ -239,7 +247,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         view 
         returns (UserPoolInfo upi) 
     {
-        if (msg.pubkey() != 0) {
+        if (msg.sender.value == 0) {
             tvm.accept();
             SwapPairContract(this)._rebalanceGetters(address(this).balance);
         }
@@ -262,7 +270,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         tokenExistsInPair(swappableTokenRoot)
         returns (SwapInfo)
     {
-        if (msg.pubkey() != 0) {
+        if (msg.sender.value == 0) {
             tvm.accept();
             SwapPairContract(this)._rebalanceGetters(address(this).balance);
         }
@@ -291,7 +299,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         onlyPrePaid
         returns(uint128, uint128)
     {
-        if (msg.pubkey() != 0) {
+        if (msg.sender.value == 0) {
             tvm.accept();
             SwapPairContract(this)._rebalanceGetters(address(this).balance);
         }

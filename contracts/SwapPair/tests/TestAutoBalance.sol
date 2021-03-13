@@ -15,9 +15,6 @@ contract TestAutoBalance {
         uint128 balance = address(this).balance;
         tvm.accept();
         string asdf  = format("{}{}{}", address(this),address(this),address(this));
-        //string asdf1 = format("{}{}{}{}{}{}", address(this),address(this),address(this),address(this),address(this),address(this));
-        // string asdf2 = format("{}{}{}{}{}{}", address(this),address(this),address(this),address(this),address(this),address(this));
-        // string asdf3 = format("{}{}{}{}{}{}", address(this),address(this),address(this),address(this),address(this),address(this));
         TestAutoBalance(this).rebalance(balance);
     }
 

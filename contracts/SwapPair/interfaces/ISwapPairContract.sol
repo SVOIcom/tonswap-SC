@@ -35,6 +35,8 @@ interface ISwapPairContract is ISwapPairInformation {
 
     function getCreationTimestamp() external view returns (uint256 creationTimestamp);
 
+    function getLPComission() external view returns(uint128);
+
     function getPairInfo() external view returns (SwapPairInfo info);
 
     function getUserBalance(uint pubkey) external view returns (UserBalanceInfo ubi);

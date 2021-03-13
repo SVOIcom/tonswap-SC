@@ -100,7 +100,7 @@ contract SwapDebot is Debot, ISwapPairInformation {
     function checkIfPairExitst(uint acc_type) public {
         if (acc_type != 1) {
             Terminal.print(tvm.functionId(mainMenu), "Swap pair does not exist or is not active. Going back to main menu");
-        } else if (state == USER_TOKEN_BALANCE || state == USER_LP_TOKEN_BALANCE) {
+        } else if (state != GET_EXCHANGE_RATE) {
             string phrase = (state == USER_TOKEN_BALANCE || state == USER_LP_TOKEN_BALANCE) ? "Fetching required info..." : "Looks like swap pair exists and is active. Getting info about available tokens...";
             Terminal.print(tvm.functionId(getUserTokens), phrase);
         } else {
@@ -319,6 +319,6 @@ contract SwapDebot is Debot, ISwapPairInformation {
     }
 
     function showCurrentExchangeRate(uint128 fta, uint128 sta) public {
-        Terminal.print(tvm.functionId(mainMenu), format("Current k: {}/{}", fta, sta));
+        Terminal.print(tvm.functionId(mainMenu), format("Current exchange rate: {}/{}", fta, sta));
     }
 }
