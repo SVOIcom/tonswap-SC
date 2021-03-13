@@ -47,10 +47,6 @@ interface ISwapPairContract is ISwapPairInformation {
 
     function getUserLiquidityPoolBalance(uint pubkey) external view returns (UserPoolInfo upi) ;
 
-    // function getWithdrawingLiquidityInfo(
-    //     uint128 maxFirstTokenAmount, 
-    //     uint128 maxSecondTokenAmount
-    // ) external view returns (uint128 withdrawedFirstTokenAmount, uint128 withdrawedSecondTokenAmount);
     function getWithdrawingLiquidityInfo(uint256 liquidityTokensAmount)
         external view returns (uint128 withdrawedFirstTokenAmount, uint128 withdrawedSecondTokenAmount);
 
@@ -58,4 +54,9 @@ interface ISwapPairContract is ISwapPairInformation {
         uint128 maxFirstTokenAmount, 
         uint128 maxSecondTokenAmount
     ) external view returns (uint128 providedFirstTokenAmount, uint128 providedSecondTokenAmount);
+
+    function getAnotherTokenProvidingAmount(
+        address providingTokenRoot, 
+        uint128 providingTokenAmount
+    ) external view returns(uint128 anotherTokenAmount);
 }

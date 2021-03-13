@@ -330,6 +330,22 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         (withdrawedFirstTokenAmount, withdrawedSecondTokenAmount, _b) = _calculateWithdrawingLiquidityInfo(liquidityTokensAmount);
     }
 
+    // NOTICE: Requires a lot of gas, will only work with runLocal
+    function getAnotherTokenProvidingAmount(address providingTokenRoot, uint128 providingTokenAmount)
+        override
+        external
+        view
+        initialized
+        returns(uint128 anotherTokenAmount)
+    {   
+        if (!_checkIsLiquidityProvided())
+            return 0;
+        uint8 fromK = _getTokenPosition(providingTokenRoot);
+        uint8 toK = fromK == T1 ? T2 : T1;
+
+        return providingTokenAmount != 0 ? math.muldivc(providingTokenAmount,  lps[toK], lps[fromK]) : 0;
+    }
+
     //============LP Functions============
 
     function provideLiquidity(uint128 maxFirstTokenAmount, uint128 maxSecondTokenAmount)
@@ -389,7 +405,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             ERROR_NO_LIQUIDITY_PROVIDED_MSG
         );
 
-        (uint128 withdrawed1, uint128 withdrawed2, uint256 burned) = _calculateWithdrawingLiquidityInfo(minFirstTokenAmount, minSecondTokenAmount);
+        (uint128 withdrawed1, uint128 withdrawed2, uint256 burned) = _calculateWithdrawingLiquidityInfo(liquidityTokensAmount);
 
         if (withdrawed1 <= 0 || withdrawed2 <= 0) {
             _initializeRebalance(pubkey, _sb);
