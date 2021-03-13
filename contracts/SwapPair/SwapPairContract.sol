@@ -56,11 +56,12 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     uint128          heavyFunctionCallCost      = 100  milli;
     // Required for interaction with wallets for smart-contracts
     uint128 constant sendToTIP3TokenWallets     = 110  milli;
+    uint128 constant sendToRootToken            = 500  milli;
     // We don't want to risk, this is one-time procedure
     // Extra wallet's tons will be transferred with first token transfer operation
     // Yep, there are transfer losses, but they are pretty small
-    uint128 constant walletInitialBalanceAmount = 400  milli;
-    uint128 constant walletDeployMessageValue   = 1000 milli;
+    uint128 constant walletInitialBalanceAmount = 1000 milli;
+    uint128 constant walletDeployMessageValue   = 1500 milli;
 
     // Tokens positions
     uint8 constant T1 = 0;
@@ -95,9 +96,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         swapPairRootContract = rootContract;
         swapPairDeployer = spd;
 
-        //Deploy tokens wallets
-        _deployWallets();
-
         tokens[T1] = token1;
         tokens[T2] = token2;
         tokenPositions[token1] = T1;
@@ -106,6 +104,9 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         lps[T1] = 0;
         lps[T2] = 0;
         kLast = 0;
+
+        //Deploy tokens wallets
+        _deployWallets();
     }
 
     /**
@@ -136,8 +137,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     function _getWalletAddresses() private view {
         tvm.accept();
-        IRootTokenContract(token1).getWalletAddress{value: 1 ton, callback: this.getWalletAddressCallback}(tvm.pubkey(), address(this));
-        IRootTokenContract(token2).getWalletAddress{value: 1 ton, callback: this.getWalletAddressCallback}(tvm.pubkey(), address(this));
+        IRootTokenContract(token1).getWalletAddress{value: sendToRootToken, callback: this.getWalletAddressCallback}(tvm.pubkey(), address(this));
+        IRootTokenContract(token2).getWalletAddress{value: sendToRootToken, callback: this.getWalletAddressCallback}(tvm.pubkey(), address(this));
     }
 
     function _reinitialize() external onlyOwner {
@@ -356,7 +357,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             ERROR_NO_LIQUIDITY_PROVIDED,
             ERROR_NO_LIQUIDITY_PROVIDED_MSG
         );
-        // checkUserLPTokens(minFirstTokenAmount, minSecondTokenAmount, pubkey);
 
         uint128 withdrawed1 = minSecondTokenAmount != 0 ? math.muldiv(lps[T1], minSecondTokenAmount, lps[T2]) : 0;
         uint128 withdrawed2 = minFirstTokenAmount  != 0 ? math.muldiv(lps[T2], minFirstTokenAmount,  lps[T1]) : 0;
@@ -541,7 +541,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     */
     function getWalletAddressCallback(address walletAddress) external onlyTokenRoot {
         require(initializedStatus < 2, ERROR_CONTRACT_ALREADY_INITIALIZED);
-
+        tvm.accept();
         if (msg.sender == token1) {
             if( !tokenWallets.exists(T1) )
                 initializedStatus++;
@@ -564,9 +564,9 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
      */
     function _setWalletsCallbackAddress() 
         private 
-        view
-        inline 
+        view 
     {
+        tvm.accept();
         ITONTokenWalletWithNotifiableTransfers(tokenWallets[T1]).setReceiveCallback{
             value: 200 milliton
         }(address(this));

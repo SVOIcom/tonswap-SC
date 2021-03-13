@@ -152,6 +152,9 @@ contract SwapDebot is Debot, ISwapPairInformation {
         if (upi.liquidityTokensMinted != 0) {
             token1.balance = math.muldiv(upi.lpToken1, upi.userLiquidityTokenBalance, upi.liquidityTokensMinted);
             token2.balance = math.muldiv(upi.lpToken2, upi.userLiquidityTokenBalance, upi.liquidityTokensMinted);
+        } else {
+            token1.balance = 0;
+            token2.balance = 0;
         }
         Terminal.print(0, "Your tokens in liquidity pool:");
         Terminal.print(0, format("{} for {}", token1.balance, token1.rootAddress));

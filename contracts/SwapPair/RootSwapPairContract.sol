@@ -26,7 +26,7 @@ contract RootSwapPairContract is
     // 1 ton required for swap pair
     // 2x0.4 ton required for swap pair wallets deployment
     // 0.2 required for initial stage of swap pair 
-    uint128 constant sendToNewSwapPair = 7000 milli;
+    uint128 constant sendToNewSwapPair = 10000 milli;
 
     //============Used variables============
 
