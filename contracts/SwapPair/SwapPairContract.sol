@@ -325,6 +325,11 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             }
         }
 
+        if (!notZeroLiquidity(provided1, provided2)) {
+            _initializeRebalance(pubkey, _sb);
+            return (0,0);
+        }
+
         tokenUserBalances[T1][pubkey]-= provided1;
         tokenUserBalances[T2][pubkey]-= provided2;  
 
@@ -375,7 +380,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             return (0, 0);
         }
 
-        _checkIfEnoughUserLiquidity(burned, pubkey);
+        _checkIsEnoughUserLiquidity(burned, pubkey);
 
         lps[T1] -= withdrawed1;
         lps[T2] -= withdrawed2;
@@ -420,10 +425,12 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         userEnoughTokenBalance(swappableTokenRoot, swappableTokenAmount, pubkey);
 
         _SwapInfoInternal _si = _getSwapInfo(swappableTokenRoot, swappableTokenAmount);
+        
         if (!notZeroLiquidity(swappableTokenAmount, _si.targetTokenAmount)) {
             _initializeRebalance(pubkey, _sb);
-            return SwapInfo(0,0,0);
+            return SwapInfo(0, 0, 0);
         }
+
         uint8 fromK = _si.fromKey;
         uint8 toK = _si.toKey;
 
@@ -743,7 +750,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         );
     }
 
-    function _checkIfEnoughUserLiquidity(uint256 burned, uint256 pubkey) private view inline {
+    function _checkIsEnoughUserLiquidity(uint256 burned, uint256 pubkey) private view inline {
         require(
             liquidityUserTokens[pubkey] >= burned, 
             ERROR_INSUFFICIENT_USER_LP_BALANCE,
