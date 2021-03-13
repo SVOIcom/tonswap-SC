@@ -1,7 +1,7 @@
 # Introduction
 ![photo_2020-12-15_20-21-41](https://user-images.githubusercontent.com/18599919/111032509-ac9fbd80-841d-11eb-9639-843ef2d758b3.jpg)
 Hello there! 
-SVOI dev team greets you and would like to present you results of creating Decentralized Exchange for FreeTON Community contest: \
+SVOI dev team greets you and would like to present you results of developing Decentralized Exchange for FreeTON Community contest: \
 #16 FreeTon DEX Implementation Stage 1 Contest.
 
 Goal of this work is to create Decentralized Exchange based on Liquidity Pool mechanism and develop instruments, such as 
