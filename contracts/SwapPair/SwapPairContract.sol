@@ -10,7 +10,6 @@ import '../TIP-3/interfaces/ITONTokenWallet.sol';
 import './interfaces/ISwapPairContract.sol';
 import './interfaces/ISwapPairInformation.sol';
 import './interfaces/IUpgradeSwapPairCode.sol';
-import './interfaces/ISwapPairDebug.sol';
 
 contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpgradeSwapPairCode, ISwapPairContract {
     address static token1;
@@ -365,7 +364,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
         lps[T1] += provided1;
         lps[T2] += provided2;
-        kLast = uint256(lps[T1] * lps[T2]);
+        kLast = uint256(lps[T1]) * uint256(lps[T2]);
 
         _initializeRebalance(pubkey, _sb);
 
@@ -507,7 +506,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         if ( !_checkIsLiquidityProvided() ) {
             provided1 = maxFirstTokenAmount;
             provided2 = maxSecondTokenAmount;
-            _minted = provided1 * provided2;
+            _minted = uint256(provided1) * uint256(provided2);
         }
         else {
             uint128 maxToProvide1 = maxSecondTokenAmount != 0 ?  math.muldiv(maxSecondTokenAmount, lps[T1], lps[T2]) : 0;

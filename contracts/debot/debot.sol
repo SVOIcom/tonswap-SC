@@ -75,6 +75,7 @@ contract SwapDebot is Debot, ISwapPairInformation {
         Menu.select("Main menu", "", [
             MenuItem("Get user token balance",         "", tvm.functionId(actionChoice)),
             MenuItem("Get user LP token balance",      "", tvm.functionId(actionChoice)),
+            MenuItem("Get current execution cost",     "", tvm.functionId(actionChoice)),
             MenuItem("Provide liquidity",              "", tvm.functionId(actionChoice)),
             MenuItem("Withdraw liquidity",             "", tvm.functionId(actionChoice)),
             MenuItem("Get current exchange rate",      "", tvm.functionId(actionChoice)),
