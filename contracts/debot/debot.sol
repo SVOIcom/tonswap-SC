@@ -335,16 +335,18 @@ contract SwapDebot is Debot, ISwapPairInformation {
     }
 
     function showUserTONBalance(uint ub) public {
+        (uint128 d, uint128 r) = math.divmod(uint128(ub), 1 ton);
         Terminal.print(
             tvm.functionId(mainMenu), 
-            format("Your TON balance: {}.{} TON", ub / 1 ton, ub % 1 ton)
+            format("Your TON balance: {}.{} TON", d, r)
         );
     }
 
     function showExecutionCost(uint128 ec) public {
+        (uint128 d, uint128 r) = math.divmod(ec, 1 ton);
         Terminal.print(
             tvm.functionId(mainMenu), 
-            format("Current execution cost: {}.{} TON", ec / 1 ton, ec % 1 ton)
+            format("Current execution cost: {}.{} TON", d, r)
         );
     }
 
