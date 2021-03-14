@@ -10,9 +10,8 @@ import '../TIP-3/interfaces/ITONTokenWallet.sol';
 import './interfaces/ISwapPairContract.sol';
 import './interfaces/ISwapPairInformation.sol';
 import './interfaces/IUpgradeSwapPairCode.sol';
-import './interfaces/ISwapPairDebug.sol';
 
-contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpgradeSwapPairCode, ISwapPairContract, ISwapPairDebug {
+contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpgradeSwapPairCode, ISwapPairContract {
     address static token1;
     address static token2;
     uint    static swapPairID;
@@ -471,7 +470,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
         lps[fromK] = _si.newFromPool;
         lps[toK] = _si.newToPool;
-        kLast = _si.newFromPool * _si.newToPool; // kLast shouldn't have changed
+        kLast = uint256(_si.newFromPool) * uint256(_si.newToPool);
 
         _initializeRebalance(pubkey, _sb);
 
@@ -549,8 +548,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         if (liquidityTokensMinted <= 0 || liquidityTokensAmount <= 0)
             return (0, 0, 0);
         
-        withdrawed1 = uint128(math.muldiv(uint256(tokenUserBalances[T1][_pubkey]), liquidityTokensAmount, liquidityTokensMinted));
-        withdrawed2 = uint128(math.muldiv(uint256(tokenUserBalances[T2][_pubkey]), liquidityTokensAmount, liquidityTokensMinted));
+        withdrawed1 = uint128(math.muldiv(uint256(lps[T1]), liquidityTokensAmount, liquidityTokensMinted));
+        withdrawed2 = uint128(math.muldiv(uint256(lps[T2]), liquidityTokensAmount, liquidityTokensMinted));
         _burned = liquidityTokensAmount;
     }
 
@@ -562,18 +561,20 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     function _rebalance(uint128 balance) external { 
         require(msg.sender == address(this));
+        tvm.accept();
         if (address(this).balance + heavyFunctionCallCost + getterFunctionCallCost > balance)
-            heavyFunctionCallCost = heavyFunctionCallCost * functionDecrease / 1000;
+            heavyFunctionCallCost = math.muldiv(heavyFunctionCallCost, functionDecrease, 1000);
         else
-            heavyFunctionCallCost = heavyFunctionCallCost * functionIncrease / 1000;
+            heavyFunctionCallCost = math.muldiv(heavyFunctionCallCost, functionIncrease, 1000);
     }
 
     function _rebalanceGetters(uint128 balance) external {
         require(msg.sender == address(this));
+        tvm.accept();
         if (address(this).balance + getterFunctionCallCost > balance)
-            getterFunctionCallCost = getterFunctionCallCost * gettersDecrease / 1000;
+            getterFunctionCallCost = math.muldiv(getterFunctionCallCost, gettersDecrease, 1000);
         else
-            getterFunctionCallCost = getterFunctionCallCost * gettersIncrease / 1000;
+            getterFunctionCallCost = math.muldiv(getterFunctionCallCost, gettersIncrease, 1000);
     }
     
     function _getSwapInfo(address swappableTokenRoot, uint128 swappableTokenAmount) 
@@ -831,14 +832,4 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             ERROR_INSUFFICIENT_USER_LP_BALANCE_MSG
         );
     }
-
-
-     function _getLiquidityPoolTokens() override external view returns (_DebugLPInfo dlpi) {}
-
-    // function _getUserLiquidityPoolTokens() external view returns (_DebugLPInfo dlpi);
-
-    // Тк изначально на контракте нет ликвидности, добавил возможность руками выставить на этом тесте (через костыль, но всё же)
-    function _getExchangeRateSimulation(address swappableTokenRoot, uint128 swappableTokenAmount, uint128 fromLP, uint128 toLP) override external returns (_DebugERInfo deri) {}
-
-    function _simulateSwap(address swappableTokenRoot, uint128 swappableTokenAmount, uint128 fromLP, uint128 toLP, uint128 fromBalance, uint128 toBalance)override  external  returns (_DebugSwapInfo dsi) {}
 }

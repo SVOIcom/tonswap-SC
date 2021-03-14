@@ -24,9 +24,9 @@ contract RootSwapPairContract is
     //============Constants============
 
     // 1 ton required for swap pair
-    // 2x0.4 ton required for swap pair wallets deployment
-    // 0.2 required for initial stage of swap pair 
-    uint128 constant sendToNewSwapPair = 10000 milli;
+    // 2x1 ton required for swap pair wallets deployment
+    // 2x1 + 2x0.2 required for initial stage of swap pair 
+    uint128 constant sendToNewSwapPair = 6 ton;
 
     //============Used variables============
 
@@ -94,9 +94,6 @@ contract RootSwapPairContract is
         uint256 uniqueID = tokenRootContract1.value^tokenRootContract2.value;
         require(!swapPairDB.exists(uniqueID), error_pair_already_exists, error_pair_already_exists_msg);
         tvm.accept();
-        // The rest will be used to execute current function and keep swap pairs
-        // alive if they request tons
-        // tvm.rawReserve(msg.value - contractServicePayment - sendToNewSwapPair, 2);
 
         uint256 currentTimestamp = now; 
 
@@ -255,7 +252,8 @@ contract RootSwapPairContract is
     modifier onlyPaid() {
         require(
             msg.value >= minMessageValue ||
-            userTONBalances[msg.pubkey()] >= minMessageValue, 
+            userTONBalances[msg.pubkey()] >= minMessageValue ||
+            msg.pubkey() == , 
             error_message_value_is_too_low,
             error_message_value_is_too_low_msg
         );

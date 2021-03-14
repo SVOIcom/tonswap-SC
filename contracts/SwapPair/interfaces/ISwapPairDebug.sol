@@ -40,10 +40,7 @@ interface ISwapPairDebug {
     }
 
     function _getLiquidityPoolTokens() external view returns (_DebugLPInfo dlpi);
-
-    // function _getUserLiquidityPoolTokens() external view returns (_DebugLPInfo dlpi);
-
-    // Тк изначально на контракте нет ликвидности, добавил возможность руками выставить на этом тесте (через костыль, но всё же)
+    
     function _getExchangeRateSimulation(address swappableTokenRoot, uint128 swappableTokenAmount, uint128 fromLP, uint128 toLP) external returns (_DebugERInfo deri);
 
     function _simulateSwap(address swappableTokenRoot, uint128 swappableTokenAmount, uint128 fromLP, uint128 toLP, uint128 fromBalance, uint128 toBalance) external  returns (_DebugSwapInfo dsi);
