@@ -105,7 +105,7 @@ Some additional contracts that can help you to deploy your own swap pair or toke
 
 # Contract compilation and deployment
 
-There are compiled contracts at [release page](). You can use them for quick start. \
+There are compiled contracts at [release page](https://github.com/SVOIcom/tonswap-SC/tags). You can use them for quick start. \
 If you want to compile smart contracts - please check repository [https://github.com/SVOIcom/ton-testing-suite](https://github.com/SVOIcom/ton-testing-suite) \
 There you will find instructions and instruments for smart contract compilation and testing/deploying test swap pair and debot contracts.
 
