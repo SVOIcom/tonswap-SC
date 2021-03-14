@@ -327,7 +327,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         returns (uint128 withdrawedFirstTokenAmount, uint128 withdrawedSecondTokenAmount)
     {
         uint256 _b = 0;
-        (withdrawedFirstTokenAmount, withdrawedSecondTokenAmount, _b) = _calculateWithdrawingLiquidityInfo(liquidityTokensAmount);
+        (withdrawedFirstTokenAmount, withdrawedSecondTokenAmount, _b) = _calculateWithdrawingLiquidityInfo(liquidityTokensAmount, msg.pubkey());
     }
 
     // NOTICE: Requires a lot of gas, will only work with runLocal
@@ -383,7 +383,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         lps[T2] += provided2;
         kLast = uint256(lps[T1]) * uint256(lps[T2]);
 
-        SwapPairContract(this)._initializeRebalance(pubkey, _sb);
+        _initializeRebalance(pubkey, _sb);
 
         return (provided1, provided2);
     }
@@ -405,18 +405,18 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             ERROR_NO_LIQUIDITY_PROVIDED_MSG
         );
 
-        (uint128 withdrawed1, uint128 withdrawed2, uint256 burned) = _calculateWithdrawingLiquidityInfo(liquidityTokensAmount);
+        _checkIsEnoughUserLiquidity(liquidityTokensAmount, pubkey);
+
+        (uint128 withdrawed1, uint128 withdrawed2, uint256 burned) = _calculateWithdrawingLiquidityInfo(liquidityTokensAmount, pubkey);
 
         if (withdrawed1 <= 0 || withdrawed2 <= 0) {
             _initializeRebalance(pubkey, _sb);
             return (0, 0);
         }
 
-        _checkIsEnoughUserLiquidity(burned, pubkey);
-
         lps[T1] -= withdrawed1;
         lps[T2] -= withdrawed2;
-        kLast = uint256(lps[T1] * lps[T2]);
+        kLast = uint256(lps[T1]) * uint256(lps[T2]);
 
         liquidityTokensMinted -= burned;
         liquidityUserTokens[pubkey] -= burned;
@@ -424,7 +424,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         tokenUserBalances[T1][pubkey] += withdrawed1;
         tokenUserBalances[T2][pubkey] += withdrawed2; 
 
-        SwapPairContract(this)._initializeRebalance(pubkey, _sb);
+        _initializeRebalance(pubkey, _sb);
         
         return (withdrawed1, withdrawed2);
     }
@@ -473,7 +473,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         lps[toK] = _si.newToPool;
         kLast = _si.newFromPool * _si.newToPool; // kLast shouldn't have changed
 
-        SwapPairContract(this)._initializeRebalance(pubkey, _sb);
+        _initializeRebalance(pubkey, _sb);
 
         return SwapInfo(swappableTokenAmount, _si.targetTokenAmount, _si.fee);
     }
@@ -508,7 +508,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             value: sendToTIP3TokenWallets
         }(receiveTokenWallet, amount, 0);
         tokenUserBalances[_tn][pubkey] -= amount;
-        SwapPairContract(this)._initializeRebalance(pubkey, _sb);
+        _initializeRebalance(pubkey, _sb);
     }
 
 
@@ -540,7 +540,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         }
     }
 
-    function _calculateWithdrawingLiquidityInfo(uint256 liquidityTokensAmount)
+    function _calculateWithdrawingLiquidityInfo(uint256 liquidityTokensAmount, uint256 _pubkey)
         private
         view
         inline
@@ -549,9 +549,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         if (liquidityTokensMinted <= 0 || liquidityTokensAmount <= 0)
             return (0, 0, 0);
         
-        uint256 pk = msg.pubkey();
-        withdrawed1 = uint128(math.muldiv(uint256(tokenUserBalances[T1][pk]), liquidityTokensAmount, liquidityTokensMinted));
-        withdrawed2 = uint128(math.muldiv(uint256(tokenUserBalances[T2][pk]), liquidityTokensAmount, liquidityTokensMinted));
+        withdrawed1 = uint128(math.muldiv(uint256(tokenUserBalances[T1][_pubkey]), liquidityTokensAmount, liquidityTokensMinted));
+        withdrawed2 = uint128(math.muldiv(uint256(tokenUserBalances[T2][_pubkey]), liquidityTokensAmount, liquidityTokensMinted));
         _burned = liquidityTokensAmount;
     }
 

@@ -131,7 +131,7 @@ contract SwapDebot is Debot, ISwapPairInformation {
                 time: uint64(now),
                 expire: 0,
                 callbackId: tvm.functionId(setTokenInfo),
-                onErrorId: 0
+                onErrorId: tvm.functionId(onErrorFunction)
             }(0);
         else if (state == USER_TON_BALANCE)
             ISwapPairContract(swapPairAddress).getUserTONBalance{
@@ -142,7 +142,7 @@ contract SwapDebot is Debot, ISwapPairInformation {
                 time: uint64(now),
                 expire: 0,
                 callbackId: tvm.functionId(showUserTONBalance),
-                onErrorId: 0
+                onErrorId: tvm.functionId(onErrorFunction)
             }(0);
         else if (state == GET_FUNCTION_EXECUTION_COST)
             ISwapPairContract(swapPairAddress).getLPComission{
@@ -153,7 +153,7 @@ contract SwapDebot is Debot, ISwapPairInformation {
                 time: uint64(now),
                 expire: 0,
                 callbackId: tvm.functionId(showExecutionCost),
-                onErrorId: 0
+                onErrorId: tvm.functionId(onErrorFunction)
             }();
         else 
             ISwapPairContract(swapPairAddress).getUserLiquidityPoolBalance{
@@ -164,7 +164,7 @@ contract SwapDebot is Debot, ISwapPairInformation {
                 time: uint64(now),
                 expire: 0,
                 callbackId: tvm.functionId(setLPTokenInfo),
-                onErrorId: 0
+                onErrorId: tvm.functionId(onErrorFunction)
             }(0);
     }
 
@@ -210,7 +210,7 @@ contract SwapDebot is Debot, ISwapPairInformation {
             time: uint64(now),
             expire: 0,
             callbackId: tvm.functionId(showCurrentExchangeRate),
-            onErrorId: 0
+            onErrorId: tvm.functionId(onErrorFunction)
         }();
     }
 
@@ -289,7 +289,7 @@ contract SwapDebot is Debot, ISwapPairInformation {
             time: uint64(now),
             expire: 0,
             callbackId: tvm.functionId(showSwapResult),
-            onErrorId: 0
+            onErrorId: tvm.functionId(onErrorFunction)
         }(chosenToken, uint128(tokenAmount));
     }
 
@@ -307,7 +307,7 @@ contract SwapDebot is Debot, ISwapPairInformation {
             time: uint64(now),
             expire: 0,
             callbackId: tvm.functionId(showLPres),
-            onErrorId: 0
+            onErrorId: tvm.functionId(onErrorFunction)
         }(uint128(lpAddWithdraw.token1), uint128(lpAddWithdraw.token2));
     }
 
@@ -321,7 +321,7 @@ contract SwapDebot is Debot, ISwapPairInformation {
             time: uint64(now),
             expire: 0,
             callbackId: tvm.functionId(showLPres),
-            onErrorId: 0
+            onErrorId: tvm.functionId(onErrorFunction)
         }(withdrawLPTokens);
     }
 
@@ -356,7 +356,7 @@ contract SwapDebot is Debot, ISwapPairInformation {
             time: uint64(now),
             expire: 0,
             callbackId: tvm.functionId(showTokenWithdrawResullt),
-            onErrorId: 0
+            onErrorId: tvm.functionId(onErrorFunction)
         }(chosenToken, value, uint128(tokenAmount));
     }
 
@@ -381,4 +381,11 @@ contract SwapDebot is Debot, ISwapPairInformation {
             format("Current execution cost: {}.{} TON", ec / 1 ton, ec % 1 ton)
         );
     }
+
+    function onErrorFunction() public {
+        Terminal.print(
+            tvm.functionId(mainMenu),
+            format("{}", 1)
+        );
+    } 
 }
