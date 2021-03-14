@@ -99,5 +99,11 @@ Contracts can be found at [contracts/TIP-3/](contracts/TIP-3/)
 ## [Additional contracts](contracts/additional)
 Some additional contracts that can help you to deploy your own swap pair or tokens
 
+# Contract compilation and deployment
+
+There are compiled contracts at [release page](). You can use them for quick start. \
+If you want to compile smart contracts - please check repository [https://github.com/SVOIcom/ton-testing-suite](https://github.com/SVOIcom/ton-testing-suite) \
+There you will find instructions and instruments for smart contract compilation and testing/deploying test swap pair and debot contracts.
+
 
 If you have any questions - feel free to ask our team in [Telegram](https://t.me/tonswap) (or contact me in direct messages @pafaul).
