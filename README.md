@@ -10,7 +10,7 @@ debot and [site](https://tonswap.com) for interacting with developed smart contr
 # Links
 [![Channel on Telegram](https://img.shields.io/badge/-TON%20Swap%20TG%20chat-blue)](https://t.me/tonswap) 
 
-Repository with useful instruments - [https://github.com/SVOIcom/ton-testing-suite](https://github.com/SVOIcom/ton-testing-suite)
+Repository for smart contracts compilation and deployment - [https://github.com/SVOIcom/ton-testing-suite](https://github.com/SVOIcom/ton-testing-suite)
 
 Used ton-solidity compiler - [solidity compiler v0.36.0](https://github.com/tonlabs/TON-Solidity-Compiler/tree/5914224aa6c03def19d98c160ad8779d2efe1c50)
 
