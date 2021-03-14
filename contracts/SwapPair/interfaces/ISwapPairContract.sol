@@ -26,10 +26,6 @@ interface ISwapPairContract is ISwapPairInformation {
         uint128 maxSecondTokenAmount
     ) external returns (uint128 providedFirstTokenAmount, uint128 providedSecondTokenAmount);
 
-    // function withdrawLiquidity(
-    //     uint128 minFirstTokenAmount, 
-    //     uint128 minSecondTokenAmount
-    // ) external returns (uint128 withdrawedFirstTokenAmount, uint128 withdrawedSecondTokenAmount);
     function withdrawLiquidity(uint256 liquidityTokensAmount)  
         external returns (uint128 withdrawedFirstTokenAmount, uint128 withdrawedSecondTokenAmount);
     
