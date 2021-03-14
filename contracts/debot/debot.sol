@@ -26,18 +26,11 @@ struct TokensBalance {
     uint128 token2;
 }
 
-struct PairInfo {
-    address token1;
-    address token2;
-}
-
 contract SwapDebot is Debot, ISwapPairInformation {
     uint static _randomNonce;
 
-    // Information about tokens
     TokensInfo token1; TokensInfo token2;
 
-    // Variables to store user input
     uint tokenAmount; 
     address chosenToken;
     address swapPairAddress;    
@@ -47,7 +40,6 @@ contract SwapDebot is Debot, ISwapPairInformation {
 
     TokensBalance lpAddWithdraw;
     
-    // Available actions: swap tokens or withdraw tokens
     uint8 state;
 
     uint8 constant USER_TOKEN_BALANCE          = 0;
@@ -90,14 +82,12 @@ contract SwapDebot is Debot, ISwapPairInformation {
         ]);
     }
 
-    // Input of pair address
     function actionChoice(uint32 index) public { 
         state = uint8(index);
         Terminal.print(0, "Please input swap pair address");
         AddressInput.select(tvm.functionId(processPair));
     }
     
-    // Requesting pair contract status 
     function processPair(address value) public {  
         swapPairAddress = value;
         Sdk.getAccountType(tvm.functionId(checkIfPairExitst), value);
@@ -119,7 +109,6 @@ contract SwapDebot is Debot, ISwapPairInformation {
         }
     }
 
-    // Requesting information about user's tokens from pair contract
     function getUserTokens() public {
         optional(uint256) pubkey = 0;
         if (state == USER_TOKEN_BALANCE || state == PROVIDE_LIQUIDITY || state == SWAP || state == WITHDRAW_TOKENS_FROM_PAIR)
@@ -168,7 +157,6 @@ contract SwapDebot is Debot, ISwapPairInformation {
             }(0);
     }
 
-    // set token information
     function setTokenInfo(UserBalanceInfo ubi) public {
         token1.rootAddress = ubi.tokenRoot1;
         token1.balance = ubi.tokenBalance1;
@@ -214,7 +202,6 @@ contract SwapDebot is Debot, ISwapPairInformation {
         }();
     }
 
-    // Choice of token to operate with
     function choseNextStep() public {
         if (state == USER_TOKEN_BALANCE || state == USER_LP_TOKEN_BALANCE) {
             Terminal.print(tvm.functionId(mainMenu), "Returning to main menu");
@@ -250,11 +237,15 @@ contract SwapDebot is Debot, ISwapPairInformation {
         Terminal.print(tvm.functionId(validateLPTokenAmount), "Proceeding to token amount check");
     }
 
-
     function getTokenAmount(uint32 index) public {
         maxTokenAmount = (index == 0) ? token1.balance : token2.balance; 
         chosenToken = (index == 0) ? token1.rootAddress : token2.rootAddress;
         Terminal.inputUint(tvm.functionId(validateTokenAmount), "Input token amount: ");
+    }
+
+    function enterWalletAddress() public {
+        Terminal.print(0, "Input token wallet address");
+        AddressInput.select(tvm.functionId(processPair));
     }
 
     function validateTokenAmount(uint value) public {
@@ -293,10 +284,6 @@ contract SwapDebot is Debot, ISwapPairInformation {
         }(chosenToken, uint128(tokenAmount));
     }
 
-    function showSwapResult(SwapInfo si) public {
-        Terminal.print(tvm.functionId(mainMenu), format("Swapped: {} for {} with {} fee", si.swappableTokenAmount, si.targetTokenAmount, si.fee));
-    }
-
     function submitLiquidityProvide() public {
         optional(uint) pubkey = 0;
         ISwapPairContract(swapPairAddress).provideLiquidity{
@@ -323,27 +310,6 @@ contract SwapDebot is Debot, ISwapPairInformation {
             callbackId: tvm.functionId(showLPres),
             onErrorId: tvm.functionId(onErrorFunction)
         }(withdrawLPTokens);
-    }
-
-    function showLPres(uint128 ftA, uint128 stA) public {
-        if (ftA == 0 || stA == 0) {
-            string phrase = state == PROVIDE_LIQUIDITY ?
-                "If any token amount is 0, than you must provide more tokens to LP. Tokens were not provided to LP." :
-                "If any token amount is 0, than you must withdraw more tokens from LP. Tokens were not withdrawed from LP.";
-            Terminal.print(0, phrase);
-        }
-        string head = state == PROVIDE_LIQUIDITY ? "Tokens added to LP:" : "Tokens removed from LP: ";
-        Terminal.print(0, head);
-        Terminal.print(tvm.functionId(mainMenu), format("{} for first token, {} for second token", ftA, stA));
-    }
-
-    function showLiquidityRemovalResult(uint128 ftA, uint128 stA) public {
-        Terminal.print(tvm.functionId(mainMenu), format("Tokens removed from LP: {} for first token, {} for second token", ftA, stA));
-    }
-
-    function enterWalletAddress() public {
-        Terminal.print(0, "Input token wallet address");
-        AddressInput.select(tvm.functionId(processPair));
     }
 
     function submitTokenWithdraw(address value) public {
@@ -382,10 +348,30 @@ contract SwapDebot is Debot, ISwapPairInformation {
         );
     }
 
+    function showLPres(uint128 ftA, uint128 stA) public {
+        if (ftA == 0 || stA == 0) {
+            string phrase = state == PROVIDE_LIQUIDITY ?
+                "If any token amount is 0, than you must provide more tokens to LP. Tokens were not provided to LP." :
+                "If any token amount is 0, than you must withdraw more tokens from LP. Tokens were not withdrawed from LP.";
+            Terminal.print(0, phrase);
+        }
+        string head = state == PROVIDE_LIQUIDITY ? "Tokens added to LP:" : "Tokens removed from LP: ";
+        Terminal.print(0, head);
+        Terminal.print(tvm.functionId(mainMenu), format("{} for first token, {} for second token", ftA, stA));
+    }
+
+    function showLiquidityRemovalResult(uint128 ftA, uint128 stA) public {
+        Terminal.print(tvm.functionId(mainMenu), format("Tokens removed from LP: {} for first token, {} for second token", ftA, stA));
+    }
+
+    function showSwapResult(SwapInfo si) public {
+        Terminal.print(tvm.functionId(mainMenu), format("Swapped: {} for {} with {} fee", si.swappableTokenAmount, si.targetTokenAmount, si.fee));
+    }
+
     function onErrorFunction() public {
         Terminal.print(
             tvm.functionId(mainMenu),
-            format("{}", 1)
+            "Something went wrong... Going back to main menu"
         );
     } 
 }
