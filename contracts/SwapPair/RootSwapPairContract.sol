@@ -51,12 +51,12 @@ contract RootSwapPairContract is
 
     //============Errors============
 
-    uint8 error_message_sender_is_not_deployer       = 100; string constant error_message_sender_is_not_deployer_msg       = "Message sender is not deployer";
-    uint8 error_message_sender_is_not_owner          = 101; string constant error_message_sender_is_not_owner_msg          = "Message sender is not owner";
-    uint8 error_pair_does_not_exist                  = 102; string constant error_pair_does_not_exist_msg                  = "Swap pair does not exist";
-    uint8 error_pair_already_exists                  = 103; string constant error_pair_already_exists_msg                  = "Swap pair already exists";
-    uint8 error_message_value_is_too_low             = 104; string constant error_message_value_is_too_low_msg             = "Message value is below required minimum";
-    uint8 error_code_is_not_updated_or_is_downgraded = 105; string constant error_code_is_not_updated_or_is_downgraded_msg = "Pair code is not updated or is downgraded";
+    uint8 constant error_message_sender_is_not_deployer       = 100; string constant error_message_sender_is_not_deployer_msg       = "Message sender is not deployer";
+    uint8 constant error_message_sender_is_not_owner          = 101; string constant error_message_sender_is_not_owner_msg          = "Message sender is not owner";
+    uint8 constant error_pair_does_not_exist                  = 102; string constant error_pair_does_not_exist_msg                  = "Swap pair does not exist";
+    uint8 constant error_pair_already_exists                  = 103; string constant error_pair_already_exists_msg                  = "Swap pair already exists";
+    uint8 constant error_message_value_is_too_low             = 104; string constant error_message_value_is_too_low_msg             = "Message value is below required minimum";
+    uint8 constant error_code_is_not_updated_or_is_downgraded = 105; string constant error_code_is_not_updated_or_is_downgraded_msg = "Pair code is not updated or is downgraded";
 
     //============Constructor===========
 
@@ -253,7 +253,7 @@ contract RootSwapPairContract is
         require(
             msg.value >= minMessageValue ||
             userTONBalances[msg.pubkey()] >= minMessageValue ||
-            msg.pubkey() == , 
+            msg.pubkey() == ownerPubkey, 
             error_message_value_is_too_low,
             error_message_value_is_too_low_msg
         );
