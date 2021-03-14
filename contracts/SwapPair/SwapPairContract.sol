@@ -327,7 +327,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         returns (uint128 withdrawedFirstTokenAmount, uint128 withdrawedSecondTokenAmount)
     {
         uint256 _b = 0;
-        (withdrawedFirstTokenAmount, withdrawedSecondTokenAmount, _b) = _calculateWithdrawingLiquidityInfo(liquidityTokensAmount);
+        (withdrawedFirstTokenAmount, withdrawedSecondTokenAmount, _b) = _calculateWithdrawingLiquidityInfo(liquidityTokensAmount, msg.pubkey());
     }
 
     // NOTICE: Requires a lot of gas, will only work with runLocal
@@ -405,7 +405,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             ERROR_NO_LIQUIDITY_PROVIDED_MSG
         );
 
-        (uint128 withdrawed1, uint128 withdrawed2, uint256 burned) = _calculateWithdrawingLiquidityInfo(liquidityTokensAmount);
+        (uint128 withdrawed1, uint128 withdrawed2, uint256 burned) = _calculateWithdrawingLiquidityInfo(liquidityTokensAmount, pubkey);
 
         if (withdrawed1 <= 0 || withdrawed2 <= 0) {
             _initializeRebalance(pubkey, _sb);
@@ -560,7 +560,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     //     }
     // }
 
-    function _calculateWithdrawingLiquidityInfo(uint256 liquidityTokensAmount)
+    function _calculateWithdrawingLiquidityInfo(uint256 liquidityTokensAmount, uint256 _pubkey)
         private
         view
         inline
@@ -569,9 +569,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         if (liquidityTokensMinted <= 0 || liquidityTokensAmount <= 0)
             return (0, 0, 0);
         
-        uint256 pk = msg.pubkey();
-        withdrawed1 = uint128(math.muldiv(uint256(tokenUserBalances[T1][pk]), liquidityTokensAmount, liquidityTokensMinted));
-        withdrawed2 = uint128(math.muldiv(uint256(tokenUserBalances[T2][pk]), liquidityTokensAmount, liquidityTokensMinted));
+        withdrawed1 = uint128(math.muldiv(uint256(tokenUserBalances[T1][_pubkey]), liquidityTokensAmount, liquidityTokensMinted));
+        withdrawed2 = uint128(math.muldiv(uint256(tokenUserBalances[T2][_pubkey]), liquidityTokensAmount, liquidityTokensMinted));
         _burned = liquidityTokensAmount;
     }
 
