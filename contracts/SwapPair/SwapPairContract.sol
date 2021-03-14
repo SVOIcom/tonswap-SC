@@ -389,12 +389,12 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
 
-    function withdrawLiquidity(uint128 minFirstTokenAmount, uint128 minSecondTokenAmount)
+    function withdrawLiquidity(uint256 liquidityTokensAmount)
         override
         external
         initialized
         onlyPrePaid
-        returns (uint256 liquidityTokensAmount)
+        returns (uint128 withdrawedFirstTokenAmount, uint128 withdrawedSecondTokenAmount)
     {
         uint128 _sb = address(this).balance;
         uint256 pubkey = msg.pubkey();
