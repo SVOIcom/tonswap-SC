@@ -11,7 +11,7 @@ import './interfaces/ISwapPairContract.sol';
 import './interfaces/ISwapPairInformation.sol';
 import './interfaces/IUpgradeSwapPairCode.sol';
 
-contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpgradeSwapPairCode, ISwapPairContract {
+contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpgradeSwapPairCode, ISwapPairContract, ISwapPairDebug {
     address static token1;
     address static token2;
     uint    static swapPairID;
@@ -40,7 +40,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     //Liquidity Pools
     mapping(uint8 => uint128) private lps;
-    uint256 public kLast; // reserve1 * reserve2 after most recent swap
+    uint256 public kLast; // lps[T1] * lps[T2] after most recent swap
 
 
     //Pair creation timestamp
@@ -318,7 +318,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
     // NOTICE: Requires a lot of gas, will only work with runLocal
-    function getWithdrawingLiquidityInfo(uint128 minFirstTokenAmount, uint128 minSecondTokenAmount)
+    function getWithdrawingLiquidityInfo(uint256 liquidityTokensAmount)
         override
         external
         view
@@ -326,7 +326,23 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         returns (uint128 withdrawedFirstTokenAmount, uint128 withdrawedSecondTokenAmount)
     {
         uint256 _b = 0;
-        (withdrawedFirstTokenAmount, withdrawedSecondTokenAmount, _b) = _calculateWithdrawingLiquidityInfo(minFirstTokenAmount, minSecondTokenAmount);
+        (withdrawedFirstTokenAmount, withdrawedSecondTokenAmount, _b) = _calculateWithdrawingLiquidityInfo(liquidityTokensAmount);
+    }
+
+    // NOTICE: Requires a lot of gas, will only work with runLocal
+    function getAnotherTokenProvidingAmount(address providingTokenRoot, uint128 providingTokenAmount)
+        override
+        external
+        view
+        initialized
+        returns(uint128 anotherTokenAmount)
+    {   
+        if (!_checkIsLiquidityProvided())
+            return 0;
+        uint8 fromK = _getTokenPosition(providingTokenRoot);
+        uint8 toK = fromK == T1 ? T2 : T1;
+
+        return providingTokenAmount != 0 ? math.muldivc(providingTokenAmount,  lps[toK], lps[fromK]) : 0;
     }
 
     //============LP Functions============
@@ -372,7 +388,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
 
-    function withdrawLiquidity(uint128 minFirstTokenAmount, uint128 minSecondTokenAmount)
+    function withdrawLiquidity(uint256 liquidityTokensAmount)
         override
         external
         initialized
@@ -388,7 +404,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             ERROR_NO_LIQUIDITY_PROVIDED_MSG
         );
 
-        (uint128 withdrawed1, uint128 withdrawed2, uint256 burned) = _calculateWithdrawingLiquidityInfo(minFirstTokenAmount, minSecondTokenAmount);
+        (uint128 withdrawed1, uint128 withdrawed2, uint256 burned) = _calculateWithdrawingLiquidityInfo(liquidityTokensAmount);
 
         if (withdrawed1 <= 0 || withdrawed2 <= 0) {
             _initializeRebalance(pubkey, _sb);
@@ -523,24 +539,39 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         }
     }
 
-    function _calculateWithdrawingLiquidityInfo(uint128 minFirstTokenAmount, uint128 minSecondTokenAmount)
+    // function _calculateWithdrawingLiquidityInfoByAmount(uint128 minFirstTokenAmount, uint128 minSecondTokenAmount)
+    //     private
+    //     view
+    //     inline
+    //     returns (uint128 withdrawed1, uint128 withdrawed2, uint256 _burned)
+    // {
+    //     withdrawed1 = minSecondTokenAmount != 0 ? math.muldiv(lps[T1], minSecondTokenAmount, lps[T2]) : 0;
+    //     withdrawed2 = minFirstTokenAmount  != 0 ? math.muldiv(lps[T2], minFirstTokenAmount,  lps[T1]) : 0;
+    //     _burned = 0;
+
+    //     if (withdrawed1 > 0 && withdrawed1 >= minFirstTokenAmount) {
+    //         withdrawed2 = minSecondTokenAmount;
+    //         _burned = math.muldiv( uint256(withdrawed2), liquidityTokensMinted, uint256(lps[T2]) );
+    //     }
+    //     else if (withdrawed2 > 0 && withdrawed2 >= minSecondTokenAmount) {
+    //         withdrawed1 = minFirstTokenAmount;
+    //         _burned = math.muldiv( uint256(withdrawed1), liquidityTokensMinted, uint256(lps[T1]) );
+    //     }
+    // }
+
+    function _calculateWithdrawingLiquidityInfo(uint256 liquidityTokensAmount)
         private
         view
         inline
         returns (uint128 withdrawed1, uint128 withdrawed2, uint256 _burned)
-    {
-        withdrawed1 = minSecondTokenAmount != 0 ? math.muldiv(lps[T1], minSecondTokenAmount, lps[T2]) : 0;
-        withdrawed2 = minFirstTokenAmount  != 0 ? math.muldiv(lps[T2], minFirstTokenAmount,  lps[T1]) : 0;
-        _burned = 0;
-
-        if (withdrawed1 > 0 && withdrawed1 >= minFirstTokenAmount) {
-            withdrawed2 = minSecondTokenAmount;
-            _burned = math.muldiv( uint256(withdrawed2), liquidityTokensMinted, uint256(lps[T2]) );
-        }
-        else if (withdrawed2 > 0 && withdrawed2 >= minSecondTokenAmount) {
-            withdrawed1 = minFirstTokenAmount;
-            _burned = math.muldiv( uint256(withdrawed1), liquidityTokensMinted, uint256(lps[T1]) );
-        }
+    {   
+        if (liquidityTokensMinted <= 0 || liquidityTokensAmount <= 0)
+            return (0, 0, 0);
+        
+        uint256 pk = msg.pubkey();
+        withdrawed1 = uint128(math.muldiv(uint256(tokenUserBalances[T1][pk]), liquidityTokensAmount, liquidityTokensMinted));
+        withdrawed2 = uint128(math.muldiv(uint256(tokenUserBalances[T2][pk]), liquidityTokensAmount, liquidityTokensMinted));
+        _burned = liquidityTokensAmount;
     }
 
 
@@ -819,5 +850,127 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             ERROR_INSUFFICIENT_USER_LP_BALANCE,
             ERROR_INSUFFICIENT_USER_LP_BALANCE_MSG
         );
+    }
+
+
+        //============DEBUG============
+
+    function _getLiquidityPoolTokens() override external view returns (_DebugLPInfo dlpi) {
+        return _DebugLPInfo(
+            token1,
+            token2,
+            lps[T1],
+            lps[T2]
+        );
+    }
+
+    function _getExchangeRateSimulation(
+        address swappableTokenRoot, 
+        uint128 swappableTokenAmount, 
+        uint128 fromLP, 
+        uint128 toLP
+    ) 
+        override
+        external  
+        returns (_DebugERInfo deri)
+    {
+        uint128 oldLP1 = lps[T1];
+        uint128 oldLP2 = lps[T2];
+
+        uint8 fromK = _getTokenPosition(swappableTokenRoot); // if tokenRoot doesn't exist, throws exception
+        uint8 toK = fromK == T1 ? T2 : T1;
+        if(fromLP > 0) lps[fromK] = fromLP;
+        if(toLP > 0)   lps[toK]   = toLP;
+
+        _SwapInfoInternal si = _getSwapInfo(swappableTokenRoot, swappableTokenAmount);
+
+        _DebugERInfo result = _DebugERInfo(
+            kLast,
+            si.newFromPool * si.newToPool,
+            swappableTokenAmount,
+            si.targetTokenAmount,
+            si.fee,
+            lps[fromK],
+            lps[toK],
+            si.newFromPool,
+            si.newToPool
+        );
+
+        lps[T1] = oldLP1;
+        lps[T2] = oldLP2;
+
+        return result;
+    }
+
+
+    function _simulateSwap(
+        address swappableTokenRoot, 
+        uint128 swappableTokenAmount, 
+        uint128 fromLP, 
+        uint128 toLP,
+        uint128 fromBalance, 
+        uint128 toBalance
+    ) 
+        override
+        external  
+        returns (_DebugSwapInfo dsi)
+    {   
+        tvm.accept();  // Attention!
+        uint pk = msg.pubkey();
+
+        // backup
+        uint128 oldLP1 = lps[T1];
+        uint128 oldLP2 = lps[T2];
+
+        uint128 oldBalance1 = tokenUserBalances[T1][pk];
+        uint128 oldBalance2 = tokenUserBalances[T2][pk];
+
+        uint256 oldK = kLast;
+
+        // setting up new contract stage
+        uint8 fromK = _getTokenPosition(swappableTokenRoot);
+        uint8 toK = fromK == T1 ? T2 : T1;
+        if(fromLP > 0) lps[fromK] = fromLP;
+        if(toLP > 0)   lps[toK]   = toLP;
+        kLast = lps[fromK] * lps[toK];
+        
+        tokenUserBalances[fromK][pk] = fromBalance;
+        tokenUserBalances[toK][pk] = toBalance;
+
+        uint128 tmpLPfrom = lps[fromK];
+        uint128 tmpLPto = lps[toK];
+
+        // Swap
+        SwapInfo si = _swap(swappableTokenRoot, swappableTokenAmount);
+
+        _DebugERInfo deri = _DebugERInfo(
+            lps[fromK] * lps[toK],
+            kLast,
+            si.swappableTokenAmount,
+            si.targetTokenAmount,
+            si.fee,
+            tmpLPfrom,
+            tmpLPto,
+            lps[fromK],
+            lps[toK]
+        );
+
+        _DebugSwapInfo result = _DebugSwapInfo(
+            deri, 
+            fromBalance,
+            toBalance,
+            tokenUserBalances[fromK][pk],
+            tokenUserBalances[toK][pk]
+        );
+
+        //restore old values
+        lps[T1] = oldLP1;
+        lps[T2] = oldLP2;
+
+        tokenUserBalances[T1][pk] = oldBalance1;
+        tokenUserBalances[T2][pk] = oldBalance2;
+        kLast = oldK;
+
+        return result;
     }
 }
