@@ -78,12 +78,16 @@ With debot you can:
 
 1. Get user token balance - get token amounts available for providing liquidity or performing swap operation;
 2. Get user LP token balance - get user's tokens that are currently in liquidity pool;
-3. Provide liquidity - add tokens to liquidity pool;
-4. Withdraw liquidity - remove tokens from liquidity pool;
-5. Get current exchange rate;
-6. Swap tokens - swap user's tokens that are currently not in liquidity pool;
-7. Withdraw tokens from swap pair - remove tokens from swap pair by requesting transfer of tokens to specified wallet;
-8. Exit debot :)
+3. Ger user TON balance - get user's TON balance;
+4. Get current LP functions execution cost;
+5. Provide liquidity - add tokens to liquidity pool;
+6. Withdraw liquidity - remove tokens from liquidity pool;
+7. Get current exchange rate;
+8. Swap tokens - swap user's tokens that are currently not in liquidity pool;
+9. Withdraw tokens from swap pair - remove tokens from swap pair by requesting transfer of tokens to specified wallet;
+10. Exit debot :)
+
+
 ## Tokens
 Used tokens are TIP-3 tokens initially developed by Broxus for bridges between Ethereum and TON. \
 We decided that it will be great not to create a ton of new TIP-3 token types and used already existing and working solution.
