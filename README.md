@@ -105,5 +105,11 @@ There are compiled contracts at [release page](). You can use them for quick sta
 If you want to compile smart contracts - please check repository [https://github.com/SVOIcom/ton-testing-suite](https://github.com/SVOIcom/ton-testing-suite) \
 There you will find instructions and instruments for smart contract compilation and testing/deploying test swap pair and debot contracts.
 
+## Pre-deployed smart contracts for tests
+
+There are already deployed contracts. Information about them can be found here: [deployed contracts]() \
+This file contains information about TIP-3 tokens, TIP-3 token wallets, swap pairs and debot contracts, \
+as well as keys for controlling those contracts.
+
 
 If you have any questions - feel free to ask our team in [Telegram](https://t.me/tonswap) (or contact me in direct messages @pafaul).
