@@ -63,10 +63,10 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     uint128 constant walletDeployMessageValue   = 1500 milli;
 
     // Constants for mechanism of payment rebalance
-    uint128 constant gettersIncrease  = 1015;
-    uint128 constant gettersDecrease  = 997;
-    uint128 constant functionIncrease = 1010;
-    uint128 constant functionDecrease = 998;
+    uint128 constant gettersIncrease  = 1105;
+    uint128 constant gettersDecrease  = 990;
+    uint128 constant functionIncrease = 1110;
+    uint128 constant functionDecrease = 985;
 
     // Tokens positions
     uint8 constant T1 = 0;
@@ -175,11 +175,15 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     * Get pair creation timestamp
     */
     function getCreationTimestamp() override public view returns (uint256) {
+        if (msg.sender.value == 0 && usersTONBalance[msg.pubkey()] >= getterFunctionCallCost) {
+            tvm.accept();
+            SwapPairContract(this)._initializeGettersRebalance(msg.pubkey(), address(this).balance);
+        }
         return creationTimestamp;
     }
 
     function getLPComission() override external view returns(uint128) {
-        if (msg.sender.value == 0 && usersTONBalance[msg.pubkey()] > 0) {
+        if (msg.sender.value == 0 && usersTONBalance[msg.pubkey()] >= getterFunctionCallCost) {
             tvm.accept();
             SwapPairContract(this)._initializeGettersRebalance(msg.pubkey(), address(this).balance);
         }
@@ -187,7 +191,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
     function getPairInfo() override external view returns (SwapPairInfo info) {
-        if (msg.sender.value == 0 && usersTONBalance[msg.pubkey()] > 0) {
+        if (msg.sender.value == 0 && usersTONBalance[msg.pubkey()] >= getterFunctionCallCost) {
             tvm.accept();
             SwapPairContract(this)._initializeGettersRebalance(msg.pubkey(), address(this).balance);
         }
@@ -212,7 +216,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         initialized
         returns (UserBalanceInfo ubi) 
     {
-        if (msg.sender.value == 0 && usersTONBalance[msg.pubkey()] > 0) {
+        if (msg.sender.value == 0 && usersTONBalance[msg.pubkey()] >= getterFunctionCallCost) {
             tvm.accept();
             SwapPairContract(this)._initializeGettersRebalance(msg.pubkey(), address(this).balance);
         }
@@ -232,7 +236,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         initialized
         returns (uint balance)
     {
-        if (msg.sender.value == 0 && usersTONBalance[msg.pubkey()] > 0) {
+        if (msg.sender.value == 0 && usersTONBalance[msg.pubkey()] >= getterFunctionCallCost) {
             tvm.accept();
             SwapPairContract(this)._initializeGettersRebalance(msg.pubkey(), address(this).balance);
         }
@@ -246,7 +250,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         view 
         returns (UserPoolInfo upi) 
     {
-        if (msg.sender.value == 0 && usersTONBalance[msg.pubkey()] > 0) {
+        if (msg.sender.value == 0 && usersTONBalance[msg.pubkey()] >= getterFunctionCallCost) {
             tvm.accept();
             SwapPairContract(this)._initializeGettersRebalance(msg.pubkey(), address(this).balance);
         }
@@ -269,7 +273,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         tokenExistsInPair(swappableTokenRoot)
         returns (SwapInfo)
     {
-        if (msg.sender.value == 0 && usersTONBalance[msg.pubkey()] > 0) {
+        if (msg.sender.value == 0 && usersTONBalance[msg.pubkey()] >= getterFunctionCallCost) {
             tvm.accept();
             SwapPairContract(this)._initializeGettersRebalance(msg.pubkey(), address(this).balance);
         }
@@ -298,7 +302,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         onlyPrePaid
         returns(uint128, uint128)
     {
-        if (msg.sender.value == 0 && usersTONBalance[msg.pubkey()] > 0) {
+        if (msg.sender.value == 0 && usersTONBalance[msg.pubkey()] >= getterFunctionCallCost) {
             tvm.accept();
             SwapPairContract(this)._initializeGettersRebalance(msg.pubkey(), address(this).balance);
         }
