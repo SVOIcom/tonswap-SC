@@ -64,9 +64,9 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     // Constants for mechanism of payment rebalance
     uint128 constant gettersIncrease  = 1105;
-    uint128 constant gettersDecrease  = 990;
+    uint128 constant gettersDecrease  = 991;
     uint128 constant functionIncrease = 1110;
-    uint128 constant functionDecrease = 985;
+    uint128 constant functionDecrease = 983;
 
     // Tokens positions
     uint8 constant T1 = 0;
@@ -93,6 +93,9 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     uint8 constant ERROR_NO_LIQUIDITY_PROVIDED         = 130; string constant ERROR_NO_LIQUIDITY_PROVIDED_MSG         = "Error: no liquidity provided";
     uint8 constant ERROR_LIQUIDITY_PROVIDING_RATE      = 131; string constant ERROR_LIQUIDITY_PROVIDING_RATE_MSG      = "Error: added liquidity disrupts the rate";
     uint8 constant ERROR_INSUFFICIENT_LIQUIDITY_AMOUNT = 132; string constant ERROR_INSUFFICIENT_LIQUIDITY_AMOUNT_MSG = "Error: zero liquidity tokens provided or provided token amount is too low";
+
+    uint8 constant ERROR_CODE_DOWNGRADE_REQUESTED      = 200; string constant ERROR_CODE_DOWNGRADE_REQUESTED_MSG      = "Error: code downgrade requested";
+    uint8 constant ERROR_CODE_UPGRADE_REQUESTED        = 201; string constant ERROR_CODE_UPGRADE_REQUESTED_MSG        = "Error: code upgrade requested";
     
 
     constructor(address rootContract, uint spd) public {
@@ -700,35 +703,25 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     //============Upgrade swap pair code part============
 
     function updateSwapPairCode(TvmCell newCode, uint32 newCodeVersion) override external onlySwapPairRoot {
+        require(
+            newCodeVersion > newCodeVersion, 
+            ERROR_CODE_DOWNGRADE_REQUESTED,
+            ERROR_CODE_DOWNGRADE_REQUESTED_MSG
+        );
         tvm.accept();
+        swapPairCodeVersion = newCodeVersion;
 
         tvm.setcode(newCode);
         tvm.setCurrentCode(newCode);
-        _initializeAfterCodeUpdate(
-            tokens,
-            tokenPositions,
-            tokenWallets,
-            tokenUserBalances,
-            liquidityTokensMinted,
-            liquidityUserTokens,
-            rewardUserBalance,
-            swapPairRootContract,
-            swapPairDeployer
-        );
+        _initializeAfterCodeUpdate();
     }
 
-    function _initializeAfterCodeUpdate(
-        mapping(uint8 => address) tokens_,
-        mapping(address => uint8) tokenPositions_,
-        mapping(uint8 => address) tokenWallets_,
-        mapping(uint8 => mapping(uint256 => uint128)) tokenUserBalances_,
-        uint256 lpTokensMinted,
-        mapping(uint256 => uint256) lpUserTokens,
-        mapping(uint256 => uint128) rewardUserBalance_,  
-        address spRootContract,  // address of swap pair root contract
-        uint    spDeployer // pubkey of swap pair deployer
-    ) inline private {
+    function checkIfSwapPairUpgradeRequired(uint32 newCodeVersion) override external onlySwapPairRoot returns(bool) {
+        return newCodeVersion > swapPairCodeVersion;
+    }
 
+    function _initializeAfterCodeUpdate() inline private {
+        //code will be added when required
     }
 
     //============Modifiers============
