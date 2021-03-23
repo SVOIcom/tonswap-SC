@@ -179,17 +179,17 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
     function getLPComission() override external view returns(uint128) {
-        if (msg.sender.value == 0) {
+        if (msg.sender.value == 0 && usersTONBalance[msg.pubkey()] > 0) {
             tvm.accept();
-            SwapPairContract(this)._rebalanceGetters(address(this).balance);
+            SwapPairContract(this)._initializeGettersRebalance(msg.pubkey(), address(this).balance);
         }
         return heavyFunctionCallCost;
     }
 
     function getPairInfo() override external view returns (SwapPairInfo info) {
-        if (msg.sender.value == 0) {
+        if (msg.sender.value == 0 && usersTONBalance[msg.pubkey()] > 0) {
             tvm.accept();
-            SwapPairContract(this)._rebalanceGetters(address(this).balance);
+            SwapPairContract(this)._initializeGettersRebalance(msg.pubkey(), address(this).balance);
         }
         return SwapPairInfo(
             swapPairRootContract,
@@ -212,9 +212,9 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         initialized
         returns (UserBalanceInfo ubi) 
     {
-        if (msg.sender.value == 0) {
+        if (msg.sender.value == 0 && usersTONBalance[msg.pubkey()] > 0) {
             tvm.accept();
-            SwapPairContract(this)._rebalanceGetters(address(this).balance);
+            SwapPairContract(this)._initializeGettersRebalance(msg.pubkey(), address(this).balance);
         }
         uint _pk = pubkey != 0 ? pubkey : msg.pubkey();
         return UserBalanceInfo(
@@ -232,9 +232,9 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         initialized
         returns (uint balance)
     {
-        if (msg.sender.value == 0) {
+        if (msg.sender.value == 0 && usersTONBalance[msg.pubkey()] > 0) {
             tvm.accept();
-            SwapPairContract(this)._rebalanceGetters(address(this).balance);
+            SwapPairContract(this)._initializeGettersRebalance(msg.pubkey(), address(this).balance);
         }
         uint _pk = pubkey != 0 ? pubkey : msg.pubkey();
         return usersTONBalance[_pk];
@@ -246,9 +246,9 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         view 
         returns (UserPoolInfo upi) 
     {
-        if (msg.sender.value == 0) {
+        if (msg.sender.value == 0 && usersTONBalance[msg.pubkey()] > 0) {
             tvm.accept();
-            SwapPairContract(this)._rebalanceGetters(address(this).balance);
+            SwapPairContract(this)._initializeGettersRebalance(msg.pubkey(), address(this).balance);
         }
         uint _pk = pubkey != 0 ? pubkey : msg.pubkey();
         return UserPoolInfo(
@@ -269,9 +269,9 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         tokenExistsInPair(swappableTokenRoot)
         returns (SwapInfo)
     {
-        if (msg.sender.value == 0) {
+        if (msg.sender.value == 0 && usersTONBalance[msg.pubkey()] > 0) {
             tvm.accept();
-            SwapPairContract(this)._rebalanceGetters(address(this).balance);
+            SwapPairContract(this)._initializeGettersRebalance(msg.pubkey(), address(this).balance);
         }
 
         if (swappableTokenAmount <= 0)
@@ -298,12 +298,14 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         onlyPrePaid
         returns(uint128, uint128)
     {
-        if (msg.sender.value == 0) {
+        if (msg.sender.value == 0 && usersTONBalance[msg.pubkey()] > 0) {
             tvm.accept();
-            SwapPairContract(this)._rebalanceGetters(address(this).balance);
+            SwapPairContract(this)._initializeGettersRebalance(msg.pubkey(), address(this).balance);
         }
         return (lps[T1], lps[T2]);
     }
+
+    //============Functions for offchain execution============
 
     // NOTICE: Requires a lot of gas, will only work with runLocal
     function getProvidingLiquidityInfo(uint128 maxFirstTokenAmount, uint128 maxSecondTokenAmount)
@@ -561,16 +563,19 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     function _rebalance(uint128 balance) external { 
         require(msg.sender == address(this));
-        tvm.accept();
-        if (address(this).balance + heavyFunctionCallCost + getterFunctionCallCost > balance)
+        if (address(this).balance + heavyFunctionCallCost > balance)
             heavyFunctionCallCost = math.muldiv(heavyFunctionCallCost, functionDecrease, 1000);
         else
             heavyFunctionCallCost = math.muldiv(heavyFunctionCallCost, functionIncrease, 1000);
     }
 
+    function _initializeGettersRebalance(uint pubkey, uint128 startBalance) private inline {
+        usersTONBalance[pubkey] -= getterFunctionCallCost;
+        SwapPairContract(this)._rebalanceGetters(startBalance);
+    }
+
     function _rebalanceGetters(uint128 balance) external {
         require(msg.sender == address(this));
-        tvm.accept();
         if (address(this).balance + getterFunctionCallCost > balance)
             getterFunctionCallCost = math.muldiv(getterFunctionCallCost, gettersDecrease, 1000);
         else

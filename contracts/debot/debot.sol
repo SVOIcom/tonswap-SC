@@ -243,11 +243,6 @@ contract SwapDebot is Debot, ISwapPairInformation {
         Terminal.inputUint(tvm.functionId(validateTokenAmount), "Input token amount: ");
     }
 
-    function enterWalletAddress() public {
-        Terminal.print(0, "Input token wallet address");
-        AddressInput.select(tvm.functionId(processPair));
-    }
-
     function validateTokenAmount(uint value) public {
         if (value > maxTokenAmount) {
             Terminal.print(tvm.functionId(choseNextStep), "Sum is too high. Please, reenter your token choice and token amount.");
@@ -258,6 +253,11 @@ contract SwapDebot is Debot, ISwapPairInformation {
             else if (state == WITHDRAW_TOKENS_FROM_PAIR)
                 Terminal.print(tvm.functionId(enterWalletAddress), "Proceeding to token withdraw submit stage");
         }
+    }
+
+    function enterWalletAddress() public {
+        Terminal.print(0, "Input token wallet address");
+        AddressInput.select(tvm.functionId(submitTokenWithdraw));
     }
 
     function validateLPTokenAmount() public {
