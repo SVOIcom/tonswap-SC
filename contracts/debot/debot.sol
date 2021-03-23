@@ -190,7 +190,7 @@ contract SwapDebot is Debot, ISwapPairInformation {
 
     function getLPK() public {
         optional(uint256) pubkey = 0;
-        ISwapPairContract(swapPairAddress).getCurrentExchangeRateExt{
+        ISwapPairContract(swapPairAddress).getCurrentExchangeRate{
             abiVer: 2,
             extMsg: true,
             sign: true,

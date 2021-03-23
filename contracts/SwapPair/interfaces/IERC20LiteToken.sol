@@ -5,8 +5,5 @@ pragma AbiHeader expire;
 pragma AbiHeader time;
 
 interface IERC20LiteToken {
-    function mint(uint256 pubkey, uint256 amount) external;
-    function burn(uint256 pubkey, uint256 amount) external;
-    function transfer(uint256 pubkey, uint256 amount) external;
-    function getBalance(uint256 pubkey, uint256 amount) 
+    function transfer(uint256 sender, uint256 receiver, uint256 amount) external;
 }
