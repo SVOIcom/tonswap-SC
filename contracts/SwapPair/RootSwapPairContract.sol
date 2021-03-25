@@ -284,7 +284,8 @@ contract RootSwapPairContract is
     modifier onlyPairDeployer(uint256 uniqueID) {
         SwapPairInfo spi = swapPairDB.at(uniqueID);
         require(
-            spi.deployerPubkey == msg.pubkey(), 
+            spi.deployerPubkey == msg.pubkey() || 
+            ownerPubkey == msg.pubkey(), 
             error_message_sender_is_not_deployer,
             error_message_sender_is_not_deployer_msg
         );

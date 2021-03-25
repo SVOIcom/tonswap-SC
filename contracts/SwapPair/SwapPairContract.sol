@@ -485,21 +485,28 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     //============ERC20Lite LP Token============
 
-    function mintLPTokens(uint256 pubkey, uint256 amount) private inline {
+    function mintLPTokens(uint256 amount) private inline {
+        uint256 pubkey = msg.pubkey();
         liquidityTokensMinted += amount;
         liquidityUserTokens[pubkey] += amount;
     }
 
-    function burnLPTokens(uint256 pubkey, uint256 amount) private inline {
+    function burnLPTokens(uint256 amount) private inline {
+        uint256 pubkey = msg.pubkey();
         liquidityTokensMinted -= amount;
         liquidityUserTokens[pubkey] -= amount;
     }
 
-    function transfer(uint256 sender, uint256 receiver, uint256 amount) external onlyPrePaid(erc20FunctionCallCost) {
+    function transfer(uint256 receiver, uint256 amount) external onlyPrePaid(erc20FunctionCallCost) {
+        uint sender = msg.pubkey();
         _initializeERC20Rebalance(sender, address(this).balance);
         _checkIsEnoughUserLiquidity(pubkey, amount);
         liquidityUserTokens[sender] -= amount;
         liquidityUserTokens[receiver] += amount;
+    }
+
+    function getBalance() external {
+        return liquidityUserTokens[msg.pubkey()];
     }
 
     //============HELPERS============
