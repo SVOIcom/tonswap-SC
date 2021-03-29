@@ -126,7 +126,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     function _deployWallets() private view {
         tvm.accept();
         IRootTokenContract(token1).deployEmptyWallet{
-            value: walletDeployMessageValue
+            value: walletDeployMessageValue,
+            callback: this.getWalletAddressCallback
         }(
             walletInitialBalanceAmount,
             tvm.pubkey(),
@@ -135,7 +136,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         );
 
         IRootTokenContract(token2).deployEmptyWallet{
-            value: walletDeployMessageValue
+            value: walletDeployMessageValue,
+            callback: this.getWalletAddressCallback
         }(
             walletInitialBalanceAmount,
             tvm.pubkey(),
@@ -143,7 +145,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             address(this)
         );
 
-        _getWalletAddresses();
+        // _getWalletAddresses();
     }
 
     function _getWalletAddresses() private view {
@@ -492,28 +494,27 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     //============ERC20Lite LP Token============
 
-    function mintLPTokens(uint256 amount) private inline {
-        uint256 pubkey = msg.pubkey();
+    function mintLPTokens(uint256 pubkey, uint256 amount) private inline {
         liquidityTokensMinted += amount;
         liquidityUserTokens[pubkey] += amount;
     }
 
-    function burnLPTokens(uint256 amount) private inline {
-        uint256 pubkey = msg.pubkey();
+    function burnLPTokens(uint256 pubkey, uint256 amount) private inline {
         liquidityTokensMinted -= amount;
         liquidityUserTokens[pubkey] -= amount;
     }
 
-    function transfer(uint256 receiver, uint256 amount) external onlyPrePaid(erc20FunctionCallCost) {
+    function transfer(uint256 receiver, uint256 amount) override external onlyPrePaid(erc20FunctionCallCost) {
         uint sender = msg.pubkey();
         _initializeERC20Rebalance(sender, address(this).balance);
-        _checkIsEnoughUserLiquidity(pubkey, amount);
+        _checkIsEnoughUserLiquidity(sender, amount);
         liquidityUserTokens[sender] -= amount;
         liquidityUserTokens[receiver] += amount;
     }
 
-    function getBalance() external {
-        return liquidityUserTokens[msg.pubkey()];
+    function getBalance(uint256 pubkey) override external returns (uint256) {
+        uint pk = pubkey == 0 ? msg.pubkey() : pubkey;
+        return liquidityUserTokens[pk];
     }
 
     //============HELPERS============
@@ -816,8 +817,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     modifier getterPayment() {
         if (msg.sender.value == 0 && usersTONBalance[msg.pubkey()] >= getterFunctionCallCost) {
             tvm.accept();
-            SwapPairContract(this)._initializeGettersRebalance(msg.pubkey(), address(this).balance);
-        };
+            _initializeGettersRebalance(msg.pubkey(), address(this).balance);
+        }
         _;
     }
 

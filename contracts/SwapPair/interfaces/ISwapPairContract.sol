@@ -19,8 +19,6 @@ interface ISwapPairContract is ISwapPairInformation {
     
     function getCurrentExchangeRate() external view returns (uint128, uint128);
 
-    function getCurrentExchangeRateExt() external view returns(uint128, uint128);
-
     function provideLiquidity(
         uint128 maxFirstTokenAmount, 
         uint128 maxSecondTokenAmount
