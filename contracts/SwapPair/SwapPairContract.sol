@@ -188,8 +188,9 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         );
         require(
             tonDestination != address.makeAddrStd(0, 0),
-
-        )
+            ERROR_TARGET_ADDRESS_IS_ZERO,
+            ERROR_TARGET_ADDRESS_IS_ZERO_MSG
+        );
         tvm.accept();
         address(tonDestination).transfer({value: amount * 95/100, bounce: true});
     } 
