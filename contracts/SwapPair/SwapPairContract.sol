@@ -5,7 +5,6 @@ pragma AbiHeader time;
 
 import '../TIP-3/interfaces/IRootTokenContract.sol';
 import '../TIP-3/interfaces/ITokensReceivedCallback.sol';
-import '../TIP-3/interfaces/ITONTokenWalletWithNotifiableTransfers.sol';
 import '../TIP-3/interfaces/ITONTokenWallet.sol';
 import './interfaces/ISwapPairContract.sol';
 import './interfaces/ISwapPairInformation.sol';
@@ -476,9 +475,17 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             ERROR_INVALID_TARGET_WALLET,
             ERROR_INVALID_TARGET_WALLET_MSG
         );
+        TvmCell payload;
         ITONTokenWallet(tokenWallets[_tn]).transfer{
             value: sendToTIP3TokenWallets
-        }(receiveTokenWallet, amount, 0);
+        }(
+            receiveTokenWallet,
+            amount, 
+            0,
+            address(this),
+            true,
+            payload
+        );
         tokenUserBalances[_tn][pubkey] -= amount;
         _initializeRebalance(pubkey, _sb);
     }
@@ -659,12 +666,18 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         view 
     {
         tvm.accept();
-        ITONTokenWalletWithNotifiableTransfers(tokenWallets[T1]).setReceiveCallback{
+        ITONTokenWallet(tokenWallets[T1]).setReceiveCallback{
             value: 200 milliton
-        }(address(this));
-        ITONTokenWalletWithNotifiableTransfers(tokenWallets[T2]).setReceiveCallback{
+        }(
+            address(this),
+            false
+        );
+        ITONTokenWallet(tokenWallets[T2]).setReceiveCallback{
             value: 200 milliton
-        }(address(this));
+        }(
+            address(this),
+            false
+        );
     }
 
     /*
