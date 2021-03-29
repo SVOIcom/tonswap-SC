@@ -1,15 +1,15 @@
-pragma solidity >= 0.6.0;
+pragma ton-solidity >= 0.6.0;
 
+pragma AbiHeader time;
 pragma AbiHeader expire;
-pragma AbiHeader pubkey;
 
 import "../interfaces/ITokensBurner.sol";
 import "../interfaces/IRootTokenContract.sol";
 import "../interfaces/ITONTokenWallet.sol";
 import "../interfaces/ITokensReceivedCallback.sol";
-import "../interfaces/ITokensBouncedCallback.sol";
+import "../interfaces/ITONTokenWalletWithNotifiableTransfers.sol";
 
-contract TONTokenWalletInternalOwnerTest is ITokensReceivedCallback, ITokensBouncedCallback {
+contract TONTokenWalletInternalOwnerTest is ITokensReceivedCallback {
 
     uint256 static _randomNonce;
 
@@ -36,31 +36,17 @@ contract TONTokenWalletInternalOwnerTest is ITokensReceivedCallback, ITokensBoun
     ) override external {
         require(change_directions.exists(token_wallet));
         tvm.rawReserve(address(this).balance - msg.value, 2);
-        TvmCell empty;
         ITONTokenWallet(change_directions.at(token_wallet))
-            .transferToRecipient{value: 0, flag: 128}(sender_public_key, sender_address, amount, 0.05 ton, 0, original_gas_to, false, empty);
-    }
-
-    address public latest_bounced_from;
-
-    function tokensBouncedCallback(
-        address,
-        address,
-        uint128,
-        address bounced_from,
-        uint128
-    ) override external {
-        latest_bounced_from = bounced_from;
+            .transferToRecipient{value: 0.25 ton}(sender_public_key, sender_address, amount, 0.05 ton, 0);
+        original_gas_to.transfer({ value: 0, flag: 128 });
     }
 
     function subscribeForTransfers(address wallet1, address wallet2) external onlyExternalOwner {
         tvm.accept();
         change_directions[wallet1] = wallet2;
         change_directions[wallet2] = wallet1;
-        ITONTokenWallet(wallet1).setReceiveCallback(address(this), true);
-        ITONTokenWallet(wallet1).setBouncedCallback(address(this));
-        ITONTokenWallet(wallet2).setReceiveCallback(address(this), true);
-        ITONTokenWallet(wallet2).setBouncedCallback(address(this));
+        ITONTokenWalletWithNotifiableTransfers(wallet1).setReceiveCallback(address(this));
+        ITONTokenWalletWithNotifiableTransfers(wallet2).setReceiveCallback(address(this));
     }
 
     function burnMyTokens(
@@ -68,9 +54,9 @@ contract TONTokenWalletInternalOwnerTest is ITokensReceivedCallback, ITokensBoun
         uint128 grams,
         address burner_address,
         address callback_address,
-        uint160 ethereum_address
+        bytes ethereum_address
     ) external view onlyExternalOwner {
-        require(ethereum_address  != 0);
+        require(ethereum_address.length  == 20);
 
         tvm.accept();
 
@@ -78,13 +64,12 @@ contract TONTokenWalletInternalOwnerTest is ITokensReceivedCallback, ITokensBoun
         builder.store(ethereum_address);
         TvmCell callback_payload = builder.toCell();
 
-        ITokensBurner(burner_address).burnMyTokens{value: grams}(tokens, address(this), callback_address, callback_payload);
+        ITokensBurner(burner_address).burnMyTokens{value: grams}(tokens, callback_address, callback_payload);
     }
 
     function testTransferFrom(uint128 tokens, uint128 grams, address from, address to, address wallet) external view onlyExternalOwner {
         tvm.accept();
-        TvmCell empty;
-        ITONTokenWallet(wallet).transferFrom{value: grams}(from, to, tokens, 0, address(this), true, empty);
+        ITONTokenWallet(wallet).transferFrom{value: grams}(from, to, tokens, 0);
     }
 
     function deployEmptyWallet(address root_address, uint128 grams) external view onlyExternalOwner {
@@ -114,6 +99,6 @@ contract TONTokenWalletInternalOwnerTest is ITokensReceivedCallback, ITokensBoun
     }
 
     function isExternalOwner() private inline view returns (bool) {
-        return external_owner_pubkey_ != 0 && external_owner_pubkey_ == msg.pubkey();
+        return external_owner_pubkey_ != 0 && external_owner_pubkey_ == tvm.pubkey();
     }
 }

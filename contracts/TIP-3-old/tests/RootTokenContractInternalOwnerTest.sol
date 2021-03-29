@@ -1,16 +1,14 @@
-pragma solidity >= 0.6.0;
+pragma ton-solidity >= 0.6.0;
 
-pragma AbiHeader pubkey;
+pragma AbiHeader time;
 pragma AbiHeader expire;
 
 import "../interfaces/IRootTokenContract.sol";
-import "../interfaces/IReceiveSurplusGas.sol";
-import "../interfaces/ISendSurplusGas.sol";
 import "../interfaces/IBurnTokensCallback.sol";
 import "../interfaces/ITokensBurner.sol";
 import "../interfaces/IBurnableByRootTokenRootContract.sol";
 
-contract RootTokenContractInternalOwnerTest is IBurnTokensCallback, ITokensBurner, IReceiveSurplusGas {
+contract RootTokenContractInternalOwnerTest is IBurnTokensCallback, ITokensBurner {
 
     uint256 static _randomNonce;
 
@@ -47,9 +45,8 @@ contract RootTokenContractInternalOwnerTest is IBurnTokensCallback, ITokensBurne
         uint128 tokens,
         TvmCell payload,
         uint256,
-        address,
-        address,
-        address send_gas_to
+        address sender_address,
+        address wallet_address
     ) override external onlyRoot {
 
         tvm.rawReserve(address(this).balance - msg.value, 2);
@@ -57,15 +54,14 @@ contract RootTokenContractInternalOwnerTest is IBurnTokensCallback, ITokensBurne
         burned_count += tokens;
         latest_payload = payload;
 
-        send_gas_to.transfer({ value: 0, flag: 128 });
+        if (sender_address.value == 0) {
+            wallet_address.transfer({ value: 0, flag: 128 });
+        } else {
+            sender_address.transfer({ value: 0, flag: 128 });
+        }
     }
 
-    function burnMyTokens(
-        uint128 tokens,
-        address send_gas_to,
-        address callback_address,
-        TvmCell callback_payload
-    ) override external {
+    function burnMyTokens(uint128 tokens, address callback_address, TvmCell callback_payload) override external {
         require(root_address_.value != 0);
         require(msg.sender.value != 0);
         require(msg.value >= settings_burn_min_value);
@@ -73,7 +69,6 @@ contract RootTokenContractInternalOwnerTest is IBurnTokensCallback, ITokensBurne
         IBurnableByRootTokenRootContract(root_address_).proxyBurn{value: 0, flag: 128}(
             tokens,
             msg.sender,
-            send_gas_to,
             callback_address,
             callback_payload
         );
@@ -102,7 +97,7 @@ contract RootTokenContractInternalOwnerTest is IBurnTokensCallback, ITokensBurne
     }
 
     function isExternalOwner() private inline view returns (bool) {
-        return external_owner_pubkey_ != 0 && external_owner_pubkey_ == msg.pubkey();
+        return external_owner_pubkey_ != 0 && external_owner_pubkey_ == tvm.pubkey();
     }
 
     //only for tests
@@ -133,20 +128,16 @@ contract RootTokenContractInternalOwnerTest is IBurnTokensCallback, ITokensBurne
     function mint(uint128 tokens, address addr) external view onlyOwner {
         require(root_address_.value != 0);
         tvm.accept();
-        IRootTokenContract(root_address_).mint(tokens, addr);
+        IRootTokenContract(root_address_).mint{value: 0.1 ton}(tokens, addr);
     }
 
     function sendGramsToRoot(uint128 grams) external view onlyOwner {
         tvm.accept();
         root_address_.transfer({ value: grams });
-    }
+}
 
     function testWithdrawExtraGas() external view onlyOwner {
         tvm.accept();
-        ISendSurplusGas(root_address_).sendSurplusGas(address(this));
-    }
-
-    function receiveSurplusGas() override external {
-
+        IRootTokenContract(root_address_).withdrawExtraGas();
     }
 }

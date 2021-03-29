@@ -1,5 +1,5 @@
-pragma solidity >= 0.6.0;
-
+pragma ton-solidity >= 0.6.0;
+pragma AbiHeader time;
 pragma AbiHeader expire;
 
 import "../interfaces/IRootTokenContract.sol";
@@ -40,5 +40,4 @@ contract DeployEmptyWalletFor {
     function getRoot() external view returns(address) {
         return root;
     }
-
 }

@@ -1,10 +1,10 @@
-pragma solidity >= 0.6.0;
+pragma ton-solidity >= 0.6.0;
 pragma AbiHeader expire;
 
-interface ITokensBurner {
-    function burnMyTokens(
+interface IBurnableByOwnerTokenWallet {
+    function burnByOwner(
         uint128 tokens,
-        address send_gas_to,
+        uint128 grams,
         address callback_address,
         TvmCell callback_payload
     ) external;

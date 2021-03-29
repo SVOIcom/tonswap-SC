@@ -1,18 +1,26 @@
-pragma ton-solidity >= 0.6.0;
-pragma AbiHeader time;
+pragma solidity >= 0.6.0;
 pragma AbiHeader expire;
+pragma AbiHeader pubkey;
 
 import "./interfaces/IBurnableByRootTokenWallet.sol";
 import "./interfaces/IBurnableTokenRootContract.sol";
 import "./interfaces/IBurnableByRootTokenRootContract.sol";
+import "./interfaces/IExpectedWalletAddressCallback.sol";
 import "./interfaces/IBurnTokensCallback.sol";
 import "./interfaces/IRootTokenContract.sol";
 import "./interfaces/ITONTokenWallet.sol";
-import "./interfaces/IWalletCreationCallback.sol";
+import "./interfaces/IReceiveSurplusGas.sol";
+import "./interfaces/ISendSurplusGas.sol";
 import "./TONTokenWallet.sol";
+import "./interfaces/IPausable.sol";
+import "./interfaces/IPausedCallback.sol";
+import "./interfaces/ITransferOwner.sol";
 
 
-contract RootTokenContract is IRootTokenContract, IBurnableTokenRootContract, IBurnableByRootTokenRootContract {
+/*
+    @title FT token root contract
+*/
+contract RootTokenContract is IRootTokenContract, IBurnableTokenRootContract, IBurnableByRootTokenRootContract, IPausable, ITransferOwner, ISendSurplusGas {
 
     uint256 static _randomNonce;
 
@@ -20,29 +28,50 @@ contract RootTokenContract is IRootTokenContract, IBurnableTokenRootContract, IB
     bytes public static symbol;
     uint8 public static decimals;
     TvmCell public static wallet_code;
-    uint256 static root_public_key;
-    address static root_owner_address;
 
     uint128 public total_supply;
 
+    uint256 root_public_key;
+    address root_owner_address;
     uint128 public start_gas_balance;
 
     uint8 error_message_sender_is_not_my_owner = 100;
     uint8 error_not_enough_balance = 101;
     uint8 error_message_sender_is_not_good_wallet = 103;
-    uint8 error_define_wallet_public_key_or_owner_address = 106;
+    uint8 error_define_public_key_or_owner_address = 106;
+    uint8 error_paused = 107;
 
-    constructor() public {
-        require((root_public_key != 0 && root_owner_address.value == 0) ||
-                (root_public_key == 0 && root_owner_address.value != 0),
-                error_define_wallet_public_key_or_owner_address);
+    bool public paused;
+
+    /*
+        @param root_public_key_ Root token owner public key
+        @param root_owner_address_ Root token owner address
+    */
+    constructor(uint256 root_public_key_, address root_owner_address_) public {
+        require((root_public_key_ != 0 && root_owner_address_.value == 0) ||
+                (root_public_key_ == 0 && root_owner_address_.value != 0),
+                error_define_public_key_or_owner_address);
         tvm.accept();
 
+        root_public_key = root_public_key_;
+        root_owner_address = root_owner_address_;
+
         total_supply = 0;
+        paused = false;
 
         start_gas_balance = address(this).balance;
     }
 
+    /*
+        @notice Get root token details
+        @returns name Token name
+        @returns symbol Token symbol
+        @returns decimals Token decimals
+        @returns wallet_code Source code for Token wallet
+        @returns root_public_key Owner public key
+        @returns root_owner_address Owner address
+        @returns total_supply Token total supply
+    */
     function getDetails() override external view returns (IRootTokenContractDetails) {
         return IRootTokenContractDetails(
             name,
@@ -51,39 +80,95 @@ contract RootTokenContract is IRootTokenContract, IBurnableTokenRootContract, IB
             wallet_code,
             root_public_key,
             root_owner_address,
-            total_supply,
-            start_gas_balance
+            total_supply
         );
     }
 
-    function getWalletAddress(uint256 wallet_public_key_, address owner_address_) override external returns (address) {
+    /*
+        @notice Derive token wallet address from the public key or address
+        @dev Since the token wallet can be controlled through key or address, both options are supported
+        @param wallet_public_key_ Token wallet owner public key
+        @param owner_address_ Token wallet owner address
+        @returns Token wallet address
+    */
+    function getWalletAddress(
+        uint256 wallet_public_key_,
+        address owner_address_
+    )
+        override
+        external
+        view
+    returns (
+        address
+    ) {
         require((owner_address_.value != 0 && wallet_public_key_ == 0) ||
                 (owner_address_.value == 0 && wallet_public_key_ != 0),
-                error_define_wallet_public_key_or_owner_address);
-        address walletAddress = getExpectedWalletAddress(wallet_public_key_, owner_address_);
-        return walletAddress;
+                error_define_public_key_or_owner_address);
+        return getExpectedWalletAddress(wallet_public_key_, owner_address_);
     }
 
+    /*
+        @notice Allows any contract to receive token wallet address in expectedWalletAddressCallback method
+        @param wallet_public_key_ Token wallet owner public key
+        @param owner_address_ Token wallet owner address
+        @param to Callback receiver
+    */
+    function sendExpectedWalletAddress(
+        uint256 wallet_public_key_,
+        address owner_address_,
+        address to
+    )
+        override
+        external
+    {
+        tvm.rawReserve(address(this).balance - msg.value, 2);
+
+        address wallet = getExpectedWalletAddress(wallet_public_key_, owner_address_);
+        IExpectedWalletAddressCallback(to).expectedWalletAddressCallback{value: 0, flag: 128}(
+            wallet,
+            wallet_public_key_,
+            owner_address_
+        );
+    }
+
+    /*
+        @notice Deploy token wallet
+        @dev Can be called only by owner
+        @dev Can be called both by owner key or address
+        @dev wallet_public_key_ or owner_address_ should be specified!
+        @param tokens How much tokens to send
+        @param deploy_grams How much TONs send to wallet on deployment
+        @param wallet_public_key_ Token wallet owner public key
+        @param owner_address_ Token wallet owner address
+        @param gas_back_address Receiver the remaining balance after deployment. msg.sender by default
+        @returns Token wallet address
+    */
     function deployWallet(
         uint128 tokens,
-        uint128 grams,
+        uint128 deploy_grams,
         uint256 wallet_public_key_,
         address owner_address_,
         address gas_back_address
-    ) override external onlyOwner {
+    )
+        override
+        external
+        onlyOwner
+    returns(
+        address
+    ) {
         require(tokens >= 0);
         require((owner_address_.value != 0 && wallet_public_key_ == 0) ||
                 (owner_address_.value == 0 && wallet_public_key_ != 0),
-                error_define_wallet_public_key_or_owner_address);
+                error_define_public_key_or_owner_address);
 
         if(root_owner_address.value == 0) {
             tvm.accept();
         } else {
-            tvm.rawReserve(math.max(start_gas_balance, address(this).balance - msg.value), 2); 
+            tvm.rawReserve(math.max(start_gas_balance, address(this).balance - msg.value), 2);
         }
 
         address wallet = new TONTokenWallet{
-            value: grams,
+            value: deploy_grams,
             code: wallet_code,
             pubkey: wallet_public_key_,
             varInit: {
@@ -100,27 +185,43 @@ contract RootTokenContract is IRootTokenContract, IBurnableTokenRootContract, IB
 
         if (root_owner_address.value != 0) {
             if (gas_back_address.value != 0) {
-                gas_back_address.transfer({ value: 0, flag: 128 }); 
+                gas_back_address.transfer({ value: 0, flag: 128 });
             } else {
-                msg.sender.transfer({ value: 0, flag: 128 }); 
+                msg.sender.transfer({ value: 0, flag: 128 });
             }
         }
+
+        return wallet;
     }
 
+    /*
+        @notice Deploy new token wallet with empty tokens balance
+        @dev Can be called by anyone to deploy new token wallet
+        @dev wallet_public_key_ or owner_address_ should be specified!
+        @param wallet_public_key_ Token wallet owner public key
+        @param owner_address_ Token wallet owner address
+        @param gas_back_address Receiver the remaining balance after deployment. msg.sender by default
+        @returns Token wallet address
+    */
     function deployEmptyWallet(
-        uint128 grams,
+        uint128 deploy_grams,
         uint256 wallet_public_key_,
         address owner_address_,
         address gas_back_address
-    ) override external {
+    )
+        override
+        external
+    returns (
+        address
+    ) {
         require((owner_address_.value != 0 && wallet_public_key_ == 0) ||
                 (owner_address_.value == 0 && wallet_public_key_ != 0),
-                error_define_wallet_public_key_or_owner_address);
+                error_define_public_key_or_owner_address);
 
-        tvm.rawReserve(math.max(start_gas_balance, address(this).balance - msg.value), 2); 
+        tvm.rawReserve(address(this).balance - msg.value, 2);
 
-        new TONTokenWallet{
-            value: grams,
+        address wallet = new TONTokenWallet{
+            value: deploy_grams,
             code: wallet_code,
             pubkey: wallet_public_key_,
             varInit: {
@@ -132,76 +233,195 @@ contract RootTokenContract is IRootTokenContract, IBurnableTokenRootContract, IB
         }();
 
         if (gas_back_address.value != 0) {
-            gas_back_address.transfer({ value: 0, flag: 128 }); 
+            gas_back_address.transfer({ value: 0, flag: 128 });
         } else {
-            msg.sender.transfer({ value: 0, flag: 128 }); 
+            msg.sender.transfer({ value: 0, flag: 128 });
         }
+
+        return wallet;
     }
 
-    function mint(uint128 tokens, address to) override external onlyOwner {
-        if(root_owner_address.value == 0) {
-            tvm.accept();
-        } else {
-            tvm.rawReserve(math.max(start_gas_balance, address(this).balance - msg.value), 2); 
-        }
-
-        total_supply += tokens;
+    /*
+        @notice Mint new tokens to token wallet
+        @dev Can be called only by owner
+        @param tokens How much tokens to mint
+        @param to Receiver token wallet address
+    */
+    function mint(
+        uint128 tokens,
+        address to
+    )
+        override
+        external
+        onlyOwner
+    {
+        tvm.accept();
 
         ITONTokenWallet(to).accept(tokens);
 
-        if(root_owner_address.value != 0) {
-            root_owner_address.transfer({ value: 0, flag: 128 }); 
-        }
+        total_supply += tokens;
     }
 
-
+    /*
+        @notice Burn tokens at specific token wallet
+        @dev Can be called only by owner address
+        @dev Don't support token wallet owner public key
+        @param tokens How much tokens to burn
+        @param sender_address Token wallet owner address
+        @param send_gas_to Receiver of the remaining balance after burn. sender_address by default
+        @param callback_address Burn callback address
+        @param callback_payload Burn callback payload
+    */
     function proxyBurn(
         uint128 tokens,
         address sender_address,
+        address send_gas_to,
         address callback_address,
         TvmCell callback_payload
-    ) override external onlyInternalOwner {
-        tvm.rawReserve(address(this).balance - msg.value, 2); 
+    )
+        override
+        external
+        onlyInternalOwner
+    {
+        tvm.rawReserve(address(this).balance - msg.value, 2);
+
+        address send_gas_to_ = send_gas_to;
         address expectedWalletAddress = getExpectedWalletAddress(0, sender_address);
-        IBurnableByRootTokenWallet(expectedWalletAddress).burnByRoot{value: 0, flag: 128}( 
+
+        if (send_gas_to.value == 0) {
+            send_gas_to_ = sender_address;
+        }
+
+        IBurnableByRootTokenWallet(expectedWalletAddress).burnByRoot{value: 0, flag: 128}(
             tokens,
+            send_gas_to_,
             callback_address,
             callback_payload
         );
     }
 
+    /*
+        @notice Callback for token wallet tokens burn operation
+        @dev Decrease total supply
+        @dev Can be called only by correct token wallet contract
+        @dev Fails if root token is paused
+        @param tokens How much tokens was burned
+        @param sender_public_key Token wallet owner public key
+        @param sender_address Token wallet owner address
+        @param send_gas_to Remaining balance receiver
+        @param callback_address Callback receiver address
+        @param callback_payload Callback payload
+    */
     function tokensBurned(
         uint128 tokens,
         uint256 sender_public_key,
         address sender_address,
+        address send_gas_to,
         address callback_address,
         TvmCell callback_payload
     ) override external {
+
+        require(!paused, error_paused);
 
         address expectedWalletAddress = getExpectedWalletAddress(sender_public_key, sender_address);
 
         require(msg.sender == expectedWalletAddress, error_message_sender_is_not_good_wallet);
 
-        tvm.rawReserve(address(this).balance - msg.value, 2); 
+        tvm.rawReserve(address(this).balance - msg.value, 2);
 
         total_supply -= tokens;
 
-        IBurnTokensCallback(callback_address).burnCallback{value: 0, flag: 128}( 
-            tokens,
-            callback_payload,
-            sender_public_key,
-            sender_address,
-            expectedWalletAddress
-        );
+        if (callback_address.value == 0) {
+            send_gas_to.transfer({ value: 0, flag: 128 });
+        } else {
+            IBurnTokensCallback(callback_address).burnCallback{value: 0, flag: 128}(
+                tokens,
+                callback_payload,
+                sender_public_key,
+                sender_address,
+                expectedWalletAddress,
+                send_gas_to
+            );
+        }
 
     }
 
-    function withdrawExtraGas() override external onlyInternalOwner {
+    /*
+        @notice Withdraw all surplus balance in TONs
+        @dev Can by called only by owner address
+        @param to Withdraw receiver
+    */
+    function sendSurplusGas(
+        address to
+    )
+        override
+        external
+        onlyInternalOwner
+    {
         tvm.rawReserve(start_gas_balance, 2);
-        root_owner_address.transfer({ value: 0, flag: 128 });
+        IReceiveSurplusGas(to).receiveSurplusGas{ value: 0, flag: 128 }();
     }
 
-// =============== Support functions ==================
+    // =============== IPausable ==================
+
+    /*
+        @notice Pause / unpause root token
+        @dev Can be called only by owner
+        @dev Can't stop transfers since it's an operation directly between token wallets
+        @dev Pause disables / enables token burning
+        @dev Paused value should be used on wallet applications level
+        @param value Pause / unpause
+    */
+    function setPaused(
+        bool value
+    )
+        override
+        external
+        onlyOwner
+    {
+        tvm.accept();
+        paused = value;
+    }
+
+    /*
+        @notice Notify some contract with current paused status
+        @param callback_id Request id
+        @param callback_addr Callback receiver
+    */
+    function sendPausedCallbackTo(
+        uint64 callback_id,
+        address callback_addr
+    )
+        override
+        external
+    {
+        tvm.rawReserve(address(this).balance - msg.value, 2);
+        IPausedCallback(callback_addr).pausedCallback{ value: 0, flag: 128 }(callback_id, paused);
+    }
+
+
+    /*
+        @notice Transfer root token ownership
+        @param root_public_key_ Root token owner public key
+        @param root_owner_address_ Root token owner address
+    */
+    function transferOwner(
+        uint256 root_public_key_,
+        address root_owner_address_
+    )
+        override
+        external
+        onlyOwner
+    {
+        require((root_public_key_ != 0 && root_owner_address_.value == 0) ||
+                (root_public_key_ == 0 && root_owner_address_.value != 0),
+                error_define_public_key_or_owner_address);
+        tvm.accept();
+        root_public_key = root_public_key_;
+        root_owner_address = root_owner_address_;
+    }
+
+    // =============== Support functions ==================
 
     modifier onlyOwner() {
         require(isOwner(), error_message_sender_is_not_my_owner);
@@ -222,10 +442,24 @@ contract RootTokenContract is IRootTokenContract, IBurnableTokenRootContract, IB
     }
 
     function isExternalOwner() private inline view returns (bool) {
-        return root_public_key != 0 && root_public_key == tvm.pubkey();
+        return root_public_key != 0 && root_public_key == msg.pubkey();
     }
 
-    function getExpectedWalletAddress(uint256 wallet_public_key_, address owner_address_) private inline view returns (address)  {
+    /*
+        @notice Derive wallet address from owner
+        @param wallet_public_key_ Token wallet owner public key
+        @param owner_address_ Token wallet owner address
+    */
+    function getExpectedWalletAddress(
+        uint256 wallet_public_key_,
+        address owner_address_
+    )
+        private
+        inline
+        view
+    returns (
+        address
+    ) {
         TvmCell stateInit = tvm.buildStateInit({
             contr: TONTokenWallet,
             varInit: {
@@ -241,6 +475,10 @@ contract RootTokenContract is IRootTokenContract, IBurnableTokenRootContract, IB
         return address(tvm.hash(stateInit));
     }
 
+    /*
+        @notice On-bounce handler
+        @dev Used in case token wallet .accept fails so the total_supply can be decreased back
+    */
     onBounce(TvmSlice slice) external {
         tvm.accept();
         uint32 functionId = slice.decode(uint32);
