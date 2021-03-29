@@ -39,6 +39,8 @@ interface ISwapPairContract is ISwapPairInformation {
 
     function getUserTONBalance(uint pubkey) external view returns (uint balance);
 
+    function withdrawTONs(address tonDestination, uint128 amount) external;
+
     function getUserLiquidityPoolBalance(uint pubkey) external view returns (UserPoolInfo upi) ;
 
     function getWithdrawingLiquidityInfo(uint256 liquidityTokensAmount)
