@@ -7,4 +7,7 @@ pragma AbiHeader pubkey;
 interface IUpgradeSwapPairCode {
     function checkIfSwapPairUpgradeRequired(uint32 newCodeVersion) external returns(bool);
     function updateSwapPairCode(TvmCell newCode, uint32 newCodeVersion) external;
+
+
+    event UpdateSwapPairCode(uint32 newCodeVersion);
 }

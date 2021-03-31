@@ -91,7 +91,8 @@ contract RootSwapPairContract is
         external 
         override
         onlyPaid 
-    returns (address cA) {
+        returns (address cA) 
+    {
         uint256 uniqueID = tokenRootContract1.value^tokenRootContract2.value;
         require(!swapPairDB.exists(uniqueID), error_pair_already_exists, error_pair_already_exists_msg);
         tvm.accept();
@@ -123,6 +124,8 @@ contract RootSwapPairContract is
         );
 
         swapPairDB.add(uniqueID, info);
+
+        emit DeploySwapPair(contractAddress, tokenRootContract1, tokenRootContract2);
 
         return contractAddress;
     }
@@ -203,6 +206,8 @@ contract RootSwapPairContract is
         tvm.accept();
         swapPairCode = code;
         swapPairCodeVersion = codeVersion;
+
+        emit SetSwapPairCode(codeVersion);
     }
 
     function upgradeSwapPair(uint256 uniqueID) 
@@ -221,6 +226,8 @@ contract RootSwapPairContract is
         IUpgradeSwapPairCode(info.swapPairAddress).updateSwapPairCode(swapPairCode, swapPairCodeVersion);
         info.swapPairCodeVersion = swapPairCodeVersion;
         swapPairDB.replace(uniqueID, info);
+
+        emit UpgradeSwapPair(uniqueID, swapPairCodeVersion);
     }
 
     //============Private functions============

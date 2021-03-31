@@ -359,6 +359,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
         _initializeRebalance(pubkey, _sb);
 
+        emit ProvideLiquidity(pubkey, minted, provided1, provided2);
+
         return (provided1, provided2);
     }
 
@@ -398,16 +400,18 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         tokenUserBalances[T2][pubkey] += withdrawed2; 
 
         _initializeRebalance(pubkey, _sb);
+
+        emit WithdrawLiquidity(pubkey, burned, withdrawed1, withdrawed2);
         
         return (withdrawed1, withdrawed2);
     }
 
 
     function swap(address swappableTokenRoot, uint128 swappableTokenAmount) override external returns(SwapInfo) { 
-        return _swap(swappableTokenRoot, swappableTokenAmount);
+        return _swap(swappableTokenRoot, swappableTokenAmount, false);
     }
 
-    function _swap(address swappableTokenRoot, uint128 swappableTokenAmount)
+    function _swap(address swappableTokenRoot, uint128 swappableTokenAmount, bool isDebug)
         internal
         initialized
         onlyPrePaid(heavyFunctionCallCost)
@@ -447,6 +451,9 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         kLast = uint256(_si.newFromPool) * uint256(_si.newToPool);
 
         _initializeRebalance(pubkey, _sb);
+
+        if (!isDebug)
+            emit Swap(pubkey, tokens[fromK], tokens[toK],  swappableTokenAmount, _si.targetTokenAmount, _si.fee);
 
         return SwapInfo(swappableTokenAmount, _si.targetTokenAmount, _si.fee);
     }
