@@ -1,11 +1,11 @@
-pragma ton-solidity >= 0.6.0;
+pragma ton-solidity ^0.39.0;
 pragma AbiHeader pubkey;
 pragma AbiHeader expire;
 pragma AbiHeader time;
 
-import '../TIP-3/interfaces/IRootTokenContract.sol';
-import '../TIP-3/interfaces/ITokensReceivedCallback.sol';
-import '../TIP-3/interfaces/ITONTokenWallet.sol';
+import '../../ton-eth-bridge-token-contracts/free-ton/contracts/interfaces/IRootTokenContract.sol';
+import '../../ton-eth-bridge-token-contracts/free-ton/contracts/interfaces/ITokensReceivedCallback.sol';
+import '../../ton-eth-bridge-token-contracts/free-ton/contracts/interfaces/ITONTokenWallet.sol';
 import './interfaces/ISwapPairContract.sol';
 import './interfaces/ISwapPairInformation.sol';
 import './interfaces/IUpgradeSwapPairCode.sol';
@@ -128,8 +128,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     function _deployWallets() private view {
         tvm.accept();
         IRootTokenContract(token1).deployEmptyWallet{
-            value: walletDeployMessageValue,
-            callback: this.getWalletAddressCallback
+            value: walletDeployMessageValue
         }(
             walletInitialBalanceAmount,
             tvm.pubkey(),
@@ -138,8 +137,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         );
 
         IRootTokenContract(token2).deployEmptyWallet{
-            value: walletDeployMessageValue,
-            callback: this.getWalletAddressCallback
+            value: walletDeployMessageValue
         }(
             walletInitialBalanceAmount,
             tvm.pubkey(),
@@ -147,7 +145,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             address(this)
         );
 
-        // _getWalletAddresses();
+        _getWalletAddresses();
     }
 
     function _getWalletAddresses() private view {
