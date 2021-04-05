@@ -19,7 +19,7 @@ contract PairDeployer {
     function deployPair(address pairRoot, address root1, address root2, uint128 grams) public onlyOwner {
         tvm.accept();
         pairRoot_ = pairRoot;
-        IRootSwapPairContract(pairRoot).deploySwapPair{value: grams, callback: receiveAddress}(root1, root2);
+        IRootSwapPairContract(pairRoot).deploySwapPair{value: grams}(root1, root2);
     }
 
     function receiveAddress(address pairAddress) public onlyPairRoot {
