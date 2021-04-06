@@ -8,6 +8,7 @@ import './interfaces/IRootSwapPairContract.sol';
 import './interfaces/IRootSwapPairUpgradePairCode.sol';
 import './interfaces/IServiceInformation.sol';
 import './interfaces/IUpgradeSwapPairCode.sol';
+import './libraries/RootSwapPairContractErrors.sol';
 import './SwapPairContract.sol';
 
 contract RootSwapPairContract is
@@ -50,15 +51,6 @@ contract RootSwapPairContract is
     // Information about user balances
     mapping (uint256 => uint128) userTONBalances;
 
-    //============Errors============
-
-    uint8 constant error_message_sender_is_not_deployer       = 100; string constant error_message_sender_is_not_deployer_msg       = "Message sender is not deployer";
-    uint8 constant error_message_sender_is_not_owner          = 101; string constant error_message_sender_is_not_owner_msg          = "Message sender is not owner";
-    uint8 constant error_pair_does_not_exist                  = 102; string constant error_pair_does_not_exist_msg                  = "Swap pair does not exist";
-    uint8 constant error_pair_already_exists                  = 103; string constant error_pair_already_exists_msg                  = "Swap pair already exists";
-    uint8 constant error_message_value_is_too_low             = 104; string constant error_message_value_is_too_low_msg             = "Message value is below required minimum";
-    uint8 constant error_code_is_not_updated_or_is_downgraded = 105; string constant error_code_is_not_updated_or_is_downgraded_msg = "Pair code is not updated or is downgraded";
-
     //============Constructor===========
 
     constructor(
@@ -93,7 +85,11 @@ contract RootSwapPairContract is
         onlyPaid 
     returns (address cA) {
         uint256 uniqueID = tokenRootContract1.value^tokenRootContract2.value;
-        require(!swapPairDB.exists(uniqueID), error_pair_already_exists, error_pair_already_exists_msg);
+        require(
+            !swapPairDB.exists(uniqueID), 
+            RootSwapPairContractErrors.ERROR_PAIR_ALREADY_EXISTS, 
+            RootSwapPairContractErrors.ERROR_PAIR_ALREADY_EXISTS_MSG
+        );
         tvm.accept();
 
         uint256 currentTimestamp = now; 
@@ -156,7 +152,11 @@ contract RootSwapPairContract is
     ) external view override returns(SwapPairInfo) {
         uint256 uniqueID = tokenRootContract1.value^tokenRootContract2.value;
         optional(SwapPairInfo) spi = swapPairDB.fetch(uniqueID);
-        require(spi.hasValue(), error_pair_does_not_exist, error_pair_does_not_exist_msg);
+        require(
+            spi.hasValue(), 
+            RootSwapPairContractErrors.ERROR_PAIR_DOES_NOT_EXIST, 
+            RootSwapPairContractErrors.ERROR_PAIR_DOES_NOT_EXIST_MSG
+        );
         return spi.get();
     }
 
@@ -197,8 +197,8 @@ contract RootSwapPairContract is
     ) external override onlyOwner {
         require(
             codeVersion > swapPairCodeVersion, 
-            error_code_is_not_updated_or_is_downgraded,
-            error_code_is_not_updated_or_is_downgraded_msg
+            RootSwapPairContractErrors.ERROR_CODE_IS_NOT_UPDATED_OR_IS_DOWNGRADED,
+            RootSwapPairContractErrors.ERROR_CODE_IS_NOT_UPDATED_OR_IS_DOWNGRADED_MSG
         );
         tvm.accept();
         swapPairCode = code;
@@ -215,8 +215,8 @@ contract RootSwapPairContract is
         SwapPairInfo info = swapPairDB.at(uniqueID);
         require(
             info.swapPairCodeVersion < swapPairCodeVersion, 
-            error_code_is_not_updated_or_is_downgraded,
-            error_code_is_not_updated_or_is_downgraded_msg
+            RootSwapPairContractErrors.ERROR_CODE_IS_NOT_UPDATED_OR_IS_DOWNGRADED,
+            RootSwapPairContractErrors.ERROR_CODE_IS_NOT_UPDATED_OR_IS_DOWNGRADED_MSG
         );
         IUpgradeSwapPairCode(info.swapPairAddress).updateSwapPairCode(swapPairCode, swapPairCodeVersion);
         info.swapPairCodeVersion = swapPairCodeVersion;
@@ -246,7 +246,11 @@ contract RootSwapPairContract is
     //============Modifiers============
 
     modifier onlyOwner() {
-        require(msg.pubkey() == ownerPubkey, error_message_sender_is_not_owner);
+        require(
+            msg.pubkey() == ownerPubkey, 
+            RootSwapPairContractErrors.ERROR_MESSAGE_SENDER_IS_NOT_OWNER,
+            RootSwapPairContractErrors.ERROR_MESSAGE_SENDER_IS_NOT_DEPLOYER_MSG
+        );
         _;
     }
 
@@ -255,8 +259,8 @@ contract RootSwapPairContract is
             msg.value >= minMessageValue ||
             userTONBalances[msg.pubkey()] >= minMessageValue ||
             msg.pubkey() == ownerPubkey, 
-            error_message_value_is_too_low,
-            error_message_value_is_too_low_msg
+            RootSwapPairContractErrors.ERROR_MESSAGE_VALUE_IS_TOO_LOW,
+            RootSwapPairContractErrors.ERROR_MESSAGE_VALUE_IS_TOO_LOW_MSG
         );
         _;
     }
@@ -266,8 +270,9 @@ contract RootSwapPairContract is
         optional(SwapPairInfo) pairInfo = swapPairDB.fetch(uniqueID);
         require(
             !pairInfo.hasValue(), 
-            error_pair_already_exists,
-            error_pair_already_exists_msg);
+            RootSwapPairContractErrors.ERROR_PAIR_ALREADY_EXISTS,
+            RootSwapPairContractErrors.ERROR_PAIR_ALREADY_EXISTS_MSG
+        );
         _;
     }
 
@@ -275,8 +280,8 @@ contract RootSwapPairContract is
         optional(SwapPairInfo) pairInfo = swapPairDB.fetch(uniqueID);
         require(
             pairInfo.hasValue() == exists, 
-            error_pair_does_not_exist,
-            error_pair_does_not_exist_msg
+            RootSwapPairContractErrors.ERROR_PAIR_DOES_NOT_EXIST,
+            RootSwapPairContractErrors.ERROR_PAIR_DOES_NOT_EXIST_MSG
         );
         _;
     }
@@ -286,8 +291,8 @@ contract RootSwapPairContract is
         require(
             spi.deployerPubkey == msg.pubkey() || 
             ownerPubkey == msg.pubkey(), 
-            error_message_sender_is_not_deployer,
-            error_message_sender_is_not_deployer_msg
+            RootSwapPairContractErrors.ERROR_MESSAGE_SENDER_IS_NOT_DEPLOYER,
+            RootSwapPairContractErrors.ERROR_MESSAGE_SENDER_IS_NOT_DEPLOYER_MSG
         );
         _;
     }
