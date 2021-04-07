@@ -1,11 +1,11 @@
-pragma ton-solidity >= 0.6.0;
+pragma ton-solidity ^0.39.0;
 pragma AbiHeader pubkey;
 pragma AbiHeader expire;
 pragma AbiHeader time;
 
-import '../TIP-3/interfaces/IRootTokenContract.sol';
-import '../TIP-3/interfaces/ITokensReceivedCallback.sol';
-import '../TIP-3/interfaces/ITONTokenWallet.sol';
+import '../../ton-eth-bridge-token-contracts/free-ton/contracts/interfaces/IRootTokenContract.sol';
+import '../../ton-eth-bridge-token-contracts/free-ton/contracts/interfaces/ITokensReceivedCallback.sol';
+import '../../ton-eth-bridge-token-contracts/free-ton/contracts/interfaces/ITONTokenWallet.sol';
 import './interfaces/ISwapPairContract.sol';
 import './interfaces/ISwapPairInformation.sol';
 import './interfaces/IUpgradeSwapPairCode.sol';
@@ -82,11 +82,13 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     uint8 constant ERROR_CALLER_IS_NOT_TOKEN_WALLET    = 103; string constant ERROR_CALLER_IS_NOT_TOKEN_WALLET_MSG    = "Error: msg.sender is not token wallet";
     uint8 constant ERROR_CALLER_IS_NOT_SWAP_PAIR_ROOT  = 104; string constant ERROR_CALLER_IS_NOT_SWAP_PAIR_ROOT_MSG  = "Error: msg.sender is not swap pair root contract";
     uint8 constant ERROR_CALLER_IS_NOT_OWNER           = 105; string constant ERROR_CALLER_IS_NOT_OWNER_MSG           = "Error: message sender is not not owner";
-    uint8 constant ERROR_LOW_MESSAGE_VALUE             = 106; string constant ERROR_LOW_MESSAGE_VALUE_MSG             = "Error: msg.value is too low";  
+    uint8 constant ERROR_LOW_MESSAGE_VALUE             = 106; string constant ERROR_LOW_MESSAGE_VALUE_MSG             = "Error: msg.value is too low"; 
+    uint8 constant ERROR_NO_MESSAGE_SIGNATURE          = 107; string constant ERROR_NO_MESSAGE_SIGNATURE_MSG          = "Error: message is not signed"; 
 
     uint8 constant ERROR_INVALID_TOKEN_ADDRESS         = 110; string constant ERROR_INVALID_TOKEN_ADDRESS_MSG         = "Error: invalid token address";
     uint8 constant ERROR_INVALID_TOKEN_AMOUNT          = 111; string constant ERROR_INVALID_TOKEN_AMOUNT_MSG          = "Error: invalid token amount";
     uint8 constant ERROR_INVALID_TARGET_WALLET         = 112; string constant ERROR_INVALID_TARGET_WALLET_MSG         = "Error: specified token wallet cannot be zero address";
+    uint8 constant ERROR_TARGET_ADDRESS_IS_ZERO        = 113; string constant ERROR_TARGET_ADDRESS_IS_ZERO_MSG        = "Error: requested ton transfer to zero address";
     
     uint8 constant ERROR_INSUFFICIENT_USER_BALANCE     = 120; string constant ERROR_INSUFFICIENT_USER_BALANCE_MSG     = "Error: insufficient user balance";
     uint8 constant ERROR_INSUFFICIENT_USER_LP_BALANCE  = 121; string constant ERROR_INSUFFICIENT_USER_LP_BALANCE_MSG  = "Error: insufficient user liquidity pool balance";
@@ -126,8 +128,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     function _deployWallets() private view {
         tvm.accept();
         IRootTokenContract(token1).deployEmptyWallet{
-            value: walletDeployMessageValue,
-            callback: this.getWalletAddressCallback
+            value: walletDeployMessageValue
         }(
             walletInitialBalanceAmount,
             tvm.pubkey(),
@@ -136,8 +137,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         );
 
         IRootTokenContract(token2).deployEmptyWallet{
-            value: walletDeployMessageValue,
-            callback: this.getWalletAddressCallback
+            value: walletDeployMessageValue
         }(
             walletInitialBalanceAmount,
             tvm.pubkey(),
@@ -145,7 +145,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             address(this)
         );
 
-        // _getWalletAddresses();
+        _getWalletAddresses();
     }
 
     function _getWalletAddresses() private view {
@@ -176,6 +176,22 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         uint pubkey = ts.decode(uint);
         usersTONBalance[pubkey] += msg.value;
     }
+
+    function withdrawTONs(address tonDestination, uint128 amount) override external onlyPrePaid(amount) {
+        uint pubkey = msg.pubkey();
+        require(
+            pubkey != 0, 
+            ERROR_NO_MESSAGE_SIGNATURE,
+            ERROR_NO_MESSAGE_SIGNATURE_MSG
+        );
+        require(
+            tonDestination != address.makeAddrStd(0, 0),
+            ERROR_TARGET_ADDRESS_IS_ZERO,
+            ERROR_TARGET_ADDRESS_IS_ZERO_MSG
+        );
+        tvm.accept();
+        address(tonDestination).transfer({value: amount * 95/100, bounce: true});
+    } 
 
     //============Get functions============
 

@@ -1,0 +1,3 @@
+[submodule "ton-eth-bridge-token-contracts"]
+	path = ton-eth-bridge-token-contracts
+	url = https://github.com/broxus/ton-eth-bridge-token-contracts

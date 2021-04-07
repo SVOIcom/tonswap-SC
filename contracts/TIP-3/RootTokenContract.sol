@@ -219,6 +219,7 @@ contract RootTokenContract is IRootTokenContract, IBurnableTokenRootContract, IB
                 error_define_public_key_or_owner_address);
 
         tvm.rawReserve(address(this).balance - msg.value, 2);
+        // tvm.accept();
 
         address wallet = new TONTokenWallet{
             value: deploy_grams,

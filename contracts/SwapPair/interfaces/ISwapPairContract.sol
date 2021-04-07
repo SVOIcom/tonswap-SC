@@ -1,4 +1,4 @@
-pragma ton-solidity >= 0.6.0;
+pragma ton-solidity ^0.39.0;
 
 pragma AbiHeader expire;
 pragma AbiHeader time;
@@ -38,6 +38,8 @@ interface ISwapPairContract is ISwapPairInformation {
     function getUserBalance(uint pubkey) external view returns (UserBalanceInfo ubi);
 
     function getUserTONBalance(uint pubkey) external view returns (uint balance);
+
+    function withdrawTONs(address tonDestination, uint128 amount) external;
 
     function getUserLiquidityPoolBalance(uint pubkey) external view returns (UserPoolInfo upi) ;
 
