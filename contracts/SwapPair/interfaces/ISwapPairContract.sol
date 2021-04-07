@@ -53,4 +53,29 @@ interface ISwapPairContract is ISwapPairInformation {
         address providingTokenRoot, 
         uint128 providingTokenAmount
     ) external view returns(uint128 anotherTokenAmount);
+
+
+    //Events
+    event Swap(
+        uint256 msgSenderPubkey,         
+        address swappableTokenRoot,  
+        address targetTokenRoot,
+        uint128 swappableTokenAmount,
+        uint128 targetTokenAmount,
+        uint128 fee
+    );
+
+    event ProvideLiquidity(
+        uint256 msgSenderPubkey,
+        uint256 liquidityTokensAmount,
+        uint128 firstTokenAmount,
+        uint128 secondTokenAmount
+    );
+
+    event WithdrawLiquidity(
+        uint256 msgSenderPubkey,
+        uint256 liquidityTokensAmount,
+        uint128 firstTokenAmount,
+        uint128 secondTokenAmount
+    );
 }
