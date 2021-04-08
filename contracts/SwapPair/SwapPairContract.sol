@@ -11,6 +11,10 @@ import './interfaces/ISwapPairInformation.sol';
 import './interfaces/IUpgradeSwapPairCode.sol';
 import './interfaces/IERC20LiteToken.sol';
 
+import './libraries/SwapPairErrors.sol';
+
+
+
 contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpgradeSwapPairCode, ISwapPairContract, IERC20LiteToken {
     address static token1;
     address static token2;
@@ -73,35 +77,9 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     // Tokens positions
     uint8 constant T1 = 0;
-    uint8 constant T2 = 1;
+    uint8 constant T2 = 1;    
 
-    //Error codes    
-    uint8 constant ERROR_CONTRACT_ALREADY_INITIALIZED  = 100; string constant ERROR_CONTRACT_ALREADY_INITIALIZED_MSG  = "Error: contract is already initialized";
-    uint8 constant ERROR_CONTRACT_NOT_INITIALIZED      = 101; string constant ERROR_CONTRACT_NOT_INITIALIZED_MSG      = "Error: contract is not initialized";
-    uint8 constant ERROR_CALLER_IS_NOT_TOKEN_ROOT      = 102; string constant ERROR_CALLER_IS_NOT_TOKEN_ROOT_MSG      = "Error: msg.sender is not token root";
-    uint8 constant ERROR_CALLER_IS_NOT_TOKEN_WALLET    = 103; string constant ERROR_CALLER_IS_NOT_TOKEN_WALLET_MSG    = "Error: msg.sender is not token wallet";
-    uint8 constant ERROR_CALLER_IS_NOT_SWAP_PAIR_ROOT  = 104; string constant ERROR_CALLER_IS_NOT_SWAP_PAIR_ROOT_MSG  = "Error: msg.sender is not swap pair root contract";
-    uint8 constant ERROR_CALLER_IS_NOT_OWNER           = 105; string constant ERROR_CALLER_IS_NOT_OWNER_MSG           = "Error: message sender is not not owner";
-    uint8 constant ERROR_LOW_MESSAGE_VALUE             = 106; string constant ERROR_LOW_MESSAGE_VALUE_MSG             = "Error: msg.value is too low"; 
-    uint8 constant ERROR_NO_MESSAGE_SIGNATURE          = 107; string constant ERROR_NO_MESSAGE_SIGNATURE_MSG          = "Error: message is not signed"; 
 
-    uint8 constant ERROR_INVALID_TOKEN_ADDRESS         = 110; string constant ERROR_INVALID_TOKEN_ADDRESS_MSG         = "Error: invalid token address";
-    uint8 constant ERROR_INVALID_TOKEN_AMOUNT          = 111; string constant ERROR_INVALID_TOKEN_AMOUNT_MSG          = "Error: invalid token amount";
-    uint8 constant ERROR_INVALID_TARGET_WALLET         = 112; string constant ERROR_INVALID_TARGET_WALLET_MSG         = "Error: specified token wallet cannot be zero address";
-    uint8 constant ERROR_TARGET_ADDRESS_IS_ZERO        = 113; string constant ERROR_TARGET_ADDRESS_IS_ZERO_MSG        = "Error: requested ton transfer to zero address";
-    
-    uint8 constant ERROR_INSUFFICIENT_USER_BALANCE     = 120; string constant ERROR_INSUFFICIENT_USER_BALANCE_MSG     = "Error: insufficient user balance";
-    uint8 constant ERROR_INSUFFICIENT_USER_LP_BALANCE  = 121; string constant ERROR_INSUFFICIENT_USER_LP_BALANCE_MSG  = "Error: insufficient user liquidity pool balance";
-    uint8 constant ERROR_UNKNOWN_USER_PUBKEY           = 122; string constant ERROR_UNKNOWN_USER_PUBKEY_MSG           = "Error: unknown user's pubkey";
-    uint8 constant ERROR_LOW_USER_BALANCE              = 123; string constant ERROR_LOW_USER_BALANCE_MSG              = "Error: user TON balance is too low";
-    
-    uint8 constant ERROR_NO_LIQUIDITY_PROVIDED         = 130; string constant ERROR_NO_LIQUIDITY_PROVIDED_MSG         = "Error: no liquidity provided";
-    uint8 constant ERROR_LIQUIDITY_PROVIDING_RATE      = 131; string constant ERROR_LIQUIDITY_PROVIDING_RATE_MSG      = "Error: added liquidity disrupts the rate";
-    uint8 constant ERROR_INSUFFICIENT_LIQUIDITY_AMOUNT = 132; string constant ERROR_INSUFFICIENT_LIQUIDITY_AMOUNT_MSG = "Error: zero liquidity tokens provided or provided token amount is too low";
-
-    uint8 constant ERROR_CODE_DOWNGRADE_REQUESTED      = 200; string constant ERROR_CODE_DOWNGRADE_REQUESTED_MSG      = "Error: code downgrade requested";
-    uint8 constant ERROR_CODE_UPGRADE_REQUESTED        = 201; string constant ERROR_CODE_UPGRADE_REQUESTED_MSG        = "Error: code upgrade requested";
-    
 
     constructor(address rootContract, uint spd) public {
         tvm.accept();
@@ -155,7 +133,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
     function _reinitialize() external onlyOwner {
-        require(msg.value >= 2 ton, ERROR_LOW_MESSAGE_VALUE, ERROR_LOW_MESSAGE_VALUE_MSG);
+        require(msg.value >= 2 ton, SwapPairErrors.LOW_MESSAGE_VALUE, SwapPairErrors.LOW_MESSAGE_VALUE_MSG);
         initializedStatus = 0;
         delete tokenWallets;
         _deployWallets();
@@ -181,13 +159,13 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         uint pubkey = msg.pubkey();
         require(
             pubkey != 0, 
-            ERROR_NO_MESSAGE_SIGNATURE,
-            ERROR_NO_MESSAGE_SIGNATURE_MSG
+            SwapPairErrors.NO_MESSAGE_SIGNATURE,
+            SwapPairErrors.NO_MESSAGE_SIGNATURE_MSG
         );
         require(
             tonDestination != address.makeAddrStd(0, 0),
-            ERROR_TARGET_ADDRESS_IS_ZERO,
-            ERROR_TARGET_ADDRESS_IS_ZERO_MSG
+            SwapPairErrors.TARGET_ADDRESS_IS_ZERO,
+            SwapPairErrors.TARGET_ADDRESS_IS_ZERO_MSG
         );
         tvm.accept();
         address(tonDestination).transfer({value: amount * 95/100, bounce: true});
@@ -393,8 +371,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         tvm.accept();
         require(
             _checkIsLiquidityProvided(),
-            ERROR_NO_LIQUIDITY_PROVIDED,
-            ERROR_NO_LIQUIDITY_PROVIDED_MSG
+            SwapPairErrors.NO_LIQUIDITY_PROVIDED,
+            SwapPairErrors.NO_LIQUIDITY_PROVIDED_MSG
         );
 
         _checkIsEnoughUserLiquidity(pubkey, liquidityTokensAmount);
@@ -438,13 +416,13 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         tvm.accept();
         require(
             tokenPositions.exists(swappableTokenRoot),
-            ERROR_INVALID_TOKEN_ADDRESS,
-            ERROR_INVALID_TOKEN_ADDRESS_MSG
+            SwapPairErrors.INVALID_TOKEN_ADDRESS,
+            SwapPairErrors.INVALID_TOKEN_ADDRESS_MSG
         );
         require(
             _checkIsLiquidityProvided(),
-            ERROR_NO_LIQUIDITY_PROVIDED,
-            ERROR_NO_LIQUIDITY_PROVIDED_MSG
+            SwapPairErrors.NO_LIQUIDITY_PROVIDED,
+            SwapPairErrors.NO_LIQUIDITY_PROVIDED_MSG
         );
         notEmptyAmount(swappableTokenAmount);
         userEnoughTokenBalance(swappableTokenRoot, swappableTokenAmount, pubkey);
@@ -487,18 +465,18 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         tvm.accept();
         require(
             tokenPositions.exists(withdrawalTokenRoot),
-            ERROR_INVALID_TOKEN_ADDRESS,
-            ERROR_INVALID_TOKEN_ADDRESS_MSG
+            SwapPairErrors.INVALID_TOKEN_ADDRESS,
+            SwapPairErrors.INVALID_TOKEN_ADDRESS_MSG
         );
         require(
             tokenUserBalances[_tn][pubkey] >= amount && amount != 0,
-            ERROR_INVALID_TOKEN_AMOUNT,
-            ERROR_INVALID_TOKEN_AMOUNT_MSG
+            SwapPairErrors.INVALID_TOKEN_AMOUNT,
+            SwapPairErrors.INVALID_TOKEN_AMOUNT_MSG
         );
         require(
             receiveTokenWallet.value != 0,
-            ERROR_INVALID_TARGET_WALLET,
-            ERROR_INVALID_TARGET_WALLET_MSG
+            SwapPairErrors.INVALID_TARGET_WALLET,
+            SwapPairErrors.INVALID_TARGET_WALLET_MSG
         );
         TvmCell payload;
         ITONTokenWallet(tokenWallets[_tn]).transfer{
@@ -663,7 +641,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     * Deployed wallet address callback
     */
     function getWalletAddressCallback(address walletAddress) external onlyTokenRoot {
-        require(initializedStatus < 2, ERROR_CONTRACT_ALREADY_INITIALIZED);
+        require(initializedStatus < 2, SwapPairErrors.CONTRACT_ALREADY_INITIALIZED);
         tvm.accept();
         if (msg.sender == token1) {
             if( !tokenWallets.exists(T1) )
@@ -740,8 +718,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     function updateSwapPairCode(TvmCell newCode, uint32 newCodeVersion) override external onlySwapPairRoot {
         require(
             newCodeVersion > newCodeVersion, 
-            ERROR_CODE_DOWNGRADE_REQUESTED,
-            ERROR_CODE_DOWNGRADE_REQUESTED_MSG
+            SwapPairErrors.CODE_DOWNGRADE_REQUESTED,
+            SwapPairErrors.CODE_DOWNGRADE_REQUESTED_MSG
         );
         tvm.accept();
         swapPairCodeVersion = newCodeVersion;
@@ -762,7 +740,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     //============Modifiers============
 
     modifier initialized() {
-        require(initializedStatus == 2, ERROR_CONTRACT_NOT_INITIALIZED, ERROR_CONTRACT_NOT_INITIALIZED_MSG);
+        require(initializedStatus == 2, SwapPairErrors.CONTRACT_NOT_INITIALIZED, SwapPairErrors.CONTRACT_NOT_INITIALIZED_MSG);
         _;
     }
 
@@ -774,8 +752,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     modifier onlyOwner() {
         require(
             msg.pubkey() == swapPairDeployer,
-            ERROR_CALLER_IS_NOT_OWNER,
-            ERROR_CALLER_IS_NOT_OWNER_MSG
+            SwapPairErrors.CALLER_IS_NOT_OWNER,
+            SwapPairErrors.CALLER_IS_NOT_OWNER_MSG
         );
         _;
     }
@@ -783,8 +761,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     modifier onlyTokenRoot() {
         require(
             msg.sender == token1 || msg.sender == token2,
-            ERROR_CALLER_IS_NOT_TOKEN_ROOT,
-            ERROR_CALLER_IS_NOT_TOKEN_ROOT_MSG
+            SwapPairErrors.CALLER_IS_NOT_TOKEN_ROOT,
+            SwapPairErrors.CALLER_IS_NOT_TOKEN_ROOT_MSG
         );
         _;
     }
@@ -794,8 +772,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         bool b2 = tokenWallets.exists(T2) && msg.sender == tokenWallets[T2];
         require(
             b1 || b2,
-            ERROR_CALLER_IS_NOT_TOKEN_WALLET,
-            ERROR_CALLER_IS_NOT_TOKEN_WALLET_MSG
+            SwapPairErrors.CALLER_IS_NOT_TOKEN_WALLET,
+            SwapPairErrors.CALLER_IS_NOT_TOKEN_WALLET_MSG
         );
         _;
     }
@@ -803,8 +781,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     modifier onlySwapPairRoot() {
         require(
             msg.sender == swapPairRootContract,
-            ERROR_CALLER_IS_NOT_SWAP_PAIR_ROOT,
-            ERROR_CALLER_IS_NOT_SWAP_PAIR_ROOT_MSG
+            SwapPairErrors.CALLER_IS_NOT_SWAP_PAIR_ROOT,
+            SwapPairErrors.CALLER_IS_NOT_SWAP_PAIR_ROOT_MSG
         );
         _;
     }
@@ -812,8 +790,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     modifier onlyPrePaid(uint128 requiredSum) {
         require(
             usersTONBalance[msg.pubkey()] >= requiredSum,
-            ERROR_LOW_USER_BALANCE,
-            ERROR_LOW_USER_BALANCE_MSG
+            SwapPairErrors.LOW_USER_BALANCE,
+            SwapPairErrors.LOW_USER_BALANCE_MSG
         );
         _;
     }
@@ -821,8 +799,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     modifier liquidityProvided() {
         require(
             _checkIsLiquidityProvided(),
-            ERROR_NO_LIQUIDITY_PROVIDED,
-            ERROR_NO_LIQUIDITY_PROVIDED_MSG
+            SwapPairErrors.NO_LIQUIDITY_PROVIDED,
+            SwapPairErrors.NO_LIQUIDITY_PROVIDED_MSG
         );
         _;
     }
@@ -831,8 +809,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     modifier tokenExistsInPair(address _token) {
         require(
             tokenPositions.exists(_token),
-            ERROR_INVALID_TOKEN_ADDRESS,
-            ERROR_INVALID_TOKEN_ADDRESS_MSG
+            SwapPairErrors.INVALID_TOKEN_ADDRESS,
+            SwapPairErrors.INVALID_TOKEN_ADDRESS_MSG
         );
         _;
     }
@@ -848,7 +826,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     //============Too big for modifier too small for function============
 
     function notEmptyAmount(uint128 _amount) private pure inline {
-        require (_amount > 0,  ERROR_INVALID_TOKEN_AMOUNT, ERROR_INVALID_TOKEN_AMOUNT_MSG);
+        require (_amount > 0,  SwapPairErrors.INVALID_TOKEN_AMOUNT, SwapPairErrors.INVALID_TOKEN_AMOUNT_MSG);
     }
 
     function notZeroLiquidity(uint128 _amount1, uint128 _amount2) private pure inline returns(bool) {
@@ -860,8 +838,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         uint128 userBalance = tokenUserBalances[_p][pubkey];
         require(
             userBalance > 0 && userBalance >= amount,
-            ERROR_INSUFFICIENT_USER_BALANCE,
-            ERROR_INSUFFICIENT_USER_BALANCE_MSG
+            SwapPairErrors.INSUFFICIENT_USER_BALANCE,
+            SwapPairErrors.INSUFFICIENT_USER_BALANCE_MSG
         );
     }
 
@@ -870,16 +848,16 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         bool b2 = tokenUserBalances[tokenPositions[token2_]][pubkey] >= token2Amount;
         require(
             b1 && b2,
-            ERROR_INSUFFICIENT_USER_BALANCE,
-            ERROR_INSUFFICIENT_USER_BALANCE_MSG
+            SwapPairErrors.INSUFFICIENT_USER_BALANCE,
+            SwapPairErrors.INSUFFICIENT_USER_BALANCE_MSG
         );
     }
 
     function _checkIsEnoughUserLiquidity(uint256 pubkey, uint256 burned) private view inline {
         require(
             liquidityUserTokens[pubkey] >= burned, 
-            ERROR_INSUFFICIENT_USER_LP_BALANCE,
-            ERROR_INSUFFICIENT_USER_LP_BALANCE_MSG
+            SwapPairErrors.INSUFFICIENT_USER_LP_BALANCE,
+            SwapPairErrors.INSUFFICIENT_USER_LP_BALANCE_MSG
         );
     }
 }
