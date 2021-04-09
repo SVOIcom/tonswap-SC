@@ -9,8 +9,10 @@ interface ISwapPairInformation {
         address rootContract;
         address tokenRoot1;
         address tokenRoot2;
+        address lpTokenRoot;
         address tokenWallet1;
         address tokenWallet2;
+        address lpTokenWallet;
         uint256 deployerPubkey;
         uint256 deployTimestamp;
         address swapPairAddress; 

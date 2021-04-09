@@ -3,12 +3,12 @@ pragma AbiHeader expire;
 pragma AbiHeader pubkey;
 pragma AbiHeader time;
 
-import './interfaces/ISwapPairInformation.sol';
-import './interfaces/IRootSwapPairContract.sol';
-import './interfaces/IRootSwapPairUpgradePairCode.sol';
-import './interfaces/IServiceInformation.sol';
-import './interfaces/IUpgradeSwapPairCode.sol';
-import './libraries/RootSwapPairContractErrors.sol';
+import './interfaces/swapPair/ISwapPairInformation.sol';
+import './interfaces/rootSwapPair/IRootSwapPairContract.sol';
+import './interfaces/rootSwapPair/IRootSwapPairUpgradePairCode.sol';
+import './interfaces/rootSwapPair/IServiceInformation.sol';
+import './interfaces/swapPair/IUpgradeSwapPairCode.sol';
+import './libraries/rootSwapPair/RootSwapPairContractErrors.sol';
 import './SwapPairContract.sol';
 
 contract RootSwapPairContract is
@@ -17,7 +17,7 @@ contract RootSwapPairContract is
 {
     //============Static variables============
 
-    // For debug purposes
+    // For debug purposes or for multiple instances of contract
     uint256 static _randomNonce;
     // Owner public key
     uint256 static ownerPubkey;
@@ -60,7 +60,8 @@ contract RootSwapPairContract is
         TvmCell spCode,
         uint32 spCodeVersion,
         uint256 minMsgValue,
-        uint256 contractSP
+        uint256 contractSP,
+        address tip3Deployer_
     ) public {
         tvm.accept();
         creationTimestamp = now;
@@ -70,6 +71,7 @@ contract RootSwapPairContract is
         // Setting payment options
         minMessageValue = minMsgValue > sendToNewSwapPair ? minMsgValue : sendToNewSwapPair * 103/100;
         contractServicePayment = contractSP;
+        tip3Deployer = tip3Deployer_;
     }
 
     //============External functions============
@@ -123,16 +125,18 @@ contract RootSwapPairContract is
 
         // Storing info about deployed swap pair contracts 
         SwapPairInfo info = SwapPairInfo(
-            address(this),
-            tokenRootContract1,
-            tokenRootContract2,
-            address.makeAddrStd(0, 0),
-            address.makeAddrStd(0, 0),
-            msg.pubkey(),
-            currentTimestamp,
-            contractAddress,
-            uniqueID,
-            swapPairCodeVersion
+            address(this),              // root contract
+            tokenRootContract1,         // token root
+            tokenRootContract2,         // token root
+            address.makeAddrStd(0, 0),  // lp token root
+            address.makeAddrStd(0, 0),  // token wallet
+            address.makeAddrStd(0, 0),  // token wallet
+            address.makeAddrStd(0, 0),  // lp token wallet
+            msg.pubkey(),               // swap pair deployer
+            currentTimestamp,           // creation timestamp
+            contractAddress,            // address of swap pair
+            uniqueID,                   // unique id of swap pair
+            swapPairCodeVersion         // code version of swap pair
         );
 
         swapPairDB.add(uniqueID, info);
@@ -203,6 +207,12 @@ contract RootSwapPairContract is
     ) external view override returns(bool) {
         uint256 uniqueID = tokenRootContract1.value^tokenRootContract2.value;
         return swapPairDB.exists(uniqueID);
+    }
+
+    //============Callback functions============
+
+    function swapPairInitializedCallback(SwapPairInfo spi) external {
+        
     }
 
     //============Swap pair upgrade functionality============

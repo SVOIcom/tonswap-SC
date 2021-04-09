@@ -6,12 +6,14 @@ pragma AbiHeader time;
 import '../../ton-eth-bridge-token-contracts/free-ton/contracts/interfaces/IRootTokenContract.sol';
 import '../../ton-eth-bridge-token-contracts/free-ton/contracts/interfaces/ITokensReceivedCallback.sol';
 import '../../ton-eth-bridge-token-contracts/free-ton/contracts/interfaces/ITONTokenWallet.sol';
-import './interfaces/ISwapPairContract.sol';
-import './interfaces/ISwapPairInformation.sol';
-import './interfaces/IUpgradeSwapPairCode.sol';
-import './interfaces/IERC20LiteToken.sol';
+import './interfaces/swapPair/ISwapPairContract.sol';
+import './interfaces/swapPair/ISwapPairInformation.sol';
+import './interfaces/swapPair/IUpgradeSwapPairCode.sol';
+import './interfaces/swapPair/IERC20LiteToken.sol';
+import './interfaces/rootSwapPair/IRootContractCallback.sol';
 
-import './libraries/SwapPairErrors.sol';
+import './libraries/swapPair/SwapPairErrors.sol';
+import './libraries/swapPair/SwapPairConstants.sol';
 
 
 
@@ -20,9 +22,13 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     address static token2;
     uint    static swapPairID;
 
-    uint32 swapPairCodeVersion = 1;
+    uint32  swapPairCodeVersion = 1;
     uint256 swapPairDeployer;
     address swapPairRootContract;
+    address tip3Deployer;
+
+    address lpTokenRootAddress;
+    address lpTokenWalletAddress;
 
     uint128 constant feeNominator = 997;
     uint128 constant feeDenominator = 1000;
@@ -50,7 +56,12 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     //Pair creation timestamp
     uint256 creationTimestamp;
 
-    //Initialization status. 0 - new, 1 - one wallet created, 2 - fully initialized
+    //Initialization status. 
+    // 0 - new                             <- not initialized
+    // 1 - one wallet created              <- not initialized
+    // 2 - both wallets for TIP-3 created  <- not initialized
+    // 3 - deployed LP token contract      <- not initialized
+    // 4 - deployed LP token wallet        <- initialized
     uint private initializedStatus = 0;
 
     // Balance managing constants
@@ -77,9 +88,14 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     // Tokens positions
     uint8 constant T1 = 0;
-    uint8 constant T2 = 1;    
+    uint8 constant T2 = 1; 
 
+    // Token info
+    uint8 tokenInfoCount;
+    IRootTokenContractDetails T1Info;
+    IRootTokenContractDetails T2Info;
 
+    //============Contract initialization functions============
 
     constructor(address rootContract, uint spd) public {
         tvm.accept();
@@ -97,15 +113,20 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         kLast = 0;
 
         //Deploy tokens wallets
-        _deployWallets();
+        _deployWallet(token1);
+        _deployWallet(token2);
+
+        // Get information about tokens
+        _getTIP3Details(token1);
+        _getTIP3Details(token2);
     }
 
     /**
-    * Deploy internal wallets. getWalletAddressCallback to get their addresses
+    * Deploy internal wallet. getWalletAddressCallback to get wallet address
     */
-    function _deployWallets() private view {
+    function _deployWallet(address tokenRootAddress) private view {
         tvm.accept();
-        IRootTokenContract(token1).deployEmptyWallet{
+        IRootTokenContract(tokenRootAddress).deployEmptyWallet{
             value: walletDeployMessageValue
         }(
             walletInitialBalanceAmount,
@@ -114,29 +135,104 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             address(this)
         );
 
-        IRootTokenContract(token2).deployEmptyWallet{
-            value: walletDeployMessageValue
-        }(
-            walletInitialBalanceAmount,
-            tvm.pubkey(),
-            address(this),
-            address(this)
-        );
-
-        _getWalletAddresses();
+        _getWalletAddress(tokenRootAddress);
     }
 
-    function _getWalletAddresses() private view {
+    function _getWalletAddresses(address token) private view {
         tvm.accept();
-        IRootTokenContract(token1).getWalletAddress{value: sendToRootToken, callback: this.getWalletAddressCallback}(tvm.pubkey(), address(this));
-        IRootTokenContract(token2).getWalletAddress{value: sendToRootToken, callback: this.getWalletAddressCallback}(tvm.pubkey(), address(this));
+        IRootTokenContract(token).getWalletAddress{value: sendToRootToken, callback: this.getWalletAddressCallback}(tvm.pubkey(), address(this));
     }
 
-    function _reinitialize() external onlyOwner {
-        require(msg.value >= 2 ton, SwapPairErrors.LOW_MESSAGE_VALUE, SwapPairErrors.LOW_MESSAGE_VALUE_MSG);
-        initializedStatus = 0;
-        delete tokenWallets;
-        _deployWallets();
+    /*
+    * Deployed wallet address callback
+    */
+    function getWalletAddressCallback(address walletAddress) external onlyTokenRoot {
+        require(initializedStatus < SwapPairConstants.contractFullyInitialized, SwapPairErrors.CONTRACT_ALREADY_INITIALIZED);
+        tvm.accept();
+        if (msg.sender == token1) {
+            tokenWallets[T1] = walletAddress;
+            initializedStatus++;
+        }
+
+        if (msg.sender == token2) {
+            tokenWallets[T2] = walletAddress;
+            initializedStatus++;
+        }
+
+        if (msg.sender == lpTokenRootAddress) {
+            lpTokenWalletAddress = walletAddress;
+            initializedStatus++;
+        }
+
+        _setWalletsCallbackAddress(walletAddress);
+
+        if (initializedStatus == SwapPairConstants.contractFullyInitialized) {
+            _swapPairInitializedCall();
+        }
+    }
+
+    function _getTIP3Details(address tokenRootAddress) 
+        private
+        view
+    {
+        RootTokenContract(tokenRootAddress).getDetails{ value: 0.1 ton, bounce: true, callback: this._receiveTIP3Details }();
+    }
+
+    function _receiveTIP3Details(IRootTokenContractDetails rtcd) 
+        external
+        onlyTokenRoot
+    {
+        tvm.accept();
+        if (msg.sender == token1) {
+            T1Info = rtcd;
+            tokenInfoCount++;
+        } else {
+            T2Info = rtcd;
+            tokenInfoCount++;
+        }
+
+        if (tokenInfoCount == 2) {
+            _prepareDataForTIP3Deploy();
+        }
+    }
+
+    function _prepareDataForTIP3Deploy()
+        private
+        view
+    {
+        _deployTIP3LpToken("TTLP", "TTLP", 9);
+    }
+
+    function _deployTIP3LpToken(
+        bytes name,
+        bytes symbol
+    )
+        private
+        view
+    {
+        tvm.accept();
+        ITIP3TokenDeployer(tip3Deployer).deployTIP3Token{
+            value: SwapPairConstants.tip3SendDeployGrams,
+            bounce: true,
+            callback: this._deployTIP3LpTokenCallback
+        }(
+            name,
+            symbol,
+            SwapPairConstants.tip3LpDecimals,
+            0,
+            address(this),
+            SwapPairConstants.tip3DeployGrams
+        )
+    }
+
+    function _deployTIP3LpTokenCallback(address tip3RootContract) 
+        external
+        onlyTIP3Deployer
+    {
+        tvm.accept();
+        lpTokenRootAddress = tip3RootContract;
+        initializedStatus++;
+        _deployWallet(tip3RootContract);
     }
 
     //============TON balance functions============
@@ -520,6 +616,31 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     //============HELPERS============
 
+    function _swapPairInitializedCall() 
+        private
+        view
+    {
+        tvm.accept();
+        SwapPairInformation spi = SwapPairInformation(
+            swapPairRootContract,
+            token1,
+            token2,
+            lpTokenRootAddress,
+            tokenWallets[0],
+            tokenWallets[1],
+            lpTokenWalletAddress,
+            swapPairDeployer,
+            creationTimestamp,
+            address(this),
+            swapPairID,
+            swapPairCodeVersion
+        );
+        IRootContractCallback(swapPairRootContract).swapPairInitializedCallback{
+            value: 0.1 ton,
+            bounce: true
+        }(spi);
+    }
+
     function _calculateProvidingLiquidityInfo(uint128 maxFirstTokenAmount, uint128 maxSecondTokenAmount)
         private
         view
@@ -638,43 +759,14 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     //============Callbacks============
 
     /*
-    * Deployed wallet address callback
-    */
-    function getWalletAddressCallback(address walletAddress) external onlyTokenRoot {
-        require(initializedStatus < 2, SwapPairErrors.CONTRACT_ALREADY_INITIALIZED);
-        tvm.accept();
-        if (msg.sender == token1) {
-            if( !tokenWallets.exists(T1) )
-                initializedStatus++;
-            tokenWallets[T1] = walletAddress;
-        }
-
-        if (msg.sender == token2) {
-            if( !tokenWallets.exists(T2) )
-                initializedStatus++;
-            tokenWallets[T2] = walletAddress;
-        }
-
-        if (initializedStatus == 2) {
-            _setWalletsCallbackAddress();
-        }
-    }
-
-    /*
      * Set callback address for wallets
      */
-    function _setWalletsCallbackAddress() 
+    function _setWalletsCallbackAddress(address walletAddress) 
         private 
         view 
     {
         tvm.accept();
-        ITONTokenWallet(tokenWallets[T1]).setReceiveCallback{
-            value: 200 milliton
-        }(
-            address(this),
-            false
-        );
-        ITONTokenWallet(tokenWallets[T2]).setReceiveCallback{
+        ITONTokenWallet(walletAddress).setReceiveCallback{
             value: 200 milliton
         }(
             address(this),
@@ -760,10 +852,15 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     modifier onlyTokenRoot() {
         require(
-            msg.sender == token1 || msg.sender == token2,
+            msg.sender == token1 || msg.sender == token2 || msg.sender == lpTokenRootAddress,
             SwapPairErrors.CALLER_IS_NOT_TOKEN_ROOT,
             SwapPairErrors.CALLER_IS_NOT_TOKEN_ROOT_MSG
         );
+        _;
+    }
+
+    modifier onlyTIP3Deployer() {
+        // TODO: сделать модификатор доступа только для создателя TIP3 
         _;
     }
 
