@@ -30,7 +30,6 @@ interface ISwapPairInformation {
     struct UserPoolInfo {
         address tokenRoot1;
         address tokenRoot2;
-        uint256 userLiquidityTokenBalance;
         uint256 liquidityTokensMinted;
         uint128 lpToken1;
         uint128 lpToken2;
@@ -49,5 +48,12 @@ interface ISwapPairInformation {
         uint128 newToPool;
         uint128 targetTokenAmount;
         uint128 fee;
+    }
+
+    struct LPWithdraw {
+        address tr1;
+        address tw1;
+        address tr2;
+        address tw2;
     }
 }

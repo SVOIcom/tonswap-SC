@@ -16,7 +16,6 @@ import './libraries/swapPair/SwapPairErrors.sol';
 import './libraries/swapPair/SwapPairConstants.sol';
 
 
-
 contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpgradeSwapPairCode, ISwapPairContract, IERC20LiteToken {
     address static token1;
     address static token2;
@@ -35,7 +34,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     uint256 constant kMin = 0;
 
     uint256 liquidityTokensMinted = 0;
-    mapping(uint256 => uint256) liquidityUserTokens;
+    //mapping(uint256 => uint256) liquidityUserTokens;
 
     mapping(uint8 => address) tokens;
     mapping(address => uint8) tokenPositions;
@@ -245,10 +244,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
     fallback() external {
-        require(msg.value > heavyFunctionCallCost);
-        TvmSlice ts = msg.data;
-        uint pubkey = ts.decode(uint);
-        usersTONBalance[pubkey] += msg.value;
+        
     }
 
     function withdrawTONs(address tonDestination, uint128 amount) override external onlyPrePaid(amount) {
@@ -272,15 +268,15 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     /**
     * Get pair creation timestamp
     */
-    function getCreationTimestamp() override public view getterPayment returns (uint256) {
+    function getCreationTimestamp() override public responsible view getterPayment returns (uint256) {
         return creationTimestamp;
     }
 
-    function getLPComission() override external view getterPayment returns(uint128) {
+    function getLPComission() override external responsible view getterPayment returns(uint128) {
         return heavyFunctionCallCost;
     }
 
-    function getPairInfo() override external view getterPayment returns (SwapPairInfo info) {
+    function getPairInfo() override external responsible view getterPayment returns (SwapPairInfo info) {
         return SwapPairInfo(
             swapPairRootContract,
             token1,
@@ -298,6 +294,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     function getUserBalance(uint pubkey) 
         override   
         external
+        responsible
         view
         initialized
         getterPayment
@@ -315,6 +312,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     function getUserTONBalance(uint pubkey) 
         override
         external
+        responsible
         view
         initialized
         getterPayment
@@ -324,6 +322,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         return usersTONBalance[_pk];
     }
 
+    // TODO: модифицировать
     function getUserLiquidityPoolBalance(uint pubkey) 
         override 
         external 
@@ -335,7 +334,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         return UserPoolInfo(
             token1,
             token2,
-            liquidityUserTokens[_pk],
             liquidityTokensMinted,
             lps[T1],
             lps[T2]
@@ -345,6 +343,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     function getExchangeRate(address swappableTokenRoot, uint128 swappableTokenAmount) 
         override
         external
+        responsible
         view
         initialized
         getterPayment
@@ -362,6 +361,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     function getCurrentExchangeRate()
         override
         external
+        responsible
         view
         getterPayment
         returns (uint128, uint128)
@@ -412,6 +412,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
     //============LP Functions============
+
+    // TODO: переделать provideLiquidity и withdrawLiquidity
 
     function provideLiquidity(uint128 maxFirstTokenAmount, uint128 maxSecondTokenAmount)
         override
@@ -497,7 +499,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
 
-    function swap(address swappableTokenRoot, uint128 swappableTokenAmount) override external returns(SwapInfo) { 
+    function swap(address swappableTokenRoot, uint128 swappableTokenAmount) override  responsible external returns(SwapInfo) { 
         return _swap(swappableTokenRoot, swappableTokenAmount, false);
     }
 
@@ -587,31 +589,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         );
         tokenUserBalances[_tn][pubkey] -= amount;
         _initializeRebalance(pubkey, _sb);
-    }
-
-    //============ERC20Lite LP Token============
-
-    function mintLPTokens(uint256 pubkey, uint256 amount) private inline {
-        liquidityTokensMinted += amount;
-        liquidityUserTokens[pubkey] += amount;
-    }
-
-    function burnLPTokens(uint256 pubkey, uint256 amount) private inline {
-        liquidityTokensMinted -= amount;
-        liquidityUserTokens[pubkey] -= amount;
-    }
-
-    function transfer(uint256 receiver, uint256 amount) override external onlyPrePaid(erc20FunctionCallCost) {
-        uint sender = msg.pubkey();
-        _initializeERC20Rebalance(sender, address(this).balance);
-        _checkIsEnoughUserLiquidity(sender, amount);
-        liquidityUserTokens[sender] -= amount;
-        liquidityUserTokens[receiver] += amount;
-    }
-
-    function getBalance(uint256 pubkey) override external returns (uint256) {
-        uint pk = pubkey == 0 ? msg.pubkey() : pubkey;
-        return liquidityUserTokens[pk];
     }
 
     //============HELPERS============
@@ -793,6 +770,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         onlyOwnWallet
     {
         tvm.accept();
+        // TODO: получение информации из payload
         uint8 _p = tokenWallets[T1] == msg.sender ? T1 : T2; // `onlyWallets` eliminates other validational
         if (tokenUserBalances[_p].exists(sender_public_key)) {
             tokenUserBalances[_p].replace(
@@ -860,15 +838,20 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
     modifier onlyTIP3Deployer() {
-        // TODO: сделать модификатор доступа только для создателя TIP3 
+        require(
+            msg.sender == tip3Deployer,
+            SwapPairErrors.CALLER_IS_NOT_TIP3_DEPLOYER,
+            SwapPairErrors.sCALLER_IS_NOT_TIP3_DEPLOYER_MSG
+        );
         _;
     }
 
     modifier onlyOwnWallet() {
         bool b1 = tokenWallets.exists(T1) && msg.sender == tokenWallets[T1];
         bool b2 = tokenWallets.exists(T2) && msg.sender == tokenWallets[T2];
+        bool b3 = msg.sender == lpTokenWalletAddress;
         require(
-            b1 || b2,
+            b1 || b2 || b3,
             SwapPairErrors.CALLER_IS_NOT_TOKEN_WALLET,
             SwapPairErrors.CALLER_IS_NOT_TOKEN_WALLET_MSG
         );
@@ -950,6 +933,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         );
     }
 
+    // TODO: удалить функцию
     function _checkIsEnoughUserLiquidity(uint256 pubkey, uint256 burned) private view inline {
         require(
             liquidityUserTokens[pubkey] >= burned, 
