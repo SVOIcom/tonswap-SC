@@ -41,18 +41,18 @@ interface ISwapPairContract is ISwapPairInformation {
 
     function withdrawTONs(address tonDestination, uint128 amount) external;
 
-    function getUserLiquidityPoolBalance(uint pubkey) external view returns (UserPoolInfo upi) ;
+    function getUserLiquidityPoolBalance(uint pubkey) external view returns (UserPoolInfo upi);
 
     function getWithdrawingLiquidityInfo(uint256 liquidityTokensAmount)
         external view returns (uint128 withdrawedFirstTokenAmount, uint128 withdrawedSecondTokenAmount);
 
     function getProvidingLiquidityInfo(
-        uint128 maxFirstTokenAmount, 
+        uint128 maxFirstTokenAmount,
         uint128 maxSecondTokenAmount
     ) external view returns (uint128 providedFirstTokenAmount, uint128 providedSecondTokenAmount);
 
     function getAnotherTokenProvidingAmount(
-        address providingTokenRoot, 
+        address providingTokenRoot,
         uint128 providingTokenAmount
     ) external view returns(uint128 anotherTokenAmount);
 

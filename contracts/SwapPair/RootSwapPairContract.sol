@@ -43,6 +43,9 @@ contract RootSwapPairContract is
 
     // Logic time of root contract creation
     uint256 creationTimestamp;
+
+    // TIP-3 token root contract deployer
+    address tip3Deployer;
     
     // Information about deployed swap pairs
     // Required because we want only unique swap pairs
@@ -70,6 +73,19 @@ contract RootSwapPairContract is
     }
 
     //============External functions============
+
+    /**
+     */
+    function setTIP3DeployerAddress(
+        address tip3Deployer_
+    ) 
+        external 
+        override 
+        onlyOwner
+    {
+        tvm.accept();
+        tip3Deployer = tip3Deployer_;
+    } 
 
     /**
      * Deploy swap pair with specified address of token root contract

@@ -17,6 +17,7 @@ interface IRootSwapPairContract is ISwapPairInformation, IServiceInformation {
 
     function getPairInfo(address tokenRootContract1, address tokenRootContract2) external view returns(SwapPairInfo);
 
+    function setTIP3DeployerAddress(address tip3Deployer_) external;
 
     event DeploySwapPair(address swapPairAddress, address tokenRootContract1, address tokenRootContract2);
 }
