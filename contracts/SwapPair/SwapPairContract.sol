@@ -195,6 +195,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         }
     }
 
+    // TODO: доделать получение данных для деплоя нового тип-3
     function _prepareDataForTIP3Deploy()
         private
         view
@@ -322,7 +323,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         return usersTONBalance[_pk];
     }
 
-    // TODO: модифицировать
     function getUserLiquidityPoolBalance(uint pubkey) 
         override 
         external 
@@ -414,8 +414,10 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     //============LP Functions============
 
     // TODO: переделать provideLiquidity и withdrawLiquidity
+    // TODO: добавление колбэков для bounce и burn
 
-    function provideLiquidity(uint128 maxFirstTokenAmount, uint128 maxSecondTokenAmount)
+    // TODO: изменить сигнатуру функции
+    function provideLiquidity(uint128 maxFirstTokenAmount, uint128 maxSecondTokenAmount, address lpWallet, address owner)
         override
         external
         initialized
@@ -431,6 +433,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             _initializeRebalance(pubkey, _sb);
             return (0,0);
         }
+
         checkUserTokens(token1, maxFirstTokenAmount, token2, maxSecondTokenAmount, pubkey);
 
         (uint128 provided1, uint128 provided2, uint256 minted) = _calculateProvidingLiquidityInfo(maxFirstTokenAmount, maxSecondTokenAmount);
@@ -443,6 +446,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         tokenUserBalances[T1][pubkey]-= provided1;
         tokenUserBalances[T2][pubkey]-= provided2;  
 
+        // TODO: написать mintLPTokens
         mintLPTokens(pubkey, minted);
 
         lps[T1] += provided1;
@@ -456,7 +460,21 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         return (provided1, provided2);
     }
 
+    function mintLPTokensToNew(uint pubkey, address owner, uint128 tokensToMint) private inline {
+        RootTokenContract(lpTokenRootAddress).deployWallet(
+            uint128 tokensToMint,
+            uint128 0.1 ton,
+            uint256 pubkey,
+            address owner,
+            address owner
+        );
+    }
 
+    function mintLPTokens(address lpTokensAddress, uint128 tokensToMint) private {
+        RootTokenContract(lpTokenRootAddress).mint(lpTokensAddress, tokensToMint);
+    }
+
+    // TODO: убарть функцию withdrawLiquidity и заменить её на колбэки от кошельков
     function withdrawLiquidity(uint256 liquidityTokensAmount)
         override
         external
@@ -486,6 +504,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         lps[T2] -= withdrawed2;
         kLast = uint256(lps[T1]) * uint256(lps[T2]);
 
+        // TODO: написапть burnLPTokens
         burnLPTokens(pubkey, burned);
 
         tokenUserBalances[T1][pubkey] += withdrawed1;
@@ -592,7 +611,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
     //============HELPERS============
-
+ 
     function _swapPairInitializedCall() 
         private
         view
