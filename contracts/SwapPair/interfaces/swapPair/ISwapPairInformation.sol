@@ -63,4 +63,10 @@ interface ISwapPairInformation {
         address tokenWallet2;
         uint128 tokenWallet2Amount;
     }
+
+    // TODO: добавить/доделать структуру для унифицированных операций
+    struct UnifiedOperation {
+        uint8 operationId;
+        TvmCell operationArgs;
+    }
 }

@@ -16,6 +16,7 @@ import './interfaces/rootSwapPair/IRootContractCallback.sol';
 import './libraries/swapPair/SwapPairErrors.sol';
 import './libraries/swapPair/SwapPairConstants.sol';
 
+// TODO: перевести взаимодействие через payload на унифицированную базу с использованием унифицированной структуры
 
 contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpgradeSwapPairCode, ISwapPairContract, IERC20LiteToken {
     address static token1;
@@ -790,8 +791,12 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             payload.hasNRefs(SwapPairConstants.payloadWithdrawRefs)
         ) {
             TvmSlice tmp = payload.toSlice();
-            LPWithdrawInfo lpWithdrawInfo = tmp.decode(LPWithdrawInfo);
-            _withdrawTokensFromLP(tokens, lpWithdrawInfo, walletOwner, tokensBurnt);
+            UnifiedOperation lpWithdrawInfo = tmp.decode(UnifiedOperation);
+            if (lpWithdrawInfo.operationId == SwapPairConstants.WithdrawLiquidity) {
+                TvmSlice args = lpWithdrawInfo.operationArgs;
+                _withdrawTokensFromLP(tokens, lpWithdrawInfo, walletOwner, tokensBurnt);
+            } else
+                _fallbackWithdrawLP(tokenSender, tokens, tokkensBurnt);
         } else {
             _fallbackWithdrawLP(tokenSender, tokens, tokensBurnt);
         }
@@ -1002,7 +1007,11 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         return _amount1 > 0 && _amount2 > 0;
     }
 
-    function userEnoughTokenBalance(address _token, uint128 amount, uint pubkey) private view inline {
+    function userEnoughTokenBalance(
+        address _token, 
+        uint128 amount, 
+        uint pubkey
+    ) private view inline {
         uint8 _p = _getTokenPosition(_token);        
         uint128 userBalance = tokenUserBalances[_p][pubkey];
         require(
@@ -1012,7 +1021,13 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         );
     }
 
-    function checkUserTokens(address token1_, uint128 token1Amount, address token2_, uint128 token2Amount, uint pubkey) private view inline {
+    function checkUserTokens(
+        address token1_, 
+        uint128 token1Amount, 
+        address token2_, 
+        uint128 token2Amount, 
+        uint pubkey
+    ) private view inline {
         bool b1 = tokenUserBalances[tokenPositions[token1_]][pubkey] >= token1Amount;
         bool b2 = tokenUserBalances[tokenPositions[token2_]][pubkey] >= token2Amount;
         require(
