@@ -762,6 +762,15 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         }
     }
 
+    function _callRouter(TvmCell payload) {
+        TvmSlice tmp = payload.toSlice();
+        (UnifiedOperation uo) = tmp.decode(UnifiedOperation);
+        TvmSlice tmpArgs = uo.operationArgs.toSlice();
+        if (uo.operationId == SwapPairConstants.SwapPairOperation) {
+            
+        }
+    }
+
     function burnCallback(
         uint128 tokens,
         TvmCell payload,
@@ -787,14 +796,15 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         bool tokensBurnt
     ) private inline {
         if (
+            !payload.empty() &&
             payload.hasNBits(SwapPairConstants.payloadWithdrawBits) &&
             payload.hasNRefs(SwapPairConstants.payloadWithdrawRefs)
         ) {
             TvmSlice tmp = payload.toSlice();
             UnifiedOperation lpWithdrawInfo = tmp.decode(UnifiedOperation);
             if (lpWithdrawInfo.operationId == SwapPairConstants.WithdrawLiquidity) {
-                TvmSlice args = lpWithdrawInfo.operationArgs;
-                _withdrawTokensFromLP(tokens, lpWithdrawInfo, walletOwner, tokensBurnt);
+                TvmSlice args = lpWithdrawInfo.operationArgs.toSlice();
+                _withdrawTokensFromLP(tokens, args.decode(LPWithdrawResult), walletOwner, tokensBurnt);
             } else
                 _fallbackWithdrawLP(tokenSender, tokens, tokkensBurnt);
         } else {
