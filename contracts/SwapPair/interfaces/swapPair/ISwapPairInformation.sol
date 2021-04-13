@@ -50,10 +50,17 @@ interface ISwapPairInformation {
         uint128 fee;
     }
 
-    struct LPWithdraw {
+    struct LPWithdrawInfo {
         address tr1;
         address tw1;
         address tr2;
         address tw2;
+    }
+
+    struct LPWithdrawResult {
+        address tokenWallet1;
+        uint128 tokenWallet1Amount;
+        address tokenWallet2;
+        uint128 tokenWallet2Amount;
     }
 }

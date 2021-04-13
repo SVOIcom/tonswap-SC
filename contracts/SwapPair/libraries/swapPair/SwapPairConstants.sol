@@ -5,4 +5,9 @@ library SwapPairConstants {
     uint128 constant tip3DeployGrams = 0.2 ton;
     uint8   constant tip3LpDecimals = 0;
     uint    constant contractFullyInitialized = 4;
+
+    uint16  constant payloadWithdrawBits = 16;
+    uint8   constant payloadWithdrawRefs = 0;
+
+    uint256 constant kMin = 0;
 }

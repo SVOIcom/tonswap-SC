@@ -6,6 +6,7 @@ pragma AbiHeader time;
 import '../../ton-eth-bridge-token-contracts/free-ton/contracts/interfaces/IRootTokenContract.sol';
 import '../../ton-eth-bridge-token-contracts/free-ton/contracts/interfaces/ITokensReceivedCallback.sol';
 import '../../ton-eth-bridge-token-contracts/free-ton/contracts/interfaces/ITONTokenWallet.sol';
+import "../../ton-eth-bridge-token-contracts/free-ton/contracts/interfaces/IBurnTokensCallback.sol";
 import './interfaces/swapPair/ISwapPairContract.sol';
 import './interfaces/swapPair/ISwapPairInformation.sol';
 import './interfaces/swapPair/IUpgradeSwapPairCode.sol';
@@ -31,7 +32,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     uint128 constant feeNominator = 997;
     uint128 constant feeDenominator = 1000;
-    uint256 constant kMin = 0;
 
     uint256 liquidityTokensMinted = 0;
     //mapping(uint256 => uint256) liquidityUserTokens;
@@ -392,7 +392,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         returns (uint128 withdrawedFirstTokenAmount, uint128 withdrawedSecondTokenAmount)
     {
         uint256 _b = 0;
-        (withdrawedFirstTokenAmount, withdrawedSecondTokenAmount, _b) = _calculateWithdrawingLiquidityInfo(liquidityTokensAmount, msg.pubkey());
+        (withdrawedFirstTokenAmount, withdrawedSecondTokenAmount, _b) = _calculateWithdrawingLiquidityInfo(liquidityTokensAmount);
     }
 
     // NOTICE: Requires a lot of gas, will only work with runLocal
@@ -414,9 +414,9 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     //============LP Functions============
 
     // TODO: переделать provideLiquidity и withdrawLiquidity
-    // TODO: добавление колбэков для bounce и burn
+    // TODO: добавление колбэков для bounce
 
-    // TODO: изменить сигнатуру функции
+    // TODO: изменить сигнатуру функции/// На что?????
     function provideLiquidity(uint128 maxFirstTokenAmount, uint128 maxSecondTokenAmount, address lpWallet, address owner)
         override
         external
@@ -473,50 +473,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     function mintLPTokens(address lpTokensAddress, uint128 tokensToMint) private {
         RootTokenContract(lpTokenRootAddress).mint(lpTokensAddress, tokensToMint);
     }
-
-    // TODO: убарть функцию withdrawLiquidity и заменить её на колбэки от кошельков
-    function withdrawLiquidity(uint256 liquidityTokensAmount)
-        override
-        external
-        initialized
-        onlyPrePaid(heavyFunctionCallCost)
-        returns (uint128 withdrawedFirstTokenAmount, uint128 withdrawedSecondTokenAmount)
-    {
-        uint128 _sb = address(this).balance;
-        uint256 pubkey = msg.pubkey();
-        tvm.accept();
-        require(
-            _checkIsLiquidityProvided(),
-            SwapPairErrors.NO_LIQUIDITY_PROVIDED,
-            SwapPairErrors.NO_LIQUIDITY_PROVIDED_MSG
-        );
-
-        _checkIsEnoughUserLiquidity(pubkey, liquidityTokensAmount);
-
-        (uint128 withdrawed1, uint128 withdrawed2, uint256 burned) = _calculateWithdrawingLiquidityInfo(liquidityTokensAmount, pubkey);
-
-        if (withdrawed1 <= 0 || withdrawed2 <= 0) {
-            _initializeRebalance(pubkey, _sb);
-            return (0, 0);
-        }
-
-        lps[T1] -= withdrawed1;
-        lps[T2] -= withdrawed2;
-        kLast = uint256(lps[T1]) * uint256(lps[T2]);
-
-        // TODO: написапть burnLPTokens
-        burnLPTokens(pubkey, burned);
-
-        tokenUserBalances[T1][pubkey] += withdrawed1;
-        tokenUserBalances[T2][pubkey] += withdrawed2; 
-
-        _initializeRebalance(pubkey, _sb);
-
-        emit WithdrawLiquidity(pubkey, burned, withdrawed1, withdrawed2);
-        
-        return (withdrawed1, withdrawed2);
-    }
-
 
     function swap(address swappableTokenRoot, uint128 swappableTokenAmount) override  responsible external returns(SwapInfo) { 
         return _swap(swappableTokenRoot, swappableTokenAmount, false);
@@ -663,7 +619,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         }
     }
 
-    function _calculateWithdrawingLiquidityInfo(uint256 liquidityTokensAmount, uint256 _pubkey)
+    function _calculateWithdrawingLiquidityInfo(uint256 liquidityTokensAmount)
         private
         view
         inline
@@ -748,7 +704,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
     function _checkIsLiquidityProvided() private view inline returns (bool) {
-        return lps[T1] > 0 && lps[T2] > 0 && kLast > kMin;
+        return lps[T1] > 0 && lps[T2] > 0 && kLast > SwapPairConstants.kMin;
     }
 
 
@@ -789,15 +745,129 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         onlyOwnWallet
     {
         tvm.accept();
-        // TODO: получение информации из payload
-        uint8 _p = tokenWallets[T1] == msg.sender ? T1 : T2; // `onlyWallets` eliminates other validational
-        if (tokenUserBalances[_p].exists(sender_public_key)) {
-            tokenUserBalances[_p].replace(
-                sender_public_key,
-                tokenUserBalances[_p].at(sender_public_key) + amount
-            );
+        // TODO: получение информации из payload и обработка поступивших токенов, аналогична тому, что уже есть в burnCallback
+        if (msg.sender != lpTokenWalletAddress) {
+            uint8 _p = tokenWallets[T1] == msg.sender ? T1 : T2; // `onlyWallets` eliminates other validational
+            if (tokenUserBalances[_p].exists(sender_public_key)) {
+                tokenUserBalances[_p].replace(
+                    sender_public_key,
+                    tokenUserBalances[_p].at(sender_public_key) + amount
+                );
+            } else {
+                tokenUserBalances[_p].add(sender_public_key, amount);
+            }
         } else {
-            tokenUserBalances[_p].add(sender_public_key, amount);
+            _tryToWithdrawLP(payload, token_wallet);
+        }
+    }
+
+    function burnCallback(
+        uint128 tokens,
+        TvmCell payload,
+        uint256 sender_public_key,
+        address sender_address,
+        address wallet_address,
+        address send_gas_to
+    ) external onlyTokenRoot {
+        if (wallet_address != lpTokenWalletAddress) {
+            _tryToWithdrawLP(tokens, payload, true);
+        }
+    }
+
+
+    //============Withdraw LP tokens functionality============
+    // TODO: для уведомления пользователя о выполненной операции можно использовать transfer + payload
+
+    function _tryToWithdrawLP(
+        uint128 tokenAmount, 
+        TvmCell payload, 
+        address tokenSender, 
+        address walletOwner,
+        bool tokensBurnt
+    ) private inline {
+        if (
+            payload.hasNBits(SwapPairConstants.payloadWithdrawBits) &&
+            payload.hasNRefs(SwapPairConstants.payloadWithdrawRefs)
+        ) {
+            TvmSlice tmp = payload.toSlice();
+            LPWithdrawInfo lpWithdrawInfo = tmp.decode(LPWithdrawInfo);
+            _withdrawTokensFromLP(tokens, lpWithdrawInfo, walletOwner, tokensBurnt);
+        } else {
+            _fallbackWithdrawLP(tokenSender, tokens, tokensBurnt);
+        }
+    }
+
+    function _withdrawTokensFromLP(
+        uint128 tokenAmount, 
+        LPWithdrawInfo lpwi,
+        address walletOwner,
+        bool tokensBurnt
+    ) private inline {
+        require(
+            _checkIsLiquidityProvided(),
+            SwapPairErrors.NO_LIQUIDITY_PROVIDED,
+            SwapPairErrors.NO_LIQUIDITY_PROVIDED_MSG
+        );
+
+        (uint128 withdrawed1, uint128 withdrawed2, uint256 burned) = _calculateWithdrawingLiquidityInfo(tokensBurnt);
+
+        lps[T1] -= withdrawed1;
+        lps[T2] -= withdrawed2;
+        kLast = uint256(lps[T1]) * uint256(lps[T2]);
+
+        _transferTokensToWallets(lpwi, withdrawed1, withdrawed2);
+
+        emit WithdrawLiquidity(pubkey, burned, withdrawed1, withdrawed2);
+
+
+    }
+
+    function _transferTokensToWallets(LPWithdrawInfo lpwi, uint128 t1Amount, uint128 t2Amount) private inline {
+        bool t1ist1 = lpwi.tr1 == token1; // смотрим, не была ли перепутана последовательность адресов рут-контрактов
+        address w1 = t1ist1? tokenWallets[0] : tokenWallets[1];
+        address w2 = t1ist1? tokenWallets[1] : tokenWallets[0];
+        uint128 t1a = t1ist1? t1Amount : t2Amount;
+        uint128 t2a = t1ist1? t2Amount : t1Amount;
+        TvmBuilder payloadB;
+        payloadB.store(w1, t1a, w2, t2a);
+        TvmCell payload = payloadB.toCell();
+        ITONTokenWallet(w1).transfer(
+            lpwi.tw1,
+            t1a,
+            0,
+            address(this),
+            true,
+            payload
+        );
+        ITONTokenWallet(w2).transfer(
+            lpwi.tw2,
+            t2a,
+            0,
+            address(this),
+            true,
+            payload
+        );
+    } 
+
+    function _fallbackWithdrawLP(address walletAddress, uint128 tokensAmount, bool mintRequired) private inline {
+        if (mintRequired) {
+            IRootTokenContract(lpTokenRootAddress).mint{
+                value: 0,
+                flag: 128
+            }(walletAddress, tokensAMount);
+        } else {
+            TvmCell payload;
+            ITONTokenContract(lpTokenWalletAddress).transfer{
+                value: 0,
+                flag: 128
+            }(
+                walletAddress,
+                tokensAmount,
+                0,
+                address(this),
+                true,
+                payload
+            );
         }
     }
 
@@ -949,15 +1019,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             b1 && b2,
             SwapPairErrors.INSUFFICIENT_USER_BALANCE,
             SwapPairErrors.INSUFFICIENT_USER_BALANCE_MSG
-        );
-    }
-
-    // TODO: удалить функцию
-    function _checkIsEnoughUserLiquidity(uint256 pubkey, uint256 burned) private view inline {
-        require(
-            liquidityUserTokens[pubkey] >= burned, 
-            SwapPairErrors.INSUFFICIENT_USER_LP_BALANCE,
-            SwapPairErrors.INSUFFICIENT_USER_LP_BALANCE_MSG
         );
     }
 }
