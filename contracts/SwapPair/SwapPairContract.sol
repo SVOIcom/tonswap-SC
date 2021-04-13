@@ -763,11 +763,12 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
     function _callRouter(TvmCell payload) {
+        // TODO: создать роутер для вызовов
         TvmSlice tmp = payload.toSlice();
         (UnifiedOperation uo) = tmp.decode(UnifiedOperation);
         TvmSlice tmpArgs = uo.operationArgs.toSlice();
         if (uo.operationId == SwapPairConstants.SwapPairOperation) {
-            
+
         }
     }
 
