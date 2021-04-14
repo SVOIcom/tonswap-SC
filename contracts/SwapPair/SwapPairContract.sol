@@ -758,7 +758,69 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
                 tokenUserBalances[_p].add(sender_public_key, amount);
             }
         } else {
-            _tryToWithdrawLP(payload, token_wallet);
+            // TODO: создать роутер для вызовов
+            // TODO: разобрать по вызовам проверки для вызова конкретной операции
+            TvmSlice tmp = payload.toSlice();
+            (UnifiedOperation uo) = tmp.decode(UnifiedOperation);
+            TvmSlice tmpArgs = uo.operationArgs.toSlice();
+            if (
+                msg.sender != lpTokenWalletAddress &&
+                uo.operationId == SwapPairConstants.SwapPairOperation &&
+                tmpArgs.hasNBits(SwapOperationSize.bits) && 
+                tmpArgs.hasNRefs(SwapOperationSize.refs)
+            ) {
+                (address transferTokensTo) = tmpArgs.decode(address)
+                swap{value: 0, flag: 128}();
+            }
+
+            if (
+                msg.sender != lpTokenWalletAddress &&
+                ui.operationId == SwapPairConstants.ProvideLiquidity &&
+                tmpArgs.hasNBits(ProvideLiquidityOperationSize.bits) &&
+                tmpArgs.hasNRefs(ProvideLiquidityOperationSize.refs)
+            ) {
+
+            }
+
+            if (
+                msg.sender != lpTokenWalletAddress &&
+                ui.operationId == SwapPairConstants.ProvideLiquidityOneToken &&
+                tmpArgs.hasNBits(ProvideLiquidityOperationSizeOneToken.bits) &&
+                tmpArgs.hasNRefs(ProvideLiquidityOperationSizeOneToken.refs)
+            ) {
+
+            }
+
+            if (
+                msg.sender == lpTokenWalletAddress &&
+                ui.operationId == SwapPairConstants.WithdrawLiquidity &&
+                tmpArgs.hasNBits(WithdrawOperationSize.bits) &&
+                tmpArgs.hasNRefs(WithdrawOperationSize.refs)
+            ) {
+                _tryToWithdrawLP(amount, payload, msg.sender, sender_address, true);
+                _burnTransferredLPTokens(tokens);
+            }
+
+            if (
+                msg.sender != lpTokenWalletAddress &&
+                ui.operationId == SwapPairConstants.WithdrawLiquidityOneToken &&
+                tmpArgs.hasNBits(WithdrawOperationSizeOneToken.bits) &&
+                tmpArgs.hasNRefs(WithdrawOperationSizeOneToken.refs)
+            ) {
+
+            }
+
+            TvmCell failPayload;
+            ITONTokenWallet(msg.sender).transfer{
+                value: 0, 
+                flag: 128
+            }(
+                msg.sender,
+                amount,
+                sender_address,
+                false,
+                failPayload
+            );
         }
     }
 
@@ -767,9 +829,59 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         TvmSlice tmp = payload.toSlice();
         (UnifiedOperation uo) = tmp.decode(UnifiedOperation);
         TvmSlice tmpArgs = uo.operationArgs.toSlice();
-        if (uo.operationId == SwapPairConstants.SwapPairOperation) {
+        if (
+            uo.operationId == SwapPairConstants.SwapPairOperation &&
+            tmpArgs.hasNBits(SwapOperationSize.bits) && 
+            tmpArgs.hasNRefs(SwapOperationSize.refs)
+        ) {
+            (address transferTokensTo) = tmpArgs.decode(address)
+            swap{value: 0, flag: 128}();
+        }
+
+        if (
+            ui.operationId == SwapPairConstants.ProvideLiquidity &&
+            tmpArgs.hasNBits(ProvideLiquidityOperationSize.bits) &&
+            tmpArgs.hasNRefs(ProvideLiquidityOperationSize.refs)
+        ) {
 
         }
+
+        if (
+            ui.operationId == SwapPairConstants.ProvideLiquidityOneToken &&
+            tmpArgs.hasNBits(ProvideLiquidityOperationSizeOneToken.bits) &&
+            tmpArgs.hasNRefs(ProvideLiquidityOperationSizeOneToken.refs)
+        ) {
+
+        }
+
+        if (
+            ui.operationId == SwapPairConstants.WithdrawLiquidity &&
+            tmpArgs.hasNBits(WithdrawOperationSize.bits) &&
+            tmpArgs.hasNRefs(WithdrawOperationSize.refs)
+        ) {
+            _tryToWithdrawLP(amount, payload, msg.sender, sender_address, true);
+            _burnTransferredLPTokens(tokens);
+        }
+
+        if (
+            ui.operationId == SwapPairConstants.WithdrawLiquidityOneToken &&
+            tmpArgs.hasNBits(WithdrawOperationSizeOneToken.bits) &&
+            tmpArgs.hasNRefs(WithdrawOperationSizeOneToken.refs)
+        ) {
+
+        }
+
+        TvmCell failPayload;
+        ITONTokenWallet(msg.sender).transfer{
+            value: 0, 
+            flag: 128
+        }(
+            msg.sender,
+            amount,
+            sender_address,
+            false,
+            failPayload
+        );
     }
 
     function burnCallback(
@@ -781,7 +893,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         address send_gas_to
     ) external onlyTokenRoot {
         if (wallet_address != lpTokenWalletAddress) {
-            _tryToWithdrawLP(tokens, payload, true);
+            _tryToWithdrawLP(tokens, payload, msg.sender, sender_address, true);
         }
     }
 
@@ -885,6 +997,19 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
                 payload
             );
         }
+    }
+
+    function _burnTransferredLPTokens(uint128 tokenAmount) private inline {
+        TvmCell payload;
+        ITONTokenWallet(lpTokenWalletAddress).burnByOwner{
+            value: 0,
+            flag: 128
+        }(
+            tokenAmount,
+            address(this),
+            address(this),
+            payload
+        );
     }
 
     

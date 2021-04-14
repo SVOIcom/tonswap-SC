@@ -1,4 +1,5 @@
 pragma ton-solidity ^0.39.0;
+import '../../interfaces/swapPair/ISwapPairInformation.sol';
 
 library SwapPairConstants {
     // Balance management and cost information
@@ -22,4 +23,11 @@ library SwapPairConstants {
     uint8 constant ProvideLiquidityOneToken = 2;
     uint8 constant WithdrawLiquidity = 3;
     uint8 constant WithdrawLiquidityOneToken = 4;
+
+    // Operation TvmCell size
+    OperationSizeRequirements constant SwapOperationSize = OperationSizeRequirements(0, 0);
+    OperationSizeRequirements constant WithdrawOperationSize = OperationSizeRequirements(0, 0);
+    OperationSizeRequirements constant WithdrawOperationSizeOneToken = OperationSizeRequirements(0, 0);
+    OperationSizeRequirements constant ProvideLiquidityOperationSize = OperationSizeRequirements(0, 0);
+    OperationSizeRequirements constant ProvideLiquidityOperationSizeOneToken = OperationSizeRequirements(0, 0);
 }

@@ -69,4 +69,9 @@ interface ISwapPairInformation {
         uint8 operationId;
         TvmCell operationArgs;
     }
+
+    struct OperationSizeRequirements {
+        uint16 bits;
+        uint8 refs;
+    }
 }
