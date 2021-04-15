@@ -75,11 +75,12 @@ interface ISwapPairInformation {
     }
 
     struct LPProvidingInfo {
+        address walletOwner;
+        uint256 walletPubkey;
         address w1;
         uint128 a1;
         address w2;
         uint128 a2;
-        address lpw;
     }
 
     // TODO: добавить/доделать структуру для унифицированных операций
