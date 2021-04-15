@@ -31,9 +31,16 @@ library SwapPairConstants {
     uint8 constant WithdrawLiquidityOneToken = 4;
 
     // Operation TvmCell size
-    OperationSizeRequirements constant SwapOperationSize = OperationSizeRequirements(0, 0);
-    OperationSizeRequirements constant WithdrawOperationSize = OperationSizeRequirements(0, 0);
-    OperationSizeRequirements constant WithdrawOperationSizeOneToken = OperationSizeRequirements(0, 0);
-    OperationSizeRequirements constant ProvideLiquidityOperationSize = OperationSizeRequirements(0, 0);
-    OperationSizeRequirements constant ProvideLiquidityOperationSizeOneToken = OperationSizeRequirements(0, 0);
+    
+    
+    uint16 constant SwapOperationBits = 0;
+    uint8  constant SwapOperationRefs = 0;
+    uint16 constant WithdrawOperationBits = 0;
+    uint8  constant WithdrawOperationRefs = 0;
+    uint16 constant WithdrawOneOperationBits = 0;
+    uint8  constant WithdrawOneOperationRefs = 0;
+    uint16 constant ProvideLiquidityBits = 0;
+    uint8  constant ProvideLiquidityRefs = 0;
+    uint16 constant ProvideLiquidityOneBits = 0;
+    uint8  constant ProvideLiquidityOneRefs = 0;
 }

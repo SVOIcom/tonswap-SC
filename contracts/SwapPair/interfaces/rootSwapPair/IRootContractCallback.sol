@@ -3,7 +3,7 @@ pragma AbiHeader pubkey;
 pragma AbiHeader expire;
 pragma AbiHeader time;
 
-import './ISwapPairInformation.sol';
+import '../swapPair/ISwapPairInformation.sol';
 
 interface IRootContractCallback is ISwapPairInformation {
     function swapPairInitializedCallback(SwapPairInfo spi) external;

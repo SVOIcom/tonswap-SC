@@ -64,6 +64,24 @@ interface ISwapPairInformation {
         uint128 tokenWallet2Amount;
     }
 
+    struct LPProvideInfo {
+        address tr1;
+        address tw1;
+        uint128 ta1;
+        address tr2;
+        address tw2;
+        uint128 ta2;
+        address lpw;
+    }
+
+    struct LPProvidingInfo {
+        address w1;
+        uint128 a1;
+        address w2;
+        uint128 a2;
+        address lpw;
+    }
+
     // TODO: добавить/доделать структуру для унифицированных операций
     struct UnifiedOperation {
         uint8 operationId;

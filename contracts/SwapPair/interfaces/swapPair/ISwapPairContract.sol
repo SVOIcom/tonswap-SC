@@ -57,8 +57,7 @@ interface ISwapPairContract is ISwapPairInformation {
 
 
     //Events
-    event Swap(
-        uint256 msgSenderPubkey,         
+    event Swap(       
         address swappableTokenRoot,  
         address targetTokenRoot,
         uint128 swappableTokenAmount,
@@ -67,14 +66,12 @@ interface ISwapPairContract is ISwapPairInformation {
     );
 
     event ProvideLiquidity(
-        uint256 msgSenderPubkey,
         uint256 liquidityTokensAmount,
         uint128 firstTokenAmount,
         uint128 secondTokenAmount
     );
 
     event WithdrawLiquidity(
-        uint256 msgSenderPubkey,
         uint256 liquidityTokensAmount,
         uint128 firstTokenAmount,
         uint128 secondTokenAmount

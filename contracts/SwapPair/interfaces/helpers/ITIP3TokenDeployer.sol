@@ -18,7 +18,7 @@ interface ITIP3TokenDeployer {
     function getServiceInfo() external responsible view returns(ServiceInfo);
 
     struct ServiceInfo {
-        TvmCell rootContractCode,
-        TvmCell walletContractCode
+        TvmCell rootContractCode;
+        TvmCell walletContractCode;
     }
 }
