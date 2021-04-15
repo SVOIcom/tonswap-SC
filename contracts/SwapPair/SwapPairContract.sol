@@ -10,7 +10,6 @@ import "../../ton-eth-bridge-token-contracts/free-ton/contracts/interfaces/IBurn
 import './interfaces/swapPair/ISwapPairContract.sol';
 import './interfaces/swapPair/ISwapPairInformation.sol';
 import './interfaces/swapPair/IUpgradeSwapPairCode.sol';
-import './interfaces/swapPair/IERC20LiteToken.sol';
 import './interfaces/rootSwapPair/IRootContractCallback.sol';
 
 import './libraries/swapPair/SwapPairErrors.sol';
@@ -18,7 +17,7 @@ import './libraries/swapPair/SwapPairConstants.sol';
 
 // TODO: перевести взаимодействие через payload на унифицированную базу с использованием унифицированной структуры
 
-contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpgradeSwapPairCode, ISwapPairContract, IERC20LiteToken {
+contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpgradeSwapPairCode, ISwapPairContract {
     address static token1;
     address static token2;
     uint    static swapPairID;
@@ -35,7 +34,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     uint128 constant feeDenominator = 1000;
 
     uint256 liquidityTokensMinted = 0;
-    //mapping(uint256 => uint256) liquidityUserTokens;
 
     mapping(uint8 => address) tokens;
     mapping(address => uint8) tokenPositions;
@@ -64,27 +62,9 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     // 4 - deployed LP token wallet        <- initialized
     uint private initializedStatus = 0;
 
-    // Balance managing constants
-    // Average function execution cost + 20-30% reserve
-    uint128          erc20FunctionCallCost      = 2    milli;
-    uint128          getterFunctionCallCost     = 10   milli;
-    uint128          heavyFunctionCallCost      = 100  milli;
     // Required for interaction with wallets for smart-contracts
     uint128 constant sendToTIP3TokenWallets     = 110  milli;
     uint128 constant sendToRootToken            = 500  milli;
-    // We don't want to risk, this is one-time procedure
-    // Extra wallet's tons will be transferred with first token transfer operation
-    // Yep, there are transfer losses, but they are pretty small
-    uint128 constant walletInitialBalanceAmount = 1000 milli;
-    uint128 constant walletDeployMessageValue   = 1500 milli;
-
-    // Constants for mechanism of payment rebalance
-    uint128 constant erc20Increase    = 1050;
-    uint128 constant erc20Decrease    = 977;
-    uint128 constant gettersIncrease  = 1105;
-    uint128 constant gettersDecrease  = 991;
-    uint128 constant functionIncrease = 1110;
-    uint128 constant functionDecrease = 983;
 
     // Tokens positions
     uint8 constant T1 = 0;
@@ -127,9 +107,9 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     function _deployWallet(address tokenRootAddress) private view {
         tvm.accept();
         IRootTokenContract(tokenRootAddress).deployEmptyWallet{
-            value: walletDeployMessageValue
+            value: SwapPairConstants.walletDeployMessageValue
         }(
-            walletInitialBalanceAmount,
+            SwapPairConstants.walletInitialBalanceAmount,
             tvm.pubkey(),
             address(this),
             address(this)
@@ -239,46 +219,21 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     //============TON balance functions============
 
     receive() external {
-        require(msg.value > heavyFunctionCallCost);
-        TvmSlice ts = msg.data;
-        uint pubkey = ts.decode(uint);
-        usersTONBalance[pubkey] += msg.value;
     }
 
     fallback() external {
-        
     }
-
-    function withdrawTONs(address tonDestination, uint128 amount) override external onlyPrePaid(amount) {
-        uint pubkey = msg.pubkey();
-        require(
-            pubkey != 0, 
-            SwapPairErrors.NO_MESSAGE_SIGNATURE,
-            SwapPairErrors.NO_MESSAGE_SIGNATURE_MSG
-        );
-        require(
-            tonDestination != address.makeAddrStd(0, 0),
-            SwapPairErrors.TARGET_ADDRESS_IS_ZERO,
-            SwapPairErrors.TARGET_ADDRESS_IS_ZERO_MSG
-        );
-        tvm.accept();
-        address(tonDestination).transfer({value: amount * 95/100, bounce: true});
-    } 
 
     //============Get functions============
 
     /**
     * Get pair creation timestamp
     */
-    function getCreationTimestamp() override public responsible view getterPayment returns (uint256) {
+    function getCreationTimestamp() override public responsible view returns (uint256) {
         return creationTimestamp;
     }
 
-    function getLPComission() override external responsible view getterPayment returns(uint128) {
-        return heavyFunctionCallCost;
-    }
-
-    function getPairInfo() override external responsible view getterPayment returns (SwapPairInfo info) {
+    function getPairInfo() override external responsible view returns (SwapPairInfo info) {
         return SwapPairInfo(
             swapPairRootContract,
             token1,
@@ -293,61 +248,12 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         );
     }
 
-    function getUserBalance(uint pubkey) 
-        override   
-        external
-        responsible
-        view
-        initialized
-        getterPayment
-        returns (UserBalanceInfo ubi) 
-    {
-        uint _pk = pubkey != 0 ? pubkey : msg.pubkey();
-        return UserBalanceInfo(
-            token1,
-            token2,
-            tokenUserBalances[T1][_pk],
-            tokenUserBalances[T2][_pk]
-        );
-    }
-
-    function getUserTONBalance(uint pubkey) 
-        override
-        external
-        responsible
-        view
-        initialized
-        getterPayment
-        returns (uint balance)
-    {
-        uint _pk = pubkey != 0 ? pubkey : msg.pubkey();
-        return usersTONBalance[_pk];
-    }
-
-    function getUserLiquidityPoolBalance(uint pubkey) 
-        override 
-        external 
-        view 
-        getterPayment
-        returns (UserPoolInfo upi) 
-    {
-        uint _pk = pubkey != 0 ? pubkey : msg.pubkey();
-        return UserPoolInfo(
-            token1,
-            token2,
-            liquidityTokensMinted,
-            lps[T1],
-            lps[T2]
-        );
-    }
-
     function getExchangeRate(address swappableTokenRoot, uint128 swappableTokenAmount) 
         override
         external
         responsible
         view
         initialized
-        getterPayment
         tokenExistsInPair(swappableTokenRoot)
         returns (SwapInfo)
     {
@@ -364,7 +270,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         external
         responsible
         view
-        getterPayment
         returns (uint128, uint128)
     {
         return (lps[T1], lps[T2]);
@@ -431,7 +336,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         tvm.accept();
 
         if (!notZeroLiquidity(maxFirstTokenAmount, maxSecondTokenAmount)) {
-            _initializeRebalance(pubkey, _sb);
             return (0,0);
         }
 
@@ -440,7 +344,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         (uint128 provided1, uint128 provided2, uint256 minted) = _calculateProvidingLiquidityInfo(maxFirstTokenAmount, maxSecondTokenAmount);
 
         if (!notZeroLiquidity(provided1, provided2)) {
-            _initializeRebalance(pubkey, _sb);
             return (0,0);
         }
 
@@ -453,8 +356,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         lps[T1] += provided1;
         lps[T2] += provided2;
         kLast = uint256(lps[T1]) * uint256(lps[T2]);
-
-        _initializeRebalance(pubkey, _sb);
 
         emit ProvideLiquidity(pubkey, minted, provided1, provided2);
 
@@ -475,14 +376,13 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         RootTokenContract(lpTokenRootAddress).mint(lpTokensAddress, tokensToMint);
     }
 
-    function swap(address swappableTokenRoot, uint128 swappableTokenAmount) override  responsible external returns(SwapInfo) { 
+    function swap(address swappableTokenRoot, uint128 swappableTokenAmount) override responsible external returns(SwapInfo) { 
         return _swap(swappableTokenRoot, swappableTokenAmount, false);
     }
 
     function _swap(address swappableTokenRoot, uint128 swappableTokenAmount, bool isDebug)
         internal
         initialized
-        onlyPrePaid(heavyFunctionCallCost)
         returns (SwapInfo)  
     {
         uint128 _sb = address(this).balance;
@@ -504,7 +404,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         _SwapInfoInternal _si = _getSwapInfo(swappableTokenRoot, swappableTokenAmount);
 
         if (!notZeroLiquidity(swappableTokenAmount, _si.targetTokenAmount)) {
-            _initializeRebalance(pubkey, _sb);
             return SwapInfo(0, 0, 0);
         }
 
@@ -517,8 +416,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         lps[fromK] = _si.newFromPool;
         lps[toK] = _si.newToPool;
         kLast = uint256(_si.newFromPool) * uint256(_si.newToPool);
-
-        _initializeRebalance(pubkey, _sb);
 
         if (!isDebug)
             emit Swap(pubkey, tokens[fromK], tokens[toK],  swappableTokenAmount, _si.targetTokenAmount, _si.fee);
@@ -564,10 +461,22 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             payload
         );
         tokenUserBalances[_tn][pubkey] -= amount;
-        _initializeRebalance(pubkey, _sb);
     }
 
     //============HELPERS============
+
+    function _createSwapPayload(SwapInfo si) private returns(TvmCell) {
+        TvmBuilder tb;
+        tb.store(si);
+        return tb.toCell();
+    }
+
+    function _checkPayload(uint8 uid, uint8 reqUid, TvmSlice args, OperationSizeRequirements osr) private inline returns(bool) {
+        return 
+            uid == reqUid &&
+            args.hasNBits(osr.bits) && 
+            args.hasNRefs(osr.regs);
+    }
  
     function _swapPairInitializedCall() 
         private
@@ -632,42 +541,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         withdrawed1 = uint128(math.muldiv(uint256(lps[T1]), liquidityTokensAmount, liquidityTokensMinted));
         withdrawed2 = uint128(math.muldiv(uint256(lps[T2]), liquidityTokensAmount, liquidityTokensMinted));
         _burned = liquidityTokensAmount;
-    }
-
-    function _initializeRebalance(uint pubkey, uint128 startBalance) private inline {
-        usersTONBalance[pubkey] -= heavyFunctionCallCost;
-        SwapPairContract(this)._rebalance(startBalance);
-    }
-
-    function _rebalance(uint128 balance) external onlySelf {
-        if (address(this).balance + heavyFunctionCallCost > balance)
-            heavyFunctionCallCost = math.muldiv(heavyFunctionCallCost, functionDecrease, 1000);
-        else
-            heavyFunctionCallCost = math.muldiv(heavyFunctionCallCost, functionIncrease, 1000);
-    }
-
-    function _initializeGettersRebalance(uint pubkey, uint128 startBalance) private inline {
-        usersTONBalance[pubkey] -= getterFunctionCallCost;
-        SwapPairContract(this)._rebalanceGetters(startBalance);
-    }
-
-    function _rebalanceGetters(uint128 balance) external onlySelf {
-        if (address(this).balance + getterFunctionCallCost > balance)
-            getterFunctionCallCost = math.muldiv(getterFunctionCallCost, gettersDecrease, 1000);
-        else
-            getterFunctionCallCost = math.muldiv(getterFunctionCallCost, gettersIncrease, 1000);
-    }
-
-    function _initializeERC20Rebalance(uint pubkey, uint128 startBalance) private inline {
-        usersTONBalance[pubkey] -= erc20FunctionCallCost;
-        SwapPairContract(this)._rebalanceERC20(startBalance);
-    }
-
-    function _rebalanceERC20(uint128 balance) external onlySelf {
-        if (address(this).balance + erc20FunctionCallCost > balance)
-            erc20FunctionCallCost = math.muldiv(erc20FunctionCallCost, erc20Decrease, 1000);
-        else
-            erc20FunctionCallCost = math.muldiv(erc20FunctionCallCost, erc20Increase, 1000);
     }
     
     function _getSwapInfo(address swappableTokenRoot, uint128 swappableTokenAmount) 
@@ -745,8 +618,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         public
         onlyOwnWallet
     {
-        tvm.accept();
-        // TODO: получение информации из payload и обработка поступивших токенов, аналогична тому, что уже есть в burnCallback
         if (msg.sender != lpTokenWalletAddress) {
             uint8 _p = tokenWallets[T1] == msg.sender ? T1 : T2; // `onlyWallets` eliminates other validational
             if (tokenUserBalances[_p].exists(sender_public_key)) {
@@ -758,44 +629,46 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
                 tokenUserBalances[_p].add(sender_public_key, amount);
             }
         } else {
-            // TODO: создать роутер для вызовов
-            // TODO: разобрать по вызовам проверки для вызова конкретной операции
             TvmSlice tmp = payload.toSlice();
             (UnifiedOperation uo) = tmp.decode(UnifiedOperation);
             TvmSlice tmpArgs = uo.operationArgs.toSlice();
+
             if (
                 msg.sender != lpTokenWalletAddress &&
-                uo.operationId == SwapPairConstants.SwapPairOperation &&
-                tmpArgs.hasNBits(SwapOperationSize.bits) && 
-                tmpArgs.hasNRefs(SwapOperationSize.refs)
+                _checkPayload(uo.operationId, SwapPairConstants.SwapPairOperation, tmpArgs, SwapPairConstants.SwapOperationSize)
             ) {
-                (address transferTokensTo) = tmpArgs.decode(address)
-                swap{value: 0, flag: 128}();
+                (address transferTokensTo) = tmpArgs.decode(address);
+                SwapInfo si = _swap(token_root, amount, false);
+                ITONTokenWallet(tokenWallets[tokenPositions[token_root]]).transfer{
+                    value: 0,
+                    flag: 128
+                }(
+                    transferTokensTo,
+                    si.targetTokenAmount,
+                    0,
+                    address.makeAddrStd(0, 0),
+                    true,
+                    _createSwapPayload(si)
+                )
             }
 
             if (
                 msg.sender != lpTokenWalletAddress &&
-                ui.operationId == SwapPairConstants.ProvideLiquidity &&
-                tmpArgs.hasNBits(ProvideLiquidityOperationSize.bits) &&
-                tmpArgs.hasNRefs(ProvideLiquidityOperationSize.refs)
+                _checkPayload(uo.operationId, SwapPairConstants.ProvideLiquidity, tmpArgs, SwapPairConstants.ProvideLiquidityOperationSize)
             ) {
-
+                _provideLiquidity();
             }
 
             if (
                 msg.sender != lpTokenWalletAddress &&
-                ui.operationId == SwapPairConstants.ProvideLiquidityOneToken &&
-                tmpArgs.hasNBits(ProvideLiquidityOperationSizeOneToken.bits) &&
-                tmpArgs.hasNRefs(ProvideLiquidityOperationSizeOneToken.refs)
+                _checkPayload(uo.operationId, SwapPairConstants.ProvideLiquidityOneToken, tmpArgs, SwapPairConstants.ProvideLiquidityOperationSizeOneToken)
             ) {
-
+                _provideLiquidityOneToken();
             }
 
             if (
                 msg.sender == lpTokenWalletAddress &&
-                ui.operationId == SwapPairConstants.WithdrawLiquidity &&
-                tmpArgs.hasNBits(WithdrawOperationSize.bits) &&
-                tmpArgs.hasNRefs(WithdrawOperationSize.refs)
+                _checkPayload(uo.operationId, SwapPairConstants.WithdrawLiquidity, tmpArgs, SwapPairConstants.WithdrawOperationSize)
             ) {
                 _tryToWithdrawLP(amount, payload, msg.sender, sender_address, true);
                 _burnTransferredLPTokens(tokens);
@@ -803,11 +676,9 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
             if (
                 msg.sender != lpTokenWalletAddress &&
-                ui.operationId == SwapPairConstants.WithdrawLiquidityOneToken &&
-                tmpArgs.hasNBits(WithdrawOperationSizeOneToken.bits) &&
-                tmpArgs.hasNRefs(WithdrawOperationSizeOneToken.refs)
+                _checkPayload(uo.operationId, SwapPairConstants.WithdrawLiquidityOneToken, tmpArgs, SwapPairConstants.WithdrawOperationSizeOneToken)
             ) {
-
+                _withdrawLiquidityOneToken();
             }
 
             TvmCell failPayload;
@@ -822,66 +693,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
                 failPayload
             );
         }
-    }
-
-    function _callRouter(TvmCell payload) {
-        // TODO: создать роутер для вызовов
-        TvmSlice tmp = payload.toSlice();
-        (UnifiedOperation uo) = tmp.decode(UnifiedOperation);
-        TvmSlice tmpArgs = uo.operationArgs.toSlice();
-        if (
-            uo.operationId == SwapPairConstants.SwapPairOperation &&
-            tmpArgs.hasNBits(SwapOperationSize.bits) && 
-            tmpArgs.hasNRefs(SwapOperationSize.refs)
-        ) {
-            (address transferTokensTo) = tmpArgs.decode(address)
-            swap{value: 0, flag: 128}();
-        }
-
-        if (
-            ui.operationId == SwapPairConstants.ProvideLiquidity &&
-            tmpArgs.hasNBits(ProvideLiquidityOperationSize.bits) &&
-            tmpArgs.hasNRefs(ProvideLiquidityOperationSize.refs)
-        ) {
-
-        }
-
-        if (
-            ui.operationId == SwapPairConstants.ProvideLiquidityOneToken &&
-            tmpArgs.hasNBits(ProvideLiquidityOperationSizeOneToken.bits) &&
-            tmpArgs.hasNRefs(ProvideLiquidityOperationSizeOneToken.refs)
-        ) {
-
-        }
-
-        if (
-            ui.operationId == SwapPairConstants.WithdrawLiquidity &&
-            tmpArgs.hasNBits(WithdrawOperationSize.bits) &&
-            tmpArgs.hasNRefs(WithdrawOperationSize.refs)
-        ) {
-            _tryToWithdrawLP(amount, payload, msg.sender, sender_address, true);
-            _burnTransferredLPTokens(tokens);
-        }
-
-        if (
-            ui.operationId == SwapPairConstants.WithdrawLiquidityOneToken &&
-            tmpArgs.hasNBits(WithdrawOperationSizeOneToken.bits) &&
-            tmpArgs.hasNRefs(WithdrawOperationSizeOneToken.refs)
-        ) {
-
-        }
-
-        TvmCell failPayload;
-        ITONTokenWallet(msg.sender).transfer{
-            value: 0, 
-            flag: 128
-        }(
-            msg.sender,
-            amount,
-            sender_address,
-            false,
-            failPayload
-        );
     }
 
     function burnCallback(
@@ -946,8 +757,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         _transferTokensToWallets(lpwi, withdrawed1, withdrawed2);
 
         emit WithdrawLiquidity(pubkey, burned, withdrawed1, withdrawed2);
-
-
     }
 
     function _transferTokensToWallets(LPWithdrawInfo lpwi, uint128 t1Amount, uint128 t2Amount) private inline {
@@ -975,7 +784,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             true,
             payload
         );
-    } 
+    }
 
     function _fallbackWithdrawLP(address walletAddress, uint128 tokensAmount, bool mintRequired) private inline {
         if (mintRequired) {
@@ -1012,7 +821,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         );
     }
 
-    
     //============Upgrade swap pair code part============
 
     function updateSwapPairCode(TvmCell newCode, uint32 newCodeVersion) override external onlySwapPairRoot {
@@ -1041,11 +849,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     modifier initialized() {
         require(initializedStatus == 2, SwapPairErrors.CONTRACT_NOT_INITIALIZED, SwapPairErrors.CONTRACT_NOT_INITIALIZED_MSG);
-        _;
-    }
-
-    modifier onlySelf() {
-        require(msg.sender == address(this));
         _;
     }
 
@@ -1122,14 +925,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             SwapPairErrors.INVALID_TOKEN_ADDRESS,
             SwapPairErrors.INVALID_TOKEN_ADDRESS_MSG
         );
-        _;
-    }
-
-    modifier getterPayment() {
-        if (msg.sender.value == 0 && usersTONBalance[msg.pubkey()] >= getterFunctionCallCost) {
-            tvm.accept();
-            _initializeGettersRebalance(msg.pubkey(), address(this).balance);
-        }
         _;
     }
 

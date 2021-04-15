@@ -6,6 +6,12 @@ library SwapPairConstants {
     uint128 constant tip3SendDeployGrams = 0.5 ton;
     uint128 constant tip3DeployGrams = 0.2 ton;
 
+    // We don't want to risk, this is one-time procedure
+    // Extra wallet's tons will be transferred with first token transfer operation
+    // Yep, there are transfer losses, but they are pretty small
+    uint128 constant walletInitialBalanceAmount = 1000 milli;
+    uint128 constant walletDeployMessageValue   = 1500 milli;
+
     // TIP-3 root contract parameters
     uint8 constant tip3LpDecimals = 0;
     uint8 constant contractFullyInitialized = 4;
