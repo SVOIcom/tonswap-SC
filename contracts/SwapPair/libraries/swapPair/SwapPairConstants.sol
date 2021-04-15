@@ -12,6 +12,9 @@ library SwapPairConstants {
     uint128 constant walletInitialBalanceAmount = 1000 milli;
     uint128 constant walletDeployMessageValue   = 1500 milli;
 
+    uint128 constant sendToTIP3TokenWallets = 110 milli;
+    uint128 constant sendToRootToken        = 500 milli;
+
     // TIP-3 root contract parameters
     uint8 constant tip3LpDecimals = 0;
     uint8 constant contractFullyInitialized = 4;
@@ -31,8 +34,6 @@ library SwapPairConstants {
     uint8 constant WithdrawLiquidityOneToken = 4;
 
     // Operation TvmCell size
-    
-    
     uint16 constant SwapOperationBits = 0;
     uint8  constant SwapOperationRefs = 0;
     uint16 constant WithdrawOperationBits = 0;
@@ -43,4 +44,6 @@ library SwapPairConstants {
     uint8  constant ProvideLiquidityRefs = 0;
     uint16 constant ProvideLiquidityOneBits = 0;
     uint8  constant ProvideLiquidityOneRefs = 0;
+
+    string constant swapFallbackPhrase = "Provided token amount is not enough for swap. Results in 0 tokens received."; 
 }

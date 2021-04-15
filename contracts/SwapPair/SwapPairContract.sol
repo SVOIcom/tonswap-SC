@@ -43,11 +43,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     //Deployed token wallets addresses
     mapping(uint8 => address) tokenWallets;
 
-    //Users balances
-    mapping(uint256 => uint256) usersTONBalance;
-    mapping(uint8 => mapping(uint256 => uint128)) tokenUserBalances;
-    mapping(uint256 => uint128) rewardUserBalance;
-
+    //Liquidity providers info for security reasons
     mapping(uint256 => LPProvidingInfo) lpInputTokensInfo;
 
     //Liquidity Pools
@@ -66,10 +62,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     // 4 - deployed LP token wallet        <- initialized
     uint private initializedStatus = 0;
 
-    // Required for interaction with wallets for smart-contracts
-    uint128 constant sendToTIP3TokenWallets     = 110  milli;
-    uint128 constant sendToRootToken            = 500  milli;
-
     // Tokens positions
     uint8 constant T1 = 0;
     uint8 constant T2 = 1; 
@@ -80,6 +72,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     IRootTokenContract.IRootTokenContractDetails T2Info;
 
 
+    // Waiting for structure constants in libraries ...
     OperationSizeRequirements SwapOperationSize = OperationSizeRequirements(
         SwapPairConstants.SwapOperationBits, SwapPairConstants.SwapOperationRefs
     );
@@ -140,7 +133,10 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     function _getWalletAddress(address token) private view {
         tvm.accept();
-        IRootTokenContract(token).getWalletAddress{value: sendToRootToken, callback: this.getWalletAddressCallback}(tvm.pubkey(), address(this));
+        IRootTokenContract(token).getWalletAddress{
+            value: SwapPairConstnats.sendToRootToken, 
+            callback: this.getWalletAddressCallback
+        }(tvm.pubkey(), address(this));
     }
 
     /*
@@ -298,6 +294,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
     //============Functions for offchain execution============
+
+    // TODO: Добавить функции для создания правильного TvmCell-a 
 
     // NOTICE: Requires a lot of gas, will only work with runLocal
     function getProvidingLiquidityInfo(uint128 maxFirstTokenAmount, uint128 maxSecondTokenAmount)
@@ -529,131 +527,120 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         public
         onlyOwnWallet
     {
-        if (msg.sender != lpTokenWalletAddress) {
-            uint8 _p = tokenWallets[T1] == msg.sender ? T1 : T2; // `onlyWallets` eliminates other validational
-            if (tokenUserBalances[_p].exists(sender_public_key)) {
-                tokenUserBalances[_p].replace(
-                    sender_public_key,
-                    tokenUserBalances[_p].at(sender_public_key) + amount
+        TvmSlice tmp = payload.toSlice();
+        (UnifiedOperation uo) = tmp.decode(UnifiedOperation);
+        TvmSlice tmpArgs = uo.operationArgs.toSlice();
+
+        if (
+            msg.sender != lpTokenWalletAddress &&
+            _checkPayload(uo.operationId, SwapPairConstants.SwapPairOperation, tmpArgs, SwapOperationSize)
+        ) {
+            (address transferTokensTo) = tmpArgs.decode(address);
+            SwapInfo si = _swap(token_root, amount, false);
+            if (si.targetTokenAmount != 0)
+                ITONTokenWallet(tokenWallets[tokenPositions[token_root]]).transfer{
+                    value: 0,
+                    flag: 128
+                }(
+                    transferTokensTo,
+                    si.targetTokenAmount,
+                    0,
+                    address.makeAddrStd(0, 0),
+                    true,
+                    _createSwapPayload(si)
                 );
-            } else {
-                tokenUserBalances[_p].add(sender_public_key, amount);
-            }
-        } else {
-            TvmSlice tmp = payload.toSlice();
-            (UnifiedOperation uo) = tmp.decode(UnifiedOperation);
-            TvmSlice tmpArgs = uo.operationArgs.toSlice();
-
-            if (
-                msg.sender != lpTokenWalletAddress &&
-                _checkPayload(uo.operationId, SwapPairConstants.SwapPairOperation, tmpArgs, SwapOperationSize)
-            ) {
-                (address transferTokensTo) = tmpArgs.decode(address);
-                SwapInfo si = _swap(token_root, amount, false);
-                if (si.targetTokenAmount != 0)
-                    ITONTokenWallet(tokenWallets[tokenPositions[token_root]]).transfer{
-                        value: 0,
-                        flag: 128
-                    }(
-                        transferTokensTo,
-                        si.targetTokenAmount,
-                        0,
-                        address.makeAddrStd(0, 0),
-                        true,
-                        _createSwapPayload(si)
-                    );
-                else
-                    ITONTokenWallet(msg.sender).transfer{
-                        value: 0,
-                        flag: 128
-                    }(
-                        token_wallet,
-                        amount,
-                        0,
-                        address.makeAddrStd(0, 0),
-                        true,
-                        // TODO: сделать формировагние payload для ошибки
-                    );
-            }
-
-            if (
-                msg.sender != lpTokenWalletAddress &&
-                _checkPayload(uo.operationId, SwapPairConstants.ProvideLiquidity, tmpArgs, ProvideLiquidityOperationSize)
-            ) {
-                TvmBuilder tb;
-                tb.store(sender_public_key, sender_address);
-                uint256 uniqueID = tvm.hash(tb.toCell());
-                if (!lpInputTokensInfo.exists(uniqueID))
-                    lpInputTokensInfo.add(uniqueID, LPProvidingInfo(
-                        sender_address,
-                        sender_public_key,
-                        address.makeAddrStd(0, 0),
-                        0,
-                        address.makeAddrStd(0, 0),
-                        0))
-
-                LPProvidingInfo lppi = lpInputTokensInfo[uniqueID];
-
-                if (msg.sender == tokenWallets[0]) {
-                    lppi.a1 += amount;
-                    lppi.w1 = sender_wallet;
-                }
-
-                if (msg.sender == tokenWallets[1]) {
-                    lppi.a2 += amount;
-                    lppi.w2 = sender_wallet;
-                }
-
-                if (lppi.a1 != 0 && lppi.a2 != 0) {
-                    (uint128 rtp1, uint128 rtp2, uint256 _minted) = _calculateProvidingLiquidityInfo(lppi.a1, lppi.a2);
-                    lps[0] += rtp1;
-                    lps[1] += rtp2;
-                    kLast = uint256(lps[T1]) * uint256(lps[T2]);
-                    // TODO: сделать перевод TIP-3 LP токена пользователю, вопрос - как
-                } else {
-                    lpInputTokensInfo[uniqueID] = lppi;
-                    address(sender_wallet).transfer({value: 0, flag: 128});
-                }
-            }
-
-            if (
-                msg.sender != lpTokenWalletAddress &&
-                _checkPayload(uo.operationId, SwapPairConstants.ProvideLiquidityOneToken, tmpArgs, ProvideLiquidityOperationSizeOneToken)
-            ) {
-                _provideLiquidityOneToken();
-            }
-
-            if (
-                msg.sender == lpTokenWalletAddress &&
-                _checkPayload(uo.operationId, SwapPairConstants.WithdrawLiquidity, tmpArgs, WithdrawOperationSize)
-            ) {
-                _tryToWithdrawLP(amount, payload, msg.sender, sender_address, true);
-                _burnTransferredLPTokens(tokens);
-            }
-
-            if (
-                msg.sender != lpTokenWalletAddress &&
-                _checkPayload(uo.operationId, SwapPairConstants.WithdrawLiquidityOneToken, tmpArgs, WithdrawOperationSizeOneToken)
-            ) {
-                _withdrawLiquidityOneToken();
-            }
-
-            TvmCell failPayload;
-            ITONTokenWallet(msg.sender).transfer{
-                value: 0, 
-                flag: 128
-            }(
-                msg.sender,
-                amount,
-                sender_address,
-                false,
-                failPayload
-            );
+            else
+                ITONTokenWallet(msg.sender).transfer{
+                    value: 0,
+                    flag: 128
+                }(
+                    token_wallet,
+                    amount,
+                    0,
+                    address.makeAddrStd(0, 0),
+                    true,
+                    _createSwapFallbackPayload()
+                );
         }
+
+        if (
+            msg.sender != lpTokenWalletAddress &&
+            _checkPayload(uo.operationId, SwapPairConstants.ProvideLiquidity, tmpArgs, ProvideLiquidityOperationSize)
+        ) {
+            TvmBuilder tb;
+            tb.store(sender_public_key, sender_address);
+            uint256 uniqueID = tvm.hash(tb.toCell());
+            if (!lpInputTokensInfo.exists(uniqueID))
+                lpInputTokensInfo.add(uniqueID, LPProvidingInfo(
+                    sender_address,
+                    sender_public_key,
+                    address.makeAddrStd(0, 0),
+                    0,
+                    address.makeAddrStd(0, 0),
+                    0)
+                );
+
+            LPProvidingInfo lppi = lpInputTokensInfo[uniqueID];
+
+            if (msg.sender == tokenWallets[0]) {
+                lppi.a1 += amount;
+                lppi.w1 = sender_wallet;
+            }
+
+            if (msg.sender == tokenWallets[1]) {
+                lppi.a2 += amount;
+                lppi.w2 = sender_wallet;
+            }
+
+            if (lppi.a1 != 0 && lppi.a2 != 0) {
+                (uint128 rtp1, uint128 rtp2, uint256 _minted) = _calculateProvidingLiquidityInfo(lppi.a1, lppi.a2);
+                lps[0] += rtp1;
+                lps[1] += rtp2;
+                kLast = uint256(lps[T1]) * uint256(lps[T2]);
+                // TODO: сделать перевод TIP-3 LP токена пользователю, вопрос - как
+            } else {
+                lpInputTokensInfo[uniqueID] = lppi;
+                address(sender_wallet).transfer({value: 0, flag: 128});
+            }
+        }
+
+        if (
+            msg.sender != lpTokenWalletAddress &&
+            _checkPayload(uo.operationId, SwapPairConstants.ProvideLiquidityOneToken, tmpArgs, ProvideLiquidityOperationSizeOneToken)
+        ) {
+            _provideLiquidityOneToken();
+        }
+
+        if (
+            msg.sender == lpTokenWalletAddress &&
+            _checkPayload(uo.operationId, SwapPairConstants.WithdrawLiquidity, tmpArgs, WithdrawOperationSize)
+        ) {
+            _tryToWithdrawLP(amount, payload, msg.sender, sender_address, true);
+            _burnTransferredLPTokens(tokens);
+        }
+
+        if (
+            msg.sender != lpTokenWalletAddress &&
+            _checkPayload(uo.operationId, SwapPairConstants.WithdrawLiquidityOneToken, tmpArgs, WithdrawOperationSizeOneToken)
+        ) {
+            _withdrawLiquidityOneToken();
+        }
+
+        TvmCell failPayload;
+        ITONTokenWallet(msg.sender).transfer{
+            value: 0, 
+            flag: 128
+        }(
+            msg.sender,
+            amount,
+            sender_address,
+            false,
+            failPayload
+        );
     }
 
     function burnCallback(
-        uint128 tokens,
+        uint128 tokensBurnt,
         TvmCell payload,
         uint256 sender_public_key,
         address sender_address,
@@ -661,8 +648,14 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         address send_gas_to
     ) external onlyTokenRoot {
         if (wallet_address != lpTokenWalletAddress) {
-            _tryToWithdrawLP(tokens, payload, msg.sender, sender_address, true);
+            _tryToWithdrawLP(tokensBurnt, payload, msg.sender, sender_address, true);
         }
+    }
+
+    function _createSwapFallbackPayload() private returns (TvmCell) {
+        TvmBuilder tb;
+        tb.store(SwapPairConstants.swapFallbackPhrase);
+        return tb.toCell();
     }
 
     //============Withdraw LP tokens functionality============
@@ -724,22 +717,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         TvmBuilder payloadB;
         payloadB.store(w1, t1a, w2, t2a);
         TvmCell payload = payloadB.toCell();
-        ITONTokenWallet(w1).transfer(
-            lpwi.tw1,
-            t1a,
-            0,
-            address(this),
-            true,
-            payload
-        );
-        ITONTokenWallet(w2).transfer(
-            lpwi.tw2,
-            t2a,
-            0,
-            address(this),
-            true,
-            payload
-        );
+        ITONTokenWallet(w1).transfer(lpwi.tw1, t1a, 0, address(this), true, payload);
+        ITONTokenWallet(w2).transfer(lpwi.tw2, t2a, 0, address(this), true, payload);
     }
 
     function _fallbackWithdrawLP(address walletAddress, uint128 tokensAmount, bool mintRequired) private inline {
@@ -883,37 +862,5 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     function notZeroLiquidity(uint128 _amount1, uint128 _amount2) private pure inline returns(bool) {
         return _amount1 > 0 && _amount2 > 0;
-    }
-
-    // TODO: убрать данный модификатор и удалить
-    function userEnoughTokenBalance(
-        address _token, 
-        uint128 amount, 
-        uint pubkey
-    ) private view inline {
-        uint8 _p = _getTokenPosition(_token);        
-        uint128 userBalance = tokenUserBalances[_p][pubkey];
-        require(
-            userBalance > 0 && userBalance >= amount,
-            SwapPairErrors.INSUFFICIENT_USER_BALANCE,
-            SwapPairErrors.INSUFFICIENT_USER_BALANCE_MSG
-        );
-    }
-
-    // TODO: убрать данный модификатор и удалить
-    function checkUserTokens(
-        address token1_, 
-        uint128 token1Amount, 
-        address token2_, 
-        uint128 token2Amount, 
-        uint pubkey
-    ) private view inline {
-        bool b1 = tokenUserBalances[tokenPositions[token1_]][pubkey] >= token1Amount;
-        bool b2 = tokenUserBalances[tokenPositions[token2_]][pubkey] >= token2Amount;
-        require(
-            b1 && b2,
-            SwapPairErrors.INSUFFICIENT_USER_BALANCE,
-            SwapPairErrors.INSUFFICIENT_USER_BALANCE_MSG
-        );
     }
 }
