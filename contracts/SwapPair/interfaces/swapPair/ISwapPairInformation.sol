@@ -83,7 +83,6 @@ interface ISwapPairInformation {
         uint128 a2;
     }
 
-    // TODO: добавить/доделать структуру для унифицированных операций
     struct UnifiedOperation {
         uint8 operationId;
         TvmCell operationArgs;
