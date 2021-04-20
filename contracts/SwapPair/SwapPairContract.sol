@@ -71,22 +71,25 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     IRootTokenContract.IRootTokenContractDetails T2Info;
 
 
-    // Waiting for structure constants in libraries ...
-    OperationSizeRequirements SwapOperationSize = OperationSizeRequirements(
+    // Waiting for something except for numbers in libraries ...
+    OperationSizeRequirements constant SwapOperationSize = OperationSizeRequirements(
         SwapPairConstants.SwapOperationBits, SwapPairConstants.SwapOperationRefs
     );
-    OperationSizeRequirements WithdrawOperationSize = OperationSizeRequirements(
+    OperationSizeRequirements constant WithdrawOperationSize = OperationSizeRequirements(
         SwapPairConstants.WithdrawOperationBits, SwapPairConstants.WithdrawOperationRefs
     );
-    OperationSizeRequirements WithdrawOperationSizeOneToken = OperationSizeRequirements(
+    OperationSizeRequirements constant WithdrawOperationSizeOneToken = OperationSizeRequirements(
         SwapPairConstants.WithdrawOneOperationBits, SwapPairConstants.WithdrawOneOperationRefs
     );
-    OperationSizeRequirements ProvideLiquidityOperationSize = OperationSizeRequirements(
+    OperationSizeRequirements constant ProvideLiquidityOperationSize = OperationSizeRequirements(
         SwapPairConstants.ProvideLiquidityBits, SwapPairConstants.ProvideLiquidityRefs
     );
-    OperationSizeRequirements ProvideLiquidityOperationSizeOneToken = OperationSizeRequirements(
+    OperationSizeRequirements constant ProvideLiquidityOperationSizeOneToken = OperationSizeRequirements(
         SwapPairConstants.ProvideLiquidityOneBits, SwapPairConstants.ProvideLiquidityOneRefs
     );
+
+    string constant sumIsTooLowForSwap = "Provided token amount is not enough for swap. Results in 0 tokens received.";
+    string constant noLiquidityProvidedMessage = "No liquidity provided yet. Swaps are forbidden.";
     //============Contract initialization functions============
 
     constructor(address rootContract, uint spd) public {
@@ -540,7 +543,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         TvmSlice tmp = payload.toSlice();
         (UnifiedOperation uo) = tmp.decode(UnifiedOperation);
         TvmSlice tmpArgs = uo.operationArgs.toSlice();
-        TvmCell failPayload;
 
         if (
             msg.sender != lpTokenWalletAddress &&
@@ -574,7 +576,19 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
                         _createSwapFallbackPayload()
                     );
             } else {
-                // TODO: сформировать payload для ошибки
+                TvmBuilder failTB;
+                failTB.store(noLiquidityProvidedMessage);
+                ITONTokenWallet(msg.sender).transfer{
+                    value: 0, 
+                    flag: 128
+                }(
+                    sender_wallet,
+                    amount,
+                    0,
+                    sender_address,
+                    false,
+                    failTB.toCell();
+                );
             }
         }
 
@@ -582,6 +596,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             msg.sender != lpTokenWalletAddress &&
             _checkPayload(uo.operationId, SwapPairConstants.ProvideLiquidity, tmpArgs, ProvideLiquidityOperationSize)
         ) {
+            address lpWallet = tmpArgs.decode(address);
+
             TvmBuilder tb;
             tb.store(sender_public_key, sender_address);
             uint256 uniqueID = tvm.hash(tb.toCell());
@@ -608,11 +624,51 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             }
 
             if (lppi.a1 != 0 && lppi.a2 != 0) {
-                (uint128 rtp1, uint128 rtp2, ) = _calculateProvidingLiquidityInfo(lppi.a1, lppi.a2);
+                (uint128 rtp1, uint128 rtp2, uint256 toMint) = _calculateProvidingLiquidityInfo(lppi.a1, lppi.a2);
                 lps[0] += rtp1;
                 lps[1] += rtp2;
                 kLast = uint256(lps[T1]) * uint256(lps[T2]);
-                // TODO: сделать перевод TIP-3 LP токена пользователю, вопрос - как
+
+                if (lpWallet.value == 0) {
+                    IRootTokenContract(lpTokenRootContract).deployWallet{
+                        value: msg.value/2,
+                        flag: 0
+                    }(
+                        uint128(toMint),
+                        msg.value/4,
+                        sender_public_key,
+                        sender_address,
+                        sender_address
+                    )
+                } else {
+                    IRootTokenContract(lpTokenRootContract).mint(lpWallet, toMint);
+                }
+
+                // TODO: обратный перевод оставшихся токенов
+                if (lppi.a1 - rtp1 != 0)
+                    ITONTokenWallet(tokenWallets[0]).transfer{
+                        value: msg.value/8,
+                        flag: 0
+                    }(
+                        lppi.w1,
+                        lppi.a1 - rtp1,
+                        0,
+                        sender_address,
+                        false,
+                        payload
+                    )
+                if (lppi.a2 - rtp2 != 0)
+                    ITONTokenWallet(tokenWallets[0]).transfer{
+                        value: msg.value/8,
+                        flag: 0
+                    }(
+                        lppi.w2,
+                        lppi.a2 - rtp2,
+                        0,
+                        sender_address,
+                        false,
+                        payload
+                    )
                 delete lpInputTokensInfo[uniqueID];
             } else {
                 lpInputTokensInfo[uniqueID] = lppi;
@@ -643,18 +699,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             // TODO: сделать добавление ликвидности по одному токену
             _withdrawLiquidityOneToken();
         }
-
-        ITONTokenWallet(msg.sender).transfer{
-            value: 0, 
-            flag: 128
-        }(
-            msg.sender,
-            amount,
-            0,
-            sender_address,
-            false,
-            failPayload
-        );
     }
 
     function burnCallback(
@@ -678,7 +722,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     function _createSwapFallbackPayload() private pure returns (TvmCell) {
         TvmBuilder tb;
-        tb.store(string("Provided token amount is not enough for swap. Results in 0 tokens received."));
+        tb.store(sumIsTooLowForSwap);
         return tb.toCell();
     }
 
