@@ -574,6 +574,9 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             uo.operationId == SwapPairConstants.ProvideLiquidity &&
             _checkProvideLiquidityPayload(tmpArgs)
         ) {
+            // TODO: формировние payload на случай ошибки
+            // TODO: разнести в разные функции части кода
+            // LPProvidingInfo lppi = _getLPProvidingRecord(sender_public_key, sender_address);
             address lpWallet = tmpArgs.decode(address);
 
             TvmBuilder tb;
@@ -588,6 +591,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
                     address.makeAddrStd(0, 0),
                     0)
                 );
+
+            // (uint128 deltaToken1, uint128 deltaToken2) = _calculateAndTransfetProviding(lppi);
 
             LPProvidingInfo lppi = lpInputTokensInfo[uniqueID];
 
@@ -617,12 +622,12 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
                         sender_public_key,
                         sender_address,
                         sender_address
-                    )
+                    );
                 } else {
                     IRootTokenContract(lpTokenRootContract).mint(lpWallet, toMint);
                 }
 
-                // TODO: обратный перевод оставшихся токенов
+                // _returnChange(deltaToken1, deltaToken2);
                 if (lppi.a1 - rtp1 != 0)
                     ITONTokenWallet(tokenWallets[0]).transfer{
                         value: msg.value/8,
@@ -659,6 +664,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             uo.operationId == SwapPairConstants.ProvideLiquidityOneToken &&
             _checkProvideLiquidityOneTokenPayload(tmpArgs)
         ) {
+            // TODO: формировние payload для ошибки
             // TODO: сделать добавление ликвидности по одному токену
             _provideLiquidityOneToken();
         }
@@ -668,8 +674,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             uo.operationId == SwapPairConstants.WithdrawLiquidity &&
             _checkWithdrawLiquidityPayload(tmpArgs)
         ) {
-            // TODO: заменить LPWithdrawInfo на что-то другое или по-нормальному запаковать
-            _withdrawTokensFromLP(amount, tmpArgs.decode(LPWithdrawInfo), sender_address, false);
+            _withdrawTokensFromLP(amount, _decompressWithdrawLiquidityPayload(tmpArgs), sender_address, false);
             _burnTransferredLPTokens(amount);
         }
 
@@ -678,7 +683,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             uo.operationId == SwapPairConstants.WithdrawLiquidityOneToken &&
             _checkWithdrawLiquidityOneTokenPayload(tmpArgs)
         ) {
-            // TODO: сделать добавление ликвидности по одному токену
+            // TODO: формировние payload для ошибки
+            // TODO: сделать вывод ликвидности по одному токену
             _withdrawLiquidityOneToken();
         }
     }
@@ -698,8 +704,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             msg.sender != lpTokenWalletAddress &&
             _checkPayload(uo.operationId, SwapPairConstants.WithdrawLiquidity, tmpArgs, WithdrawOperationSize)
         ) {
-            // TODO: заменить LPWithdrawInfo на что-то другое или по-нормальному запаковать
-            _withdrawTokensFromLP(tokensBurnt, tmpArgs.decode(LPWithdrawInfo), sender_address, true);
+            _withdrawTokensFromLP(tokensBurnt, _decompressWithdrawLiquidityPayload(tmpArgs), sender_address, true);
         }
     }
 
@@ -775,7 +780,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     //============Withdraw LP tokens functionality============
 
-    // TODO: заменить LPWithdrawInfo на что-то другое или по-нормальному запаковать
     function _withdrawTokensFromLP(
         uint128 tokenAmount, 
         LPWithdrawInfo lpwi,
@@ -798,7 +802,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         emit WithdrawLiquidity(burned, withdrawed1, withdrawed2);
     }
 
-    // TODO: заменить LPWithdrawInfo на что-то другое или по-нормальному запаковать
     function _transferTokensToWallets(LPWithdrawInfo lpwi, uint128 t1Amount, uint128 t2Amount) private view inline {
         bool t1ist1 = lpwi.tr1 == token1; // смотрим, не была ли перепутана последовательность адресов рут-контрактов
         address w1 = t1ist1? tokenWallets[0] : tokenWallets[1];
