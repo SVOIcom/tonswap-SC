@@ -381,12 +381,12 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         return SwapInfo(swappableTokenAmount, _si.targetTokenAmount, _si.fee);
     }
 
-    // TODO: реализовать функцию добавления ликвидности по одному токену
+    // TODO: Антон: реализовать функцию добавления ликвидности по одному токену
     function _provideLiquidityOneToken() private pure {
 
     }
 
-    // TODO: реализовать функцию вывода ликвидности по одному токену
+    // TODO: Антон: реализовать функцию вывода ликвидности по одному токену
     function _withdrawLiquidityOneToken() private pure {
 
     }
@@ -500,7 +500,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     /*
     * Tokens received from user
     */
-    // TODO: нормальные проверки для payload
     function tokensReceivedCallback(
         address token_wallet,
         address token_root,
@@ -574,8 +573,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             uo.operationId == SwapPairConstants.ProvideLiquidity &&
             _checkProvideLiquidityPayload(tmpArgs)
         ) {
-            // TODO: формировние payload на случай ошибки
-            // TODO: разнести в разные функции части кода
+            // TODO: рефокторинг: разнести в разные функции части кода
             // LPProvidingInfo lppi = _getLPProvidingRecord(sender_public_key, sender_address);
             address lpWallet = tmpArgs.decode(address);
 
@@ -664,8 +662,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             uo.operationId == SwapPairConstants.ProvideLiquidityOneToken &&
             _checkProvideLiquidityOneTokenPayload(tmpArgs)
         ) {
-            // TODO: формировние payload для ошибки
-            // TODO: сделать добавление ликвидности по одному токену
+            // TODO: Антон: формировние payload для ошибки при добавлении по одному токену
+            // TODO: Антон: сделать добавление ликвидности по одному токену
             _provideLiquidityOneToken();
         }
 
@@ -683,8 +681,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             uo.operationId == SwapPairConstants.WithdrawLiquidityOneToken &&
             _checkWithdrawLiquidityOneTokenPayload(tmpArgs)
         ) {
-            // TODO: формировние payload для ошибки
-            // TODO: сделать вывод ликвидности по одному токену
+            // TODO: Антон: формировние payload для ошибки при выводе по одному токену
+            // TODO: Антон: сделать вывод ликвидности по одному токену
             _withdrawLiquidityOneToken();
         }
     }
@@ -723,11 +721,11 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
     function _checkProvideLiquidityOneTokenPayload(TvmSlice tmpArgs) private pure returns (bool) {
-        // TODO: проверка payload для внесения ликвидности с помощью одного токена
+        // TODO: Антон: проверка payload для внесения ликвидности с помощью одного токена
     }
 
     function _checkWithdrawLiquidityOneTokenPayload(TvmSlice tmpArgs) private pure returns (bool) {
-        // TODO: проверка payload для вывода ликвидности через один токен
+        // TODO: Антон: проверка payload для вывода ликвидности через один токен
     }
 
     function _decompressWithdrawLiquidityPayload(TvmSlice tmpArgs) private pure returns (LPWithdrawInfo) {
@@ -758,7 +756,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
     function createProvideLiquidityOneTokenPayload() external pure returns (TvmCell) {
-        // TODO: формирование payload для добавления ликвидности через один токен
+        // TODO: Антон: формирование payload для добавления ликвидности через один токен
     }
 
     function createWithdrawLiquidityPayload(
@@ -775,7 +773,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
     function createWithdrawLiquidityOneTokenPayload() external pure returns (TvmCell) {
-        // TODO: формирование payload для вывода ликвидности через один токен
+        // TODO: Антон: формирование payload для вывода ликвидности через один токен
     }
 
     //============Withdraw LP tokens functionality============
