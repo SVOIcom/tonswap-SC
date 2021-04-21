@@ -277,42 +277,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     //============Functions for offchain execution============
 
-    function createSwapPayload(address sendTokensTo) external pure returns (TvmCell) {
-        TvmBuilder tb; TvmBuilder argsBuilder;
-        argsBuilder.store(sendTokensTo);
-        tb.store(UnifiedOperation(SwapPairConstants.SwapPairOperation, argsBuilder.toCell()));
-        return tb.toCell();
-    }
-
-    function createProvideLiquidityPayload() external pure returns (TvmCell) {
-        TvmBuilder tb; TvmCell emptyCell;
-        tb.store(UnifiedOperation(SwapPairConstants.ProvideLiquidity, emptyCell));
-        return tb.toCell();
-    }
-
-    function createProvideLiquidityOneTokenPayload() external pure returns (TvmCell) {
-        // TODO: формирование payload для добавления ликвидности через один токен
-    }
-
-    function createWithdrawLiquidityPayload(
-        address tokenRoot1,
-        address tokenWallet1,
-        address tokenRoot2,
-        address tokenWallet2
-    ) external pure returns (TvmCell) {
-        TvmBuilder tb; TvmBuilder argsBuilder;
-        argsBuilder.store(
-            // TODO: заменить LPWithdrawInfo на что-то другое или по-нормальному запаковать
-            LPWithdrawInfo(tokenRoot1, tokenWallet1, tokenRoot2, tokenWallet2)
-        );
-        tb.store(UnifiedOperation(SwapPairConstants.WithdrawLiquidity, argsBuilder.toCell()));
-        return tb.toCell();
-    }
-
-    function createWithdrawLiquidityOneTokenPayload() external pure returns (TvmCell) {
-        // TODO: формирование payload для вывода ликвидности через один токен
-    }
-
     // NOTICE: Requires a lot of gas, will only work with runLocal
     function getProvidingLiquidityInfo(uint128 maxFirstTokenAmount, uint128 maxSecondTokenAmount)
         override
@@ -415,6 +379,16 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         kLast = uint256(_si.newFromPool) * uint256(_si.newToPool);
 
         return SwapInfo(swappableTokenAmount, _si.targetTokenAmount, _si.fee);
+    }
+
+    // TODO: реализовать функцию добавления ликвидности по одному токену
+    function _provideLiquidityOneToken() private pure {
+
+    }
+
+    // TODO: реализовать функцию вывода ликвидности по одному токену
+    function _withdrawLiquidityOneToken() private pure {
+
     }
 
 
@@ -526,6 +500,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     /*
     * Tokens received from user
     */
+    // TODO: нормальные проверки для payload
     function tokensReceivedCallback(
         address token_wallet,
         address token_root,
@@ -547,7 +522,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
         if (
             msg.sender != lpTokenWalletAddress &&
-            _checkPayload(uo.operationId, SwapPairConstants.SwapPairOperation, tmpArgs, SwapOperationSize)
+            uo.operationId == SwapPairConstants.SwapPairOperation &&
+            _checkSwapPayload(tmpArgs)
         ) {
             if (_checkIsLiquidityProvided()) {
                 (address transferTokensTo) = tmpArgs.decode(address);
@@ -595,7 +571,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
         if (
             msg.sender != lpTokenWalletAddress &&
-            _checkPayload(uo.operationId, SwapPairConstants.ProvideLiquidity, tmpArgs, ProvideLiquidityOperationSize)
+            uo.operationId == SwapPairConstants.ProvideLiquidity &&
+            _checkProvideLiquidityPayload(tmpArgs)
         ) {
             address lpWallet = tmpArgs.decode(address);
 
@@ -657,7 +634,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
                         sender_address,
                         false,
                         payload
-                    )
+                    );
                 if (lppi.a2 - rtp2 != 0)
                     ITONTokenWallet(tokenWallets[0]).transfer{
                         value: msg.value/8,
@@ -669,7 +646,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
                         sender_address,
                         false,
                         payload
-                    )
+                    );
                 delete lpInputTokensInfo[uniqueID];
             } else {
                 lpInputTokensInfo[uniqueID] = lppi;
@@ -679,7 +656,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
         if (
             msg.sender != lpTokenWalletAddress &&
-            _checkPayload(uo.operationId, SwapPairConstants.ProvideLiquidityOneToken, tmpArgs, ProvideLiquidityOperationSizeOneToken)
+            uo.operationId == SwapPairConstants.ProvideLiquidityOneToken &&
+            _checkProvideLiquidityOneTokenPayload(tmpArgs)
         ) {
             // TODO: сделать добавление ликвидности по одному токену
             _provideLiquidityOneToken();
@@ -687,7 +665,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
         if (
             msg.sender == lpTokenWalletAddress &&
-            _checkPayload(uo.operationId, SwapPairConstants.WithdrawLiquidity, tmpArgs, WithdrawOperationSize)
+            uo.operationId == SwapPairConstants.WithdrawLiquidity &&
+            _checkWithdrawLiquidityPayload(tmpArgs)
         ) {
             // TODO: заменить LPWithdrawInfo на что-то другое или по-нормальному запаковать
             _withdrawTokensFromLP(amount, tmpArgs.decode(LPWithdrawInfo), sender_address, false);
@@ -696,7 +675,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
         if (
             msg.sender != lpTokenWalletAddress &&
-            _checkPayload(uo.operationId, SwapPairConstants.WithdrawLiquidityOneToken, tmpArgs, WithdrawOperationSizeOneToken)
+            uo.operationId == SwapPairConstants.WithdrawLiquidityOneToken &&
+            _checkWithdrawLiquidityOneTokenPayload(tmpArgs)
         ) {
             // TODO: сделать добавление ликвидности по одному токену
             _withdrawLiquidityOneToken();
@@ -723,20 +703,74 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         }
     }
 
+    //============Payload manipulation functions============
+
+    function _checkSwapPayload(TvmSlice tmpArgs) private pure returns (bool) {
+        return tmpArgs.hasNBitsAndRefs(SwapOperationSize.bits, SwapOperationSize.refs);
+    }
+
+    function _checkWithdrawLiquidityPayload(TvmSlice tmpArgs) private pure returns (bool) {
+        return tmpArgs.hasNBitsAndRefs(WithdrawOperationSize.bits, WithdrawOperationSize.refs);
+    }
+
+    function _checkProvideLiquidityPayload(TvmSlice tmpArgs) private pure returns (bool) {
+        return tmpArgs.hasNBitsAndRefs(ProvideLiquidityOperationSize.bits, ProvideLiquidityOperationSize.refs);
+    }
+
+    function _checkProvideLiquidityOneTokenPayload(TvmSlice tmpArgs) private pure returns (bool) {
+        // TODO: проверка payload для внесения ликвидности с помощью одного токена
+    }
+
+    function _checkWithdrawLiquidityOneTokenPayload(TvmSlice tmpArgs) private pure returns (bool) {
+        // TODO: проверка payload для вывода ликвидности через один токен
+    }
+
+    function _decompressWithdrawLiquidityPayload(TvmSlice tmpArgs) private pure returns (LPWithdrawInfo) {
+        LPWithdrawInfo lpwi;
+        (lpwi.rt1, lpwi.w1) = tmpArgs.decode(address, address);
+        TvmSlice secondPart = tmpArgs.loadRefAsSlice();
+        (lpwi.rt2, lpwi.w2) = tmpArgs.decode(address, address);
+        return lpwi;
+    }
+
     function _createSwapFallbackPayload() private pure returns (TvmCell) {
         TvmBuilder tb;
         tb.store(sumIsTooLowForSwap);
         return tb.toCell();
     }
 
-    // TODO: реализовать функцию добавления ликвидности по одному токену
-    function _provideLiquidityOneToken() private pure {
-
+        function createSwapPayload(address sendTokensTo) external pure returns (TvmCell) {
+        TvmBuilder tb; TvmBuilder argsBuilder;
+        argsBuilder.store(sendTokensTo);
+        tb.store(UnifiedOperation(SwapPairConstants.SwapPairOperation, argsBuilder.toCell()));
+        return tb.toCell();
     }
 
-    // TODO: реализовать функцию вывода ликвидности по одному токену
-    function _withdrawLiquidityOneToken() private pure {
+    function createProvideLiquidityPayload() external pure returns (TvmCell) {
+        TvmBuilder tb; TvmCell emptyCell;
+        tb.store(UnifiedOperation(SwapPairConstants.ProvideLiquidity, emptyCell));
+        return tb.toCell();
+    }
 
+    function createProvideLiquidityOneTokenPayload() external pure returns (TvmCell) {
+        // TODO: формирование payload для добавления ликвидности через один токен
+    }
+
+    function createWithdrawLiquidityPayload(
+        address tokenRoot1,
+        address tokenWallet1,
+        address tokenRoot2,
+        address tokenWallet2
+    ) external pure returns (TvmCell) {
+        TvmBuilder tb; TvmBuilder payloadFirstHalf; TvmBuilder payloadSecondHalf;
+        payloadFirstHalf.store(tokenRoot1, tokenWallet1); payloadSecondHalf.store(tokenRoot2, tokenWallet2);
+        payloadFirstHalf.storeRef(payloadSecondHalf);
+        tb.store(UnifiedOperation(SwapPairConstants.WithdrawLiquidity, payloadFirstHalf.toCell()));
+        return tb.toCell();
+    }
+
+    function createWithdrawLiquidityOneTokenPayload() external pure returns (TvmCell) {
+        // TODO: формирование payload для вывода ликвидности через один токен
     }
 
     //============Withdraw LP tokens functionality============
