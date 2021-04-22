@@ -64,7 +64,7 @@ contract RootSwapPairContract is
         // Setting payment options
         minMessageValue = minMsgValue > RootSwapPairConstants.sendToNewSwapPair ? 
             minMsgValue : 
-            RootSwapPairConstants.sendToNewSwapPair*RootSwapPairConstants.increaseNumerator/RootSwapPairConstants.increaseDenomenator;
+            RootSwapPairConstants.sendToNewSwapPair*RootSwapPairConstants.increaseNumerator/RootSwapPairConstants.increaseDenominator;
         contractServicePayment = contractSP;
         tip3Deployer = tip3Deployer_;
     }
