@@ -363,7 +363,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         if ( !_checkIsLiquidityProvided() ) {
             provided1 = maxFirstTokenAmount;
             provided2 = maxSecondTokenAmount;
-            _minted = uint256(provided1) * uint256(provided2);
+            _minted = uint256(provided1) * uint256(provided2); // TODO минтиинг
         }
         else {
             uint128 maxToProvide1 = maxSecondTokenAmount != 0 ?  math.muldiv(maxSecondTokenAmount, lps[T1], lps[T2]) : 0;
