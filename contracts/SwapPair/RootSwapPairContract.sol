@@ -115,7 +115,7 @@ contract RootSwapPairContract is
                 swapPairID: uniqueID
             },
             code: swapPairCode
-        }(address(this), msg.pubkey());
+        }(address(this), msg.pubkey(), tip3Deployer);
 
         // Storing info about deployed swap pair contracts 
         SwapPairInfo info = SwapPairInfo(
@@ -212,8 +212,6 @@ contract RootSwapPairContract is
     function swapPairInitializedCallback(SwapPairInfo spi) external pairWithAddressExists(msg.sender) {
         swapPairDB[addressToUniqueID[msg.sender]] = spi;
         emit SwapPairInitialized(msg.sender);
-
-        address(msg.sender).transfer({flag: 128, value: 0});
     }
 
     //============Swap pair upgrade functionality============
