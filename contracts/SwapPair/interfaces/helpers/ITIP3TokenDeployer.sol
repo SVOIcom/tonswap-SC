@@ -8,14 +8,22 @@ interface ITIP3TokenDeployer {
         bytes symbol,
         uint8 decimals,
         uint256 rootPublicKey,
-        address rootOwnerAddress
-    ) external responsible view returns (address tip3Address);
+        address rootOwnerAddress,
+        uint128 deployGrams
+    ) external responsible returns (address tip3Address);
+
+    function getFutureTIP3Address(
+        bytes name, 
+        bytes symbol, 
+        uint8 decimals,
+        uint256 rootPublicKey
+    ) external responsible returns (address tip3Address);
 
     function setTIP3RootContractCode(TvmCell rootContractCode_) external;
 
     function setTIP3WalletContractCode(TvmCell walletContractCode_) external;
 
-    function getServiceInfo() external responsible view returns(ServiceInfo);
+    function getServiceInfo() external responsible view returns (ServiceInfo);
 
     struct ServiceInfo {
         TvmCell rootContractCode;
