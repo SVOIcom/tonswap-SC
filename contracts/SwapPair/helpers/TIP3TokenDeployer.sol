@@ -49,6 +49,33 @@ contract TIP3TokenDeployer is ITIP3TokenDeployer {
         return {value: 0, flag: 128} tip3TokenAddress;
     }
 
+    function getFutureTIP3Address(
+        bytes name,
+        bytes symbol,
+        uint8 decimals
+    ) 
+        external 
+        responsible 
+        override 
+        returns (address tip3Address) 
+    {
+        address tip3TokenAddress = new RootTokenContract{
+            value: deployGrams,
+            flag: 1,
+            code: rootContractCode,
+            pubkey: rootPublicKey,
+            varInit: {
+                _randomNonce: 0,
+                name: name,
+                symbol: symbol,
+                decimals: decimals,
+                wallet_code: walletContractCode 
+            }
+        }(rootPublicKey, rootOwnerAddress);
+
+        return {value: 0, flag: 128} tip3TokenAddress;
+    }
+
     function setTIP3RootContractCode(TvmCell rootContractCode_) external override onlyOwner {
         tvm.accept();
         rootContractCode = rootContractCode_;
