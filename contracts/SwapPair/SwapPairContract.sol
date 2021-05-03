@@ -371,12 +371,24 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
     // TODO: Антон: реализовать функцию добавления ликвидности по одному токену
-    function _provideLiquidityOneToken() private pure {
-
+    function _provideLiquidityOneToken(address tokenRoot, uint128 tokenAmount) 
+        private 
+        pure
+        liquidityProvided 
+        returns()
+    {
+        uint128 amount = _calculateOneTokenProvidingAmount(tokenRoot, tokenAmount);
+        require amount
+        SwapInfo si = swap(tokenRoot, amount);
+        
     }
 
     // TODO: Антон: реализовать функцию вывода ликвидности по одному токену
-    function _withdrawLiquidityOneToken() private pure {
+    function _withdrawLiquidityOneToken() 
+        private 
+        pure
+        liquidityProvided 
+    {
 
     }
 
@@ -467,6 +479,24 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     function _checkIsLiquidityProvided() private view inline returns (bool) {
         return lps[T1] > 0 && lps[T2] > 0 && kLast > SwapPairConstants.kMin;
     }
+
+
+    function _calculateOneTokenProvidingAmount(address tokenRoot, uint128 tokenAmount)
+        private
+        view
+        inline
+        returns(uint128)
+    {   
+        uint8 fromK = _getTokenPosition(swappableTokenRoot);
+        uint128 f = uint256(lps[fromK]);
+        uint128 k = feeNominator+feeDenominator;
+        uint256 b = -1*f*k;
+        uint256 v = f * sqrt( k*k + math.muldiv(4*feeDenominator*feeNominator, tokenAmount, f);
+
+        return uint128((b+v)/(feeNominator+feeNominator));
+    }
+
+
 
     //============Callbacks============
 
@@ -631,9 +661,17 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     function _externalLiquidityProviding(
         TvmSlice tmpArgs, address tokenReceiver, uint256 sender_public_key, address sender_address, uint128 amount, address sender_wallet
     ) external onlySelf {
-         if (
-            _checkProvideLiquidityPayload(tmpArgs)
-        ) {
+        if ( !_checkProvideLiquidityPayload(tmpArgs) ){
+            TvmBuilder failTB;
+            failTB.store(wrongPayloadFormatMessage);
+            ITONTokenWallet(tokenReceiver).transfer{
+                flag: 128,
+                value: 0
+            }(
+                sender_wallet, amount, 0, sender_wallet, false, failTB.toCell()
+            );
+        } 
+        else {
             // TODO: рефокторинг: разнести в разные функции
             // TODO: рефокторинг: получение информации о результате свапа
             address lpWallet = tmpArgs.decode(address);
@@ -641,8 +679,10 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             TvmBuilder tb;
             tb.store(sender_public_key, sender_address);
             uint256 uniqueID = tvm.hash(tb.toCell());
-            if (!lpInputTokensInfo.exists(uniqueID))
-                lpInputTokensInfo.add(uniqueID, LPProvidingInfo(
+            if (!lpInputTokensInfo.exists(uniqueID)) {
+                lpInputTokensInfo.add(
+                    uniqueID, 
+                    LPProvidingInfo(
                     sender_address,
                     sender_public_key,
                     address.makeAddrStd(0, 0),
@@ -650,6 +690,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
                     address.makeAddrStd(0, 0),
                     0)
                 );
+            }
 
             // TODO: рефокторинг: изменение хранящихся данных
             LPProvidingInfo lppi = lpInputTokensInfo[uniqueID];
@@ -696,22 +737,12 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
                 lpInputTokensInfo[uniqueID] = lppi;
                 address(sender_wallet).transfer({value: 0, flag: 128});
             }
-        } else {
-            TvmBuilder failTB;
-            failTB.store(wrongPayloadFormatMessage);
-            ITONTokenWallet(tokenReceiver).transfer{
-                flag: 128,
-                value: 0
-            }(
-                sender_wallet, amount, 0, sender_wallet, false, failTB.toCell()
-            );
         }
     }
 
     // TODO: Антон: формировние payload для ошибки при добавлении по одному токену
     // TODO: Антон: сделать добавление ликвидности по одному токену
-    function _externalProvideLiquidityOneToken() external onlySelf {
-
+    function _externalProvideLiquidityOneToken(address tokenRoot, uint128 tokenAmount) external onlySelf {
     }
 
     function _externalWithdrawLiquidity(TvmSlice tmpArgs, uint128 amount, address sender_address, address sender_wallet, bool tokensBurnt) external onlySelf {
