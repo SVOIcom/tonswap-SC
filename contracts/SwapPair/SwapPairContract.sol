@@ -489,7 +489,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         inline
         returns(uint128)
     {   
-        uint8 fromK = _getTokenPosition(swappableTokenRoot);
+        uint8 fromK = _getTokenPosition(tokenRoot);
         uint128 f = uint256(lps[fromK]);
         uint128 k = feeNominator+feeDenominator;
         uint256 b = -1*f*k;
