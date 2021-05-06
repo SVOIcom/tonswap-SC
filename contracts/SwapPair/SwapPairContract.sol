@@ -615,19 +615,24 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
                 }(
                     uo.operationArgs, msg.sender, token_root, amount, sender_wallet, sender_address
                 );
-            } else if (uo.operationId == SwapPairConstants.ProvideLiquidity) {
+            } 
+            else if (uo.operationId == SwapPairConstants.ProvideLiquidity) {
                 SwapPairContract(this)._externalProvideLiquidity{
                     flag: 64,
                     value: 0
                 }(
                     uo.operationArgs, msg.sender, sender_public_key, sender_address, amount, sender_wallet
                 );
-            } else if (uo.operationId == SwapPairConstants.ProvideLiquidityOneToken) {
+            } 
+            else if (uo.operationId == SwapPairConstants.ProvideLiquidityOneToken) {
                 SwapPairContract(this)._externalProvideLiquidityOneToken{
                     flag: 64,
                     value: 0
-                }();
-            } else {
+                }(
+                    uo.operationArgs, msg.sender, sender_public_key, sender_address, amount, sender_wallet
+                );
+            } 
+            else {
                 TvmBuilder failTB;
                 failTB.store(unknownOperationIdorWrongPayload);
                 ITONTokenWallet(msg.sender).transfer{
