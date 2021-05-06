@@ -10,14 +10,14 @@ interface ITIP3TokenDeployer {
         uint256 rootPublicKey,
         address rootOwnerAddress,
         uint128 deployGrams
-    ) external responsible returns (address tip3Address);
+    ) external responsible returns (address);
 
     function getFutureTIP3Address(
         bytes name, 
         bytes symbol, 
         uint8 decimals,
         uint256 rootPublicKey
-    ) external responsible returns (address tip3Address);
+    ) public responsible returns (address);
 
     function setTIP3RootContractCode(TvmCell rootContractCode_) external;
 

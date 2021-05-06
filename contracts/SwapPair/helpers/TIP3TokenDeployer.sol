@@ -28,7 +28,7 @@ contract TIP3TokenDeployer is ITIP3TokenDeployer {
         external 
         responsible 
         override 
-        returns (address tip3Address) 
+        returns (address) 
     {
         address tip3TokenAddress = new RootTokenContract{
             value: deployGrams,
@@ -53,11 +53,12 @@ contract TIP3TokenDeployer is ITIP3TokenDeployer {
         uint8 decimals,
         uint256 rootPublicKey
     ) 
-        external 
-        responsible 
+        public 
         override 
-        returns (address tip3Address) 
+        responsible
+        returns (address) 
     {
+        tvm.accept();
         TvmCell stateInit = tvm.buildStateInit({
             contr: RootTokenContract,
             code: rootContractCode,
@@ -71,7 +72,7 @@ contract TIP3TokenDeployer is ITIP3TokenDeployer {
             }
         });
 
-        return address(tvm.hash(stateInit));
+        return address.makeAddrStd(0, tvm.hash(stateInit));
     }
 
     function setTIP3RootContractCode(TvmCell rootContractCode_) external override onlyOwner {
