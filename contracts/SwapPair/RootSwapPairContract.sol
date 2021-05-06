@@ -234,19 +234,21 @@ contract RootSwapPairContract is
         emit SetSwapPairCode(codeVersion);
     }
 
-    function upgradeSwapPair(uint256 uniqueID) 
-        external  
-        override 
-        pairExists(uniqueID, true) 
-        onlyPairDeployer(uniqueID) 
+    function upgradeSwapPair(uint256 uniqueID)
+        external
+        override
+        pairExists(uniqueID, true)
     {
-        tvm.accept();
         SwapPairInfo info = swapPairDB.at(uniqueID);
         require(
             info.swapPairCodeVersion < swapPairCodeVersion, 
             RootSwapPairContractErrors.ERROR_CODE_IS_NOT_UPDATED_OR_IS_DOWNGRADED
         );
-        IUpgradeSwapPairCode(info.swapPairAddress).updateSwapPairCode(swapPairCode, swapPairCodeVersion);
+        require(
+            msg.value > RootSwapPairConstants.requiredForUpgrade,
+            RootSwapPairContractErrors.ERROR_MESSAGE_VALUE_IS_TOO_LOW
+        );
+        IUpgradeSwapPairCode(info.swapPairAddress).updateSwapPairCode{value: msg.value*3/4}(swapPairCode, swapPairCodeVersion);
         info.swapPairCodeVersion = swapPairCodeVersion;
         swapPairDB.replace(uniqueID, info);
 

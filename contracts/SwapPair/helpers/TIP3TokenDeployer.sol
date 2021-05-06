@@ -53,7 +53,7 @@ contract TIP3TokenDeployer is ITIP3TokenDeployer {
         uint8 decimals,
         uint256 rootPublicKey
     ) 
-        public 
+        external 
         override 
         responsible
         returns (address) 
