@@ -593,7 +593,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             if (_checkIsLiquidityProvided()) {
                 SwapInfo si = _swap(token_root, amount);
                 if (si.targetTokenAmount != 0) {
-                    address tokenWallet = tokenReceiver == tokenWallets[0] ? tokenWallets[1] : tokenWallets[2];
+                    address tokenWallet = tokenReceiver == tokenWallets[0] ? tokenWallets[1] : tokenWallets[0];
                     ITONTokenWallet(tokenWallet).transfer{
                         value: 0,
                         flag: 64
