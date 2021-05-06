@@ -38,11 +38,11 @@ library SwapPairConstants {
     uint8  constant SwapOperationRefs = 0;
     uint16 constant WithdrawOperationBits = 534;
     uint8  constant WithdrawOperationRefs = 1;
-    uint16 constant WithdrawOneOperationBits = 0;
+    uint16 constant WithdrawOneOperationBits = 267;
     uint8  constant WithdrawOneOperationRefs = 0;
     uint16 constant ProvideLiquidityBits = 267;
     uint8  constant ProvideLiquidityRefs = 0;
-    uint16 constant ProvideLiquidityOneBits = 0;
+    uint16 constant ProvideLiquidityOneBits = 267;
     uint8  constant ProvideLiquidityOneRefs = 0;
 
     string constant swapFallbackPhrase = "Provided token amount is not enough for swap. Results in 0 tokens received."; 
