@@ -573,12 +573,17 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     ) external view onlyTokenRoot {
         TvmSlice tmp = payload.toSlice();
         (UnifiedOperation uo) = tmp.decode(UnifiedOperation);
-        TvmSlice tmpArgs = uo.operationArgs.toSlice();
         if (
-            msg.sender != lpTokenWalletAddress &&
-            _checkPayload(uo.operationId, SwapPairConstants.WithdrawLiquidity, tmpArgs, WithdrawOperationSize)
+            msg.sender != lpTokenWalletAddress
         ) {
-            SwapPairContract(this)._withdrawTokensFromLP{flag: 64, value: 0}(tokensBurnt, _decompressWithdrawLiquidityPayload(tmpArgs), sender_address, wallet_address, true);
+            if (uo.operationId == SwapPairConstants.WithdrawLiquidity) {
+                SwapPairContract(this)._externalWithdrawLiquidity{
+                    flag: 64,
+                    value: 0
+                }(
+                    uo.operationArgs, amount, sender_address, sender_wallet, true
+                );
+            }
         }
     }
 
