@@ -355,7 +355,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         initialized
         returns (SwapInfo)  
     {
-
         _SwapInfoInternal _si = _getSwapInfo(swappableTokenRoot, swappableTokenAmount);
 
         if (!notZeroLiquidity(swappableTokenAmount, _si.targetTokenAmount)) {
@@ -373,17 +372,36 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
     // TODO: Антон: реализовать функцию добавления ликвидности по одному токену
-    function _provideLiquidityOneToken(address tokenRoot, uint128 tokenAmount) 
+    function _provideLiquidityOneToken(address tokenRoot, uint128 tokenAmount, uint256 senderPubKey, address senderAddress, address lpWallet) 
         private 
-        pure
-        liquidityProvided 
-        returns()
+        liquidityProvided
+        tokenExistsInPair(tokenRoot)
+        returns (uint128 provided1, uint128 provided2, uint256 toMint, uint128 inputTokenRemainder)
     {
         uint128 amount = _calculateOneTokenProvidingAmount(tokenRoot, tokenAmount);
-        require amount
-        SwapInfo si = swap(tokenRoot, amount);
-        
+
+        if (amount <= 0) 
+            return (0, 0, 0, 0);
+
+        SwapInfo si = _swap(tokenRoot, amount);
+
+        uint128 amount1 = 0;
+        uint128 amount2 = 0;
+
+        bool isT1 = (_getTokenPosition(tokenRoot) == T1);
+        if ( isT1 ) {
+            amount1 = tokenAmount - si.swappableTokenAmount;
+            amount2 = si.targetTokenAmount;
+        } else {
+            amount1 = si.targetTokenAmount;
+            amount2 = tokenAmount - si.swappableTokenAmount;
+        }
+
+        // return:
+        (provided1, provided2, toMint) =_provideLiquidity(amount1, amount2, senderPubKey, senderAddress, lpWallet);
+        inputTokenRemainder = isT1 ? (amount1 - provided1) : (amount2 - provided2);
     }
+
 
     // TODO: Антон: реализовать функцию вывода ликвидности по одному токену
     function _withdrawLiquidityOneToken() 
@@ -392,6 +410,44 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         liquidityProvided 
     {
 
+    }   
+
+
+    function _provideLiquidity(uint128 amount1, uint128 amount2, uint256 senderPubKey, address senderAddress, address lpWallet)
+        private
+        returns (uint128 provided1, uint128 provided2, uint256 toMint)
+    {
+        (provided1, provided2, toMint) = _calculateProvidingLiquidityInfo(amount1, amount2);
+        lps[T1] += provided1;
+        lps[T2] += provided2;
+        kLast = uint256(lps[T1]) * uint256(lps[T2]);
+        liquidityTokensMinted += toMint;
+
+        if (lpWallet.value == 0) {
+            IRootTokenContract(lpTokenRootAddress).deployWallet{
+                value: msg.value/2,
+                flag: 0
+            }(uint128(toMint), msg.value/4, senderPubKey, senderAddress, senderAddress);
+        } else {
+            IRootTokenContract(lpTokenRootAddress).mint(uint128(toMint), lpWallet);
+        }
+        // return (provided1, provided2, toMint);
+    }
+
+
+    // возврат сдачи
+    function _tryToReturnProvidingTokens(
+        uint128 needToProvideAmount, uint128 actualAmount, address tokenWallet, address senderTokenWallet, address senderAddress, TvmBuilder payloadTB
+    )
+        private
+    {   
+        uint128 a = needToProvideAmount - actualAmount;
+        if (a > 0) {
+            ITONTokenWallet(tokenWallet).transfer{
+                value: msg.value/8,
+                flag: 0
+            }(senderTokenWallet, a, 0, senderAddress, false, payloadTB.toCell());
+        }
     }
 
 
@@ -493,12 +549,24 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         uint128 f = uint256(lps[fromK]);
         uint128 k = feeNominator+feeDenominator;
         uint256 b = -1*f*k;
-        uint256 v = f * sqrt( k*k + math.muldiv(4*feeDenominator*feeNominator, tokenAmount, f);
+        uint256 v = f * _sqrt( k*k + math.muldiv(4*feeDenominator*feeNominator, tokenAmount, f);
 
         return uint128((b+v)/(feeNominator+feeNominator));
     }
 
 
+    function _sqrt(uint256 x) private pure inline returns(uint256){
+        uint8 counter = 1;
+        uint256 z = (x+1) / 2;
+        uint256 res = x;
+
+        while(z < res) {
+            counter++;
+            res = z;
+            z = ((x/z) + z) / 2);
+        }
+        return res;
+    }
 
     //============Callbacks============
 
@@ -548,7 +616,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
                     uo.operationArgs, msg.sender, token_root, amount, sender_wallet, sender_address
                 );
             } else if (uo.operationId == SwapPairConstants.ProvideLiquidity) {
-                SwapPairContract(this)._externalLiquidityProviding{
+                SwapPairContract(this)._externalProvideLiquidity{
                     flag: 64,
                     value: 0
                 }(
@@ -567,7 +635,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
                     value: 0
                 }(sender_wallet, amount, 0, sender_address, false, failTB.toCell());
             }
-        } else {
+        } 
+        else {
             if (uo.operationId == SwapPairConstants.WithdrawLiquidity) {
                 SwapPairContract(this)._externalWithdrawLiquidity{
                     flag: 64,
@@ -619,44 +688,46 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         onlySelf 
     {
         TvmSlice tmpArgs = args.toSlice();
-        if (_checkSwapPayload(tmpArgs)) 
-        {
-            if (_checkIsLiquidityProvided()) {
-                (address transferTokensTo) = tmpArgs.decode(address);
-                SwapInfo si = _swap(token_root, amount);
-                if (si.targetTokenAmount != 0) {
-                    address tokenWallet = tokenReceiver == tokenWallets[T1] ? tokenWallets[T2] : tokenWallets[T1];  // TODO поправил, вроде был баг 
-                    ITONTokenWallet(tokenWallet).transfer{
-                        value: 0,
-                        flag: 64
-                    }(transferTokensTo, si.targetTokenAmount, 0, address.makeAddrStd(0, 0), true, _createSwapPayload(si));
-                } else {
-                    ITONTokenWallet(tokenReceiver).transfer{
-                        value: 0,
-                        flag: 64
-                    }(sender_wallet, amount, 0, address.makeAddrStd(0, 0), true,  _createSwapFallbackPayload());
-                }
-            } else {
-                TvmBuilder failTB;
-                failTB.store(noLiquidityProvidedMessage);
-                ITONTokenWallet(tokenReceiver).transfer{
-                    value: 0, 
-                    flag: 64
-                }(sender_wallet, amount, 0, sender_address, false, failTB.toCell());
-            }
-        } 
-        else {
+        
+        if ( !_checkSwapPayload(tmpArgs) ){
             TvmBuilder failTB;
             failTB.store(wrongPayloadFormatMessage);
             ITONTokenWallet(tokenReceiver).transfer{
                 value: 0, 
                 flag: 64
             }(sender_wallet, amount, 0, sender_address, false, failTB.toCell());
+
+            return;
+        }
+        if ( !_checkIsLiquidityProvided() ){
+            TvmBuilder failTB;
+            failTB.store(noLiquidityProvidedMessage);
+            ITONTokenWallet(tokenReceiver).transfer{
+                value: 0, 
+                flag: 64
+            }(sender_wallet, amount, 0, sender_address, false, failTB.toCell());
+
+            return;
+        }
+
+        (address transferTokensTo) = tmpArgs.decode(address);
+        SwapInfo si = _swap(token_root, amount);
+        if (si.targetTokenAmount != 0) {
+            address tokenWallet = tokenReceiver == tokenWallets[T1] ? tokenWallets[T2] : tokenWallets[T1];  // TODO поправил, вроде был баг 
+            ITONTokenWallet(tokenWallet).transfer{
+                value: 0,
+                flag: 64
+            }(transferTokensTo, si.targetTokenAmount, 0, address.makeAddrStd(0, 0), true, _createSwapPayload(si));
+        } else {
+            ITONTokenWallet(tokenReceiver).transfer{
+                value: 0,
+                flag: 64
+            }(sender_wallet, amount, 0, address.makeAddrStd(0, 0), true,  _createSwapFallbackPayload());
         }
     }
 
 
-    function _externalLiquidityProviding(
+    function _externalProvideLiquidity(
         TvmCell args, 
         address tokenReceiver, 
         uint256 sender_public_key, 
@@ -668,135 +739,109 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         onlySelf 
     {
         TvmSlice tmpArgs = args.toSlice();
+
         if ( !_checkProvideLiquidityPayload(tmpArgs) ) {
             TvmBuilder failTB;
             failTB.store(wrongPayloadFormatMessage);
-            ITONTokenWallet(tokenReceiver).transfer{ flag: 64, value: 0 }(
-                sender_wallet, amount, 0, sender_wallet, false, failTB.toCell()
+            ITONTokenWallet(tokenReceiver).transfer{ 
+                flag: 64, 
+                value: 0 
+            }(sender_wallet, amount, 0, sender_wallet, false, failTB.toCell());
+
+            return;            
+        }
+
+        // TODO: рефакторинг: разнести в разные функции
+        address lpWallet = tmpArgs.decode(address);
+
+        TvmBuilder tb;
+        tb.store(sender_public_key, sender_address);
+        uint256 uniqueID = tvm.hash(tb.toCell());
+
+        if (!lpInputTokensInfo.exists(uniqueID)) {
+            LPProvidingInfo _l = LPProvidingInfo(
+                sender_address,
+                sender_public_key,
+                address.makeAddrStd(0, 0),
+                0,
+                address.makeAddrStd(0, 0),
+                0                           
             );
-            // return; - возможна ли такая запись? Чисто чтобы избавиться от блока else
+            lpInputTokensInfo.add(uniqueID, _l);
+        }
+
+        // TODO: рефокторинг: изменение хранящихся данных
+        LPProvidingInfo lppi = lpInputTokensInfo[uniqueID];
+
+        if (tokenReceiver == tokenWallets[0]) {
+            lppi.a1 += amount;
+            lppi.w1 = sender_wallet;
+        }
+
+        if (tokenReceiver == tokenWallets[1]) {
+            lppi.a2 += amount;
+            lppi.w2 = sender_wallet;
+        }
+
+
+        // TODO: рефокторинг: перевод токенов
+        if (lppi.a1 == 0 || lppi.a2 == 0) {
+            lpInputTokensInfo[uniqueID] = lppi;
+            address(sender_wallet).transfer({value: 0, flag: 64});
         }
         else {
-            // TODO: рефакторинг: разнести в разные функции
-            address lpWallet = tmpArgs.decode(address);
+            (uint128 rtp1, uint128 rtp2, uint256 toMint) = _provideLiquidity(lppi.a1, lppi.a2, sender_public_key, sender_address, lpWallet);
 
-            TvmBuilder tb;
-            tb.store(sender_public_key, sender_address);
-            uint256 uniqueID = tvm.hash(tb.toCell());
+            TvmBuilder payloadTB;
+            payloadTB.store(lppi.a1, rtp1, lppi.a2, rtp2);
 
-            if (!lpInputTokensInfo.exists(uniqueID)) {
-                LPProvidingInfo _l = LPProvidingInfo(
-                                                     sender_address,
-                                                     sender_public_key,
-                                                     address.makeAddrStd(0, 0),
-                                                     0,
-                                                     address.makeAddrStd(0, 0),
-                                                     0                           
-                                                     );
-                lpInputTokensInfo.add(uniqueID, _l);
-            }
+            _tryToReturnProvidingTokens(lppi.a1, rtp1, tokenWallets[T1], lppi.w1, sender_address, payloadTB);
+            _tryToReturnProvidingTokens(lppi.a2, rtp2, tokenWallets[T2], lppi.w2, sender_address, payloadTB);
 
-            // TODO: рефокторинг: изменение хранящихся данных
-            LPProvidingInfo lppi = lpInputTokensInfo[uniqueID];
-
-            if (tokenReceiver == tokenWallets[0]) {
-                lppi.a1 += amount;
-                lppi.w1 = sender_wallet;
-            }
-
-            if (tokenReceiver == tokenWallets[1]) {
-                lppi.a2 += amount;
-                lppi.w2 = sender_wallet;
-            }
-
-
-            // TODO: рефокторинг: перевод токенов
-            if (lppi.a1 == 0 || lppi.a2 == 0) {
-                lpInputTokensInfo[uniqueID] = lppi;
-                address(sender_wallet).transfer({value: 0, flag: 64});
-            }
-            else {
-                (uint128 rtp1, uint128 rtp2, uint256 toMint) = _calculateProvidingLiquidityInfo(lppi.a1, lppi.a2);
-                lps[0] += rtp1;
-                lps[1] += rtp2;
-                kLast = uint256(lps[T1]) * uint256(lps[T2]);
-                liquidityTokensMinted += toMint;
-
-                if (lpWallet.value == 0) {
-                    IRootTokenContract(lpTokenRootAddress).deployWallet{
-                        value: msg.value/2,
-                        flag: 0
-                    }(uint128(toMint), msg.value/4, sender_public_key, sender_address, sender_address);
-                } else {
-                    IRootTokenContract(lpTokenRootAddress).mint(uint128(toMint), lpWallet);
-                }
-
-                // TODO: рефокторинг: возвращение сдачи обратно
-                TvmBuilder payloadTB;
-                payloadTB.store(lppi.a1, rtp1, lppi.a2, rtp2);
-
-                _returnProvidingTokens(lppi.a1, rtp1, tokenWallets[T1], lppi.w1, sender_address, payloadTB);
-
-                // if (lppi.a1 - rtp1 != 0) {
-                //     ITONTokenWallet(tokenWallets[T1]).transfer{
-                //         value: msg.value/8,
-                //         flag: 0
-                //     }(lppi.w1, lppi.a1 - rtp1, 0, sender_address, false, payloadTB.toCell());
-                // }
-
-                // if (lppi.a2 - rtp2 != 0) {
-                //     ITONTokenWallet(tokenWallets[T2]).transfer{
-                //         value: msg.value/8,
-                //         flag: 0
-                //     }(lppi.w2, lppi.a2 - rtp2, 0, sender_address, false, payloadTB.toCell());
-                // }
-
-                delete lpInputTokensInfo[uniqueID];
-            } 
+            delete lpInputTokensInfo[uniqueID];
         } 
     }
 
 
-    function _provideLiquidity(uint128 amount1, uint128 amount2, uint256 senderPubKey, address senderAddress, address lpWallet)
-        external
-        onlySelf
-        returns ()
-    {
-        (uint128 rtp1, uint128 rtp2, uint256 toMint) = _calculateProvidingLiquidityInfo(amount1, amount2);
-        lps[0] += rtp1;
-        lps[1] += rtp2;
-        kLast = uint256(lps[T1]) * uint256(lps[T2]);
-        liquidityTokensMinted += toMint;
-
-        if (lpWallet.value == 0) {
-            IRootTokenContract(lpTokenRootAddress).deployWallet{
-                value: msg.value/2,
-                flag: 0
-            }(uint128(toMint), msg.value/4, senderPubKey, senderAddress, senderAddress);
-        } else {
-            IRootTokenContract(lpTokenRootAddress).mint(uint128(toMint), lpWallet);
-        }
-    }
-
-
-    // возврат сдачи
-    function _returnProvidingTokens(uint128 amount, uint128 actualAmount, address tokenWallet, address senderTokenWallet, address senderAddress, TvmBuilder payloadTB)
-        external
-        onlySelf
-    {   
-        uint128 a = amount - actualAmount;
-        if (a > 0) {
-            ITONTokenWallet(tokenWallet).transfer{
-                value: msg.value/8,
-                flag: 0
-            }(senderTokenWallet, a, 0, senderAddress, false, payloadTB.toCell());
-        }
-    }
-
     // TODO: Антон: формировние payload для ошибки при добавлении по одному токену
     // TODO: Антон: сделать добавление ликвидности по одному токену
-    function _externalProvideLiquidityOneToken(address tokenRoot, uint128 tokenAmount) external onlySelf {
+    function _externalProvideLiquidityOneToken(        
+        TvmCell args, 
+        address tokenReceiver, 
+        uint256 sender_public_key, 
+        address sender_address, 
+        uint128 amount, 
+        address sender_wallet
+    ) 
+        external 
+        onlySelf 
+    {
+        TvmSlice tmpArgs = args.toSlice();
+
+        if ( !_checkProvideLiquidityPayload(tmpArgs) ) {
+            TvmBuilder failTB;
+            failTB.store(wrongPayloadFormatMessage);
+            ITONTokenWallet(tokenReceiver).transfer{ 
+                flag: 64, 
+                value: 0 
+            }(sender_wallet, amount, 0, sender_wallet, false, failTB.toCell());
+
+            return;            
+        }
+
+        address lpWallet = tmpArgs.decode(address);
+
+        (uint128 provided1, uint128 provided2, uint256 toMint, uint128 remainder) = _provideLiquidityOneToken(tokenReceiver, amount, sender_public_key, sender_address, lpWallet);
+
+        if (provided2 == 0 || provided1 == 0)
+            remainder = amount;
+
+        TvmBuilder payloadTB;
+        payloadTB.store(tokenReceiver, amount, remainder, provided1, provided2);
+
+        _tryToReturnProvidingTokens(remainder, 0, tokenReceiver, sender_wallet, sender_address, payloadTB);
     }
+
 
     function _externalWithdrawLiquidity(
         TvmCell args, uint128 amount, address sender_address, address sender_wallet, bool tokensBurnt
@@ -845,9 +890,9 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         return tmpArgs.hasNBitsAndRefs(ProvideLiquidityOperationSize.bits, ProvideLiquidityOperationSize.refs);
     }
 
-    function _checkProvideLiquidityOneTokenPayload(TvmSlice tmpArgs) private view returns (bool) {
-        // TODO: Антон: проверка payload для внесения ликвидности с помощью одного токена
-    }
+    // function _checkProvideLiquidityOneTokenPayload(TvmSlice tmpArgs) private view returns (bool) {
+    //     // TODO: Антон: проверка payload для внесения ликвидности с помощью одного токена
+    // }
 
     function _checkWithdrawLiquidityOneTokenPayload(TvmSlice tmpArgs) private view returns (bool) {
         // TODO: Антон: проверка payload для вывода ликвидности через один токен
@@ -1091,22 +1136,5 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     function notZeroLiquidity(uint128 _amount1, uint128 _amount2) private pure inline returns(bool) {
         return _amount1 > 0 && _amount2 > 0;
-    }
-
-
-    //============HELPERS============
-
-    function sqrt(uint256 x) private pure inline returns(uint256){
-        uint8 counter = 1;
-        uint256 z = (x+1) / 2;
-        uint256 res = x;
-
-        while(z < res) {
-            counter++;
-            res = z;
-            z = ((x/z) + z) / 2);
-        }
-
-        return res;
     }
 }
