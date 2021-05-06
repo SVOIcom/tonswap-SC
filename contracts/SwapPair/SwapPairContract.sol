@@ -351,8 +351,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
     function _swap(address swappableTokenRoot, uint128 swappableTokenAmount)
-        internal
-        initialized
+        private
         returns (SwapInfo)  
     {
         _SwapInfoInternal _si = _getSwapInfo(swappableTokenRoot, swappableTokenAmount);
@@ -374,7 +373,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     // TODO: Антон: реализовать функцию добавления ликвидности по одному токену
     function _provideLiquidityOneToken(address tokenRoot, uint128 tokenAmount, uint256 senderPubKey, address senderAddress, address lpWallet) 
         private 
-        liquidityProvided
         tokenExistsInPair(tokenRoot)
         returns (uint128 provided1, uint128 provided2, uint256 toMint, uint128 inputTokenRemainder)
     {
@@ -388,7 +386,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         uint128 amount1 = 0;
         uint128 amount2 = 0;
 
-        bool isT1 = (_getTokenPosition(tokenRoot) == T1);
+        bool isT1 = (tokenRoot == token1);
         if ( isT1 ) {
             amount1 = tokenAmount - si.swappableTokenAmount;
             amount2 = si.targetTokenAmount;
@@ -527,11 +525,10 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     function _getTokenPosition(address _token) 
         private
         view
-        initialized
         tokenExistsInPair(_token)
         returns(uint8)
     {
-        return tokenPositions.at(_token);
+        return tokenPositions[_token];
     }
 
     function _checkIsLiquidityProvided() private view inline returns (bool) {
@@ -823,6 +820,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     {
         TvmSlice tmpArgs = args.toSlice();
 
+        // TODO вынести в отдельную функцию
         if ( !_checkProvideLiquidityPayload(tmpArgs) ) {
             TvmBuilder failTB;
             failTB.store(wrongPayloadFormatMessage);
@@ -832,6 +830,18 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             }(sender_wallet, amount, 0, sender_wallet, false, failTB.toCell());
 
             return;            
+        }
+
+        // TODO вынести в отдельную функцию
+        if ( !_checkIsLiquidityProvided() ){
+            TvmBuilder failTB;
+            failTB.store(noLiquidityProvidedMessage);
+            ITONTokenWallet(tokenReceiver).transfer{
+                value: 0, 
+                flag: 64
+            }(sender_wallet, amount, 0, sender_address, false, failTB.toCell());
+
+            return;
         }
 
         address lpWallet = tmpArgs.decode(address);
