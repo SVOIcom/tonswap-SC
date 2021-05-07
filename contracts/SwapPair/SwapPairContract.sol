@@ -26,7 +26,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     uint    static swapPairID;
 
     uint32  swapPairCodeVersion = 1;
-    uint256 swapPairDeployer;
     address swapPairRootContract;
     address tip3Deployer;
 
@@ -38,7 +37,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     uint256 liquidityTokensMinted = 0;
 
-    mapping(uint8 => address) tokens;
     mapping(address => uint8) tokenPositions;
 
     //Deployed token wallets addresses
@@ -49,7 +47,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     //Liquidity Pools
     mapping(uint8 => uint128) private lps;
-    uint256 public kLast; // lps[T1] * lps[T2] after most recent swap
 
 
     //Pair creation timestamp
@@ -72,46 +69,25 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     IRootTokenContract.IRootTokenContractDetails T1Info;
     IRootTokenContract.IRootTokenContractDetails T2Info;
 
+    uint8 constant wrongPayloadFormatMessage = 0;        //Received payload is invalid or has wrong format.";
+    uint8 constant unknownOperationIdorWrongPayload = 1; //Received payload contains unknow Operation ID or is malformed.";
+    uint8 constant sumIsTooLowForSwap = 2;               //Provided token amount is not enough for swap.";
+    uint8 constant noLiquidityProvidedMessage = 3;       //No liquidity provided yet. Swaps are forbidden.";
+    uint8 constant sumIsTooLowForLPTokenWithdraw = 4;    //Provided LP token amount is not enough to withdraw liquidity.";
 
-    // Waiting for something except for numbers in libraries ...
-    OperationSizeRequirements SwapOperationSize = OperationSizeRequirements(
-        SwapPairConstants.SwapOperationBits, SwapPairConstants.SwapOperationRefs
-    );
-    OperationSizeRequirements WithdrawOperationSize = OperationSizeRequirements(
-        SwapPairConstants.WithdrawOperationBits, SwapPairConstants.WithdrawOperationRefs
-    );
-    OperationSizeRequirements WithdrawOperationSizeOneToken = OperationSizeRequirements(
-        SwapPairConstants.WithdrawOneOperationBits, SwapPairConstants.WithdrawOneOperationRefs
-    );
-    OperationSizeRequirements ProvideLiquidityOperationSize = OperationSizeRequirements(
-        SwapPairConstants.ProvideLiquidityBits, SwapPairConstants.ProvideLiquidityRefs
-    );
-    OperationSizeRequirements ProvideLiquidityOperationSizeOneToken = OperationSizeRequirements(
-        SwapPairConstants.ProvideLiquidityOneBits, SwapPairConstants.ProvideLiquidityOneRefs
-    );
-
-    string constant wrongPayloadFormatMessage = "Received payload is invalid or has wrong format.";
-    string constant unknownOperationIdorWrongPayload = "Received payload contains unknow Operation ID or is malformed.";
-    string constant sumIsTooLowForSwap = "Provided token amount is not enough for swap.";
-    string constant noLiquidityProvidedMessage = "No liquidity provided yet. Swaps are forbidden.";
-    string constant sumIsTooLowForLPTokenWithdraw = "Provided LP token amount is not enough to withdraw liquidity.";
     //============Contract initialization functions============
 
-    constructor(address rootContract, uint spd, address tip3Deployer_) public {
+    constructor(address rootContract, address tip3Deployer_) public {
         tvm.accept();
         creationTimestamp = now;
         swapPairRootContract = rootContract;
-        swapPairDeployer = spd;
         tip3Deployer = tip3Deployer_;
 
-        tokens[T1] = token1;
-        tokens[T2] = token2;
         tokenPositions[token1] = T1;
         tokenPositions[token2] = T2;
 
         lps[T1] = 0;
         lps[T2] = 0;
-        kLast = 0;
 
         //Deploy tokens wallets
         _deployWallet(token1);
@@ -199,6 +175,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     function _prepareDataForTIP3Deploy()
         external
         view
+        onlySelf
     {
         tvm.accept();
         string res = string(T1Info.symbol);
@@ -210,6 +187,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     function _deployTIP3LpToken(bytes name, bytes symbol)
         external
         view
+        onlySelf
     {
         tvm.accept();
         ITIP3TokenDeployer(tip3Deployer).deployTIP3Token{
@@ -278,8 +256,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         initialized
         returns (uint128 providedFirstTokenAmount, uint128 providedSecondTokenAmount)
     {
-        uint256 _m = 0;
-        (providedFirstTokenAmount, providedSecondTokenAmount, _m) = _calculateProvidingLiquidityInfo(maxFirstTokenAmount, maxSecondTokenAmount);
+        (providedFirstTokenAmount, providedSecondTokenAmount,) = _calculateProvidingLiquidityInfo(maxFirstTokenAmount, maxSecondTokenAmount);
     }
 
     // NOTICE: Requires a lot of gas, will only work with runLocal
@@ -290,8 +267,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         initialized
         returns (uint128 withdrawedFirstTokenAmount, uint128 withdrawedSecondTokenAmount)
     {
-        uint256 _b = 0;
-        (withdrawedFirstTokenAmount, withdrawedSecondTokenAmount, _b) = _calculateWithdrawingLiquidityInfo(liquidityTokensAmount);
+        (withdrawedFirstTokenAmount, withdrawedSecondTokenAmount,) = _calculateWithdrawingLiquidityInfo(liquidityTokensAmount);
     }
 
     // NOTICE: Requires a lot of gas, will only work with runLocal
@@ -379,7 +355,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
         uint128 fee = swappableTokenAmount - math.muldivc(swappableTokenAmount, feeNominator, feeDenominator);
         uint128 newFromPool = lps[fromK] + swappableTokenAmount;
-        uint128 newToPool = uint128( math.divc(kLast, newFromPool - fee) );
+        uint128 newToPool = uint128( math.divc(uint256(lps[0]) * uint256(lps[1]), newFromPool - fee) );
 
         uint128 targetTokenAmount = lps[toK] - newToPool;
 
@@ -403,7 +379,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
         lps[fromK] = _si.newFromPool;
         lps[toK] = _si.newToPool;
-        kLast = uint256(_si.newFromPool) * uint256(_si.newToPool);
 
         return SwapInfo(swappableTokenAmount, _si.targetTokenAmount, _si.fee);
     }
@@ -445,7 +420,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         (provided1, provided2, toMint) = _calculateProvidingLiquidityInfo(amount1, amount2);
         lps[T1] += provided1;
         lps[T2] += provided2;
-        kLast = uint256(lps[T1]) * uint256(lps[T2]);
         liquidityTokensMinted += toMint;
 
         if (lpWallet.value == 0) {
@@ -490,7 +464,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         if (withdrawed1 != 0 && withdrawed2 != 0) {
             lps[T1] -= withdrawed1;
             lps[T2] -= withdrawed2;
-            kLast = uint256(lps[T1]) * uint256(lps[T2]);
 
             if (!tokensBurnt) {
                 _burnTransferredLPTokens(tokenAmount);
@@ -530,7 +503,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
         lps[T1] -= withdrawed1;
         lps[T2] -= withdrawed2;
-        kLast = uint256(lps[T1]) * uint256(lps[T2]);
 
         if (!tokensBurnt) {
             _burnTransferredLPTokens(tokenAmount);
@@ -993,36 +965,36 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     //============Payload manipulation functions============
 
-    function _checkAndDecompressSwapPayload(TvmSlice tmpArgs) private view returns (bool isPayloadOk, address transferTokensTo) {
-        bool isSizeOk = tmpArgs.hasNBitsAndRefs(SwapOperationSize.bits, SwapOperationSize.refs);
+    function _checkAndDecompressSwapPayload(TvmSlice tmpArgs) private pure returns (bool isPayloadOk, address transferTokensTo) {
+        bool isSizeOk = tmpArgs.hasNBitsAndRefs(SwapPairConstants.SwapOperationBits, SwapPairConstants.SwapOperationRefs);
         transferTokensTo = _decompressSwapPayload(tmpArgs);
         bool isContentOk = transferTokensTo.value != 0;
         isPayloadOk = isSizeOk && isContentOk;
     }
 
-    function _checkAndDecompressProvideLiquidityPayload(TvmSlice tmpArgs) private view returns (bool isPayloadOk, address lpTokenAddress) {
-        bool isSizeOk = tmpArgs.hasNBitsAndRefs(ProvideLiquidityOperationSize.bits, ProvideLiquidityOperationSize.refs);
+    function _checkAndDecompressProvideLiquidityPayload(TvmSlice tmpArgs) private pure returns (bool isPayloadOk, address lpTokenAddress) {
+        bool isSizeOk = tmpArgs.hasNBitsAndRefs(SwapPairConstants.ProvideLiquidityBits, SwapPairConstants.ProvideLiquidityRefs);
         lpTokenAddress = _decompressProvideLiquidityPayload(tmpArgs);
         bool isContentOk = lpTokenAddress.value != 0;
         isPayloadOk = isSizeOk && isContentOk;
     }
 
-    function _checkAndDecompressWithdrawLiquidityPayload(TvmSlice tmpArgs) private view returns (bool isPayloadOk, LPWithdrawInfo lpwi) {
-        bool isSizeOk = tmpArgs.hasNBitsAndRefs(WithdrawOperationSize.bits, WithdrawOperationSize.refs);
+    function _checkAndDecompressWithdrawLiquidityPayload(TvmSlice tmpArgs) private pure returns (bool isPayloadOk, LPWithdrawInfo lpwi) {
+        bool isSizeOk = tmpArgs.hasNBitsAndRefs(SwapPairConstants.WithdrawOperationBits, SwapPairConstants.WithdrawOperationRefs);
         lpwi = _decompressWithdrawLiquidityPayload(tmpArgs);
         bool isContentOk = lpwi.tr1.value != 0 && lpwi.tr2.value != 0 && lpwi.tw1.value != 0 && lpwi.tw2.value != 0;
         isPayloadOk = isSizeOk && isContentOk;
     }
 
-    function _checkAndDecompressProvideLiquidityOneTokenPayload(TvmSlice tmpArgs) private view returns  (bool isPayloadOk, address lpTokenAddress) {
-        bool isSizeOk = tmpArgs.hasNBitsAndRefs(ProvideLiquidityOperationSizeOneToken.bits, ProvideLiquidityOperationSizeOneToken.refs);
+    function _checkAndDecompressProvideLiquidityOneTokenPayload(TvmSlice tmpArgs) private pure returns  (bool isPayloadOk, address lpTokenAddress) {
+        bool isSizeOk = tmpArgs.hasNBitsAndRefs(SwapPairConstants.ProvideLiquidityOneBits, SwapPairConstants.ProvideLiquidityOneRefs);
         lpTokenAddress = _decompressProvideLiquidityOneTokenPayload(tmpArgs);
         bool isContentOk = lpTokenAddress.value != 0;
         isPayloadOk = isSizeOk && isContentOk;
     }
 
-    function _checkAndDecompressWithdrawLiquidityOneTokenPayload(TvmSlice tmpArgs) private view returns (bool isPayloadOk, address tokenRoot, address userWallet) {
-        bool isSizeOk = tmpArgs.hasNBitsAndRefs(WithdrawOperationSizeOneToken.bits, WithdrawOperationSizeOneToken.refs);
+    function _checkAndDecompressWithdrawLiquidityOneTokenPayload(TvmSlice tmpArgs) private pure returns (bool isPayloadOk, address tokenRoot, address userWallet) {
+        bool isSizeOk = tmpArgs.hasNBitsAndRefs(SwapPairConstants.WithdrawOneOperationBits, SwapPairConstants.WithdrawOneOperationRefs);
         (tokenRoot, userWallet) = _decompresskWithdrawLiquidityOneTokenPayload(tmpArgs);
         bool isContentOk = (tokenRoot.value != 0) && (userWallet.value != 0);
         isPayloadOk = isSizeOk && isContentOk;
@@ -1162,7 +1134,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             swapPairRootContract,
             token1, token2, lpTokenRootAddress,
             tokenWallets[0], tokenWallets[1], lpTokenWalletAddress,
-            swapPairDeployer,
             creationTimestamp,
             address(this),
             swapPairID, swapPairCodeVersion
@@ -1183,7 +1154,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
     function _checkIsLiquidityProvided() private view /*inline*/ returns (bool) {
-        return lps[T1] > 0 && lps[T2] > 0 && kLast > SwapPairConstants.kMin;
+        return lps[T1] > 0 && lps[T2] > 0;
     }
 
     function _sqrt(uint256 x) private pure /*inline*/ returns(uint256){

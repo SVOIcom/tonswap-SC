@@ -15,6 +15,10 @@ library SwapPairConstants {
     uint128 constant sendToTIP3TokenWallets = 110 milli;
     uint128 constant sendToRootToken        = 500 milli;
 
+    // fee constants
+    uint128 constant feeNominator = 997;
+    uint128 constant feeDenominator = 1000;
+
     // TIP-3 root contract parameters
     uint8 constant tip3LpDecimals = 0;
     uint8 constant contractFullyInitialized = 4;

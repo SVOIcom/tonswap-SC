@@ -13,7 +13,6 @@ interface ISwapPairInformation {
         address tokenWallet1;
         address tokenWallet2;
         address lpTokenWallet;
-        uint256 deployerPubkey;
         uint256 deployTimestamp;
         address swapPairAddress; 
         uint256 uniqueId;

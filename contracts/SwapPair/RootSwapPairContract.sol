@@ -115,7 +115,7 @@ contract RootSwapPairContract is
                 swapPairID: uniqueID
             },
             code: swapPairCode
-        }(address(this), msg.pubkey(), tip3Deployer);
+        }(address(this), tip3Deployer);
 
         // Storing info about deployed swap pair contracts 
         SwapPairInfo info = SwapPairInfo(
@@ -126,7 +126,6 @@ contract RootSwapPairContract is
             address.makeAddrStd(0, 0),  // token wallet
             address.makeAddrStd(0, 0),  // token wallet
             address.makeAddrStd(0, 0),  // lp token wallet
-            msg.pubkey(),               // swap pair deployer
             currentTimestamp,           // creation timestamp
             contractAddress,            // address of swap pair
             uniqueID,                   // unique id of swap pair
@@ -310,16 +309,6 @@ contract RootSwapPairContract is
         require(
             pairInfo.hasValue() == exists, 
             RootSwapPairContractErrors.ERROR_PAIR_DOES_NOT_EXIST
-        );
-        _;
-    }
-
-    modifier onlyPairDeployer(uint256 uniqueID) {
-        SwapPairInfo spi = swapPairDB.at(uniqueID);
-        require(
-            spi.deployerPubkey == msg.pubkey() || 
-            ownerPubkey == msg.pubkey(), 
-            RootSwapPairContractErrors.ERROR_MESSAGE_SENDER_IS_NOT_DEPLOYER
         );
         _;
     }
