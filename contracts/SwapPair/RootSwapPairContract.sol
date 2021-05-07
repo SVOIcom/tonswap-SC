@@ -50,8 +50,6 @@ contract RootSwapPairContract is
     //============Constructor===========
 
     constructor(
-        TvmCell spCode,
-        uint32 spCodeVersion,
         uint256 minMsgValue,
         uint256 contractSP,
         address tip3Deployer_
@@ -59,8 +57,9 @@ contract RootSwapPairContract is
         tvm.accept();
         creationTimestamp = now;
         // Setting code
-        swapPairCode = spCode;
-        swapPairCodeVersion = spCodeVersion;
+        TvmCell empty;
+        swapPairCode = empty;
+        swapPairCodeVersion = 0;
         // Setting payment options
         minMessageValue = minMsgValue > RootSwapPairConstants.sendToNewSwapPair ? 
             minMsgValue : 

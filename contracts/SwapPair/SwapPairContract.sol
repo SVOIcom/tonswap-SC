@@ -291,7 +291,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     function _calculateProvidingLiquidityInfo(uint128 maxFirstTokenAmount, uint128 maxSecondTokenAmount)
         private
         view
-        /*inline*/
         returns (uint128 provided1, uint128 provided2, uint256 _minted)
     {
         if ( !_checkIsLiquidityProvided() ) {
@@ -317,7 +316,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     function _calculateWithdrawingLiquidityInfo(uint256 liquidityTokensAmount)
         private
         view
-        /*inline*/
         returns (uint128 withdrawed1, uint128 withdrawed2, uint256 _burned)
     {   
         if (liquidityTokensMinted <= 0 || liquidityTokensAmount <= 0)
@@ -331,7 +329,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         function _calculateOneTokenProvidingAmount(address tokenRoot, uint128 tokenAmount)
         private
         view
-        /*inline*/
         returns(uint128)
     {   
         uint8 fromK = _getTokenPosition(tokenRoot);
@@ -346,7 +343,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     function _getSwapInfo(address swappableTokenRoot, uint128 swappableTokenAmount) 
         private 
         view
-        /*inline*/
         tokenExistsInPair(swappableTokenRoot)
         returns (_SwapInfoInternal swapInfo)
     {
@@ -438,10 +434,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     ) private pure {   
         uint128 amount = needToProvideAmount - actualAmount;
         if (amount > 0) {
-            // ITONTokenWallet(tokenWallet).transfer{
-            //     value: msg.value/8,
-            //     flag: 0
-            // }(senderTokenWallet, amount, 0, senderAddress, false, payloadTB.toCell());
             _sendTokens(tokenWallet, senderTokenWallet, amount, senderAddress, false, payloadTB.toCell());
         }
     }
@@ -537,7 +529,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         // TODO: рефакторинг: вынести создание payload в отдельный метод
         TvmCell payload = _createWithdrawResultPayload(w1, t1a, w2, t2a);
         ITONTokenWallet(w1).transfer{value: msg.value/3}(lpwi.tw1, t1a, 0, address(this), true, payload);
-        // ITONTokenWallet(w2).transfer{flag: 64, value: 0}(lpwi.tw2, t2a, 0, address(this), true, payload);
         _sendTokens(w2, lpwi.tw2, t2a, address(this), true, payload);
     }
 
@@ -551,13 +542,12 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         payloadB.store(tokenWallet, amount);
         TvmCell payload = payloadB.toCell();
 
-        // ITONTokenWallet(w).transfer{flag: 64, value: 0}(tokenWallet, amount, 0, address(this), true, payload);
         _sendTokens(w, tokenWallet, amount, address(this), true, payload);
     }
 
     function _fallbackWithdrawLP(
         address walletAddress, uint128 tokensAmount, bool mintRequired
-    ) private view /*inline*/ {
+    ) private view  {
         if (mintRequired) {
             IRootTokenContract(lpTokenRootAddress).mint{
                 value: 0,
@@ -566,15 +556,11 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         } else {
             TvmBuilder payload;
             payload.store(sumIsTooLowForLPTokenWithdraw);
-            // ITONTokenWallet(lpTokenWalletAddress).transfer{
-            //     value: 0,
-            //     flag: 64
-            // }(walletAddress, tokensAmount, 0, address(this), true, payload.toCell());
             _sendTokens(lpTokenWalletAddress, walletAddress, tokensAmount, address(this), true, payload.toCell());
         }
     }
 
-    function _burnTransferredLPTokens(uint128 tokenAmount) private view /*inline*/ {
+    function _burnTransferredLPTokens(uint128 tokenAmount) private view  {
         TvmCell payload;
         IBurnableByOwnerTokenWallet(lpTokenWalletAddress).burnByOwner{
             value: msg.value/4
@@ -649,10 +635,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
                 );
             } 
             else {
-                // ITONTokenWallet(msg.sender).transfer{
-                //     flag: 64,
-                //     value: 0
-                // }(sender_wallet, amount, 0, sender_address, false, failTB.toCell());
                 _sendTokens(msg.sender, sender_wallet, amount, sender_address, false, failTB.toCell());
             }
         } 
@@ -672,11 +654,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
                     uo.operationArgs, amount, sender_address, sender_wallet, false
                 );
             } else {
-                
-                // ITONTokenWallet(msg.sender).transfer{
-                //     flag: 64,
-                //     value: 0
-                // }(sender_wallet, amount, 0, sender_address, false, failTB.toCell());
                 _sendTokens(msg.sender, sender_wallet, amount, sender_address, false, failTB.toCell());
             }
         }
@@ -717,15 +694,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     //============External LP functions============
 
-    function _sendTokens(
-        address walletToUse, address destinationAddress, uint128 amount, address gasBackAddress, bool notify, TvmCell payload
-    ) private pure {
-        ITONTokenWallet(walletToUse).transfer{
-                value: 0, 
-                flag: 64
-        }(destinationAddress, amount, 0, gasBackAddress, notify, payload);
-    }
-
     function _externalSwap(
         TvmCell args, address tokenReceiver, address token_root, uint128 amount, address sender_wallet, address sender_address
     ) 
@@ -738,20 +706,12 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         
         if ( !isPayloadOk ){
             failTB.store(wrongPayloadFormatMessage);
-            // ITONTokenWallet(tokenReceiver).transfer{
-            //     value: 0, 
-            //     flag: 64
-            // }(sender_wallet, amount, 0, sender_address, false, failTB.toCell());
             _sendTokens(tokenReceiver, sender_wallet, amount, sender_address, false, failTB.toCell());
 
             return;
         }
         if ( !_checkIsLiquidityProvided() ){
             failTB.store(noLiquidityProvidedMessage);
-            // ITONTokenWallet(tokenReceiver).transfer{
-            //     value: 0, 
-            //     flag: 64
-            // }(sender_wallet, amount, 0, sender_address, false, failTB.toCell());
             _sendTokens(tokenReceiver, sender_wallet, amount, sender_address, false, failTB.toCell());
 
             return;
@@ -760,16 +720,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         SwapInfo si = _swap(token_root, amount);
         if (si.targetTokenAmount != 0) {
             address tokenWallet = tokenReceiver == tokenWallets[T1] ? tokenWallets[T2] : tokenWallets[T1];
-            // ITONTokenWallet(tokenWallet).transfer{
-            //     value: 0,
-            //     flag: 64
-            // }(transferTokensTo, si.targetTokenAmount, 0, address.makeAddrStd(0, 0), true, _createSwapPayload(si));
             _sendTokens(tokenWallet, transferTokensTo, si.targetTokenAmount, sender_address, true, _createSwapPayload(si));
         } else {
-            // ITONTokenWallet(tokenReceiver).transfer{
-            //     value: 0,
-            //     flag: 64
-            // }(sender_wallet, amount, 0, address.makeAddrStd(0, 0), true,  _createSwapFallbackPayload());
             _sendTokens(tokenReceiver, sender_wallet, amount, sender_address, true, _createSwapFallbackPayload());
         }
     }
@@ -793,10 +745,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         if ( !isPayloadOk ) {
             failTB.store(wrongPayloadFormatMessage);
             _sendTokens(tokenReceiver, sender_wallet, amount, sender_address, false, failTB.toCell());
-            // ITONTokenWallet(tokenReceiver).transfer{ 
-            //     flag: 64, 
-            //     value: 0 
-            // }(sender_wallet, amount, 0, sender_wallet, false, failTB.toCell());
 
             return;            
         }
@@ -867,20 +815,12 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
         if ( !isPayloadOk ){
             failTB.store(wrongPayloadFormatMessage);
-            // ITONTokenWallet(tokenReceiver).transfer{
-            //     value: 0, 
-            //     flag: 64
-            // }(sender_wallet, amount, 0, sender_address, false, failTB.toCell());
             _sendTokens(tokenReceiver, sender_wallet, amount, sender_address, false, failTB.toCell());
 
             return;
         }
         if ( !_checkIsLiquidityProvided() ){
             failTB.store(noLiquidityProvidedMessage);
-            // ITONTokenWallet(tokenReceiver).transfer{
-            //     value: 0, 
-            //     flag: 64
-            // }(sender_wallet, amount, 0, sender_address, false, failTB.toCell());
             _sendTokens(tokenReceiver, sender_wallet, amount, sender_address, false, failTB.toCell());
 
             return;
@@ -913,13 +853,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             } else {
                 TvmBuilder failTB;
                 failTB.store(wrongPayloadFormatMessage);
-
-                // ITONTokenWallet(lpTokenWalletAddress).transfer{
-                //     flag: 64,
-                //     value: 0
-                // }(
-                //     sender_wallet, amount, 0, sender_wallet, false, failTB.toCell()
-                // );
                 _sendTokens(lpTokenWalletAddress, sender_wallet, amount, sender_address, false, failTB.toCell());
             }
             return;
@@ -945,12 +878,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             } else {
                 TvmBuilder failTB;
                 failTB.store(wrongPayloadFormatMessage);
-                // ITONTokenWallet(lpTokenWalletAddress).transfer{
-                //     flag: 64,
-                //     value: 0
-                // }(
-                //     sender_wallet, amount, 0, sender_wallet, false, failTB.toCell()
-                // );
                 _sendTokens(lpTokenWalletAddress, sender_wallet, amount, sender_address, false, failTB.toCell());
             }
             return;
@@ -1100,11 +1027,20 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         return newCodeVersion > swapPairCodeVersion;
     }
 
-    function _initializeAfterCodeUpdate() /*inline*/ private {
+    function _initializeAfterCodeUpdate() private {
         //code will be added when required
     }
 
     //============HELPERS============
+
+    function _sendTokens(
+        address walletToUse, address destinationAddress, uint128 amount, address gasBackAddress, bool notify, TvmCell payload
+    ) private pure {
+        ITONTokenWallet(walletToUse).transfer{
+                value: 0, 
+                flag: 64
+        }(destinationAddress, amount, 0, gasBackAddress, notify, payload);
+    }
 
     function _createSwapPayload(SwapInfo si) private pure returns(TvmCell) {
         TvmBuilder tb;
@@ -1127,7 +1063,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     function _constructSwapPairInfo()
         private
         view
-        /*inline*/
+        
         returns (SwapPairInfo)
     {
         SwapPairInfo spi = SwapPairInfo(
@@ -1153,11 +1089,11 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         return tokenPositions[_token];
     }
 
-    function _checkIsLiquidityProvided() private view /*inline*/ returns (bool) {
+    function _checkIsLiquidityProvided() private view returns (bool) {
         return lps[T1] > 0 && lps[T2] > 0;
     }
 
-    function _sqrt(uint256 x) private pure /*inline*/ returns(uint256){
+    function _sqrt(uint256 x) private pure returns(uint256){
         uint256 z = (x+1) / 2;
         uint256 res = x;
 
@@ -1225,7 +1161,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     //============Too big for modifier too small for function============
 
-    function notZeroLiquidity(uint128 _amount1, uint128 _amount2) private pure /*inline*/ returns(bool) {
+    function notZeroLiquidity(uint128 _amount1, uint128 _amount2) private pure returns(bool) {
         return _amount1 > 0 && _amount2 > 0;
     }
 }

@@ -44,7 +44,7 @@ contract TIP3TokenDeployer is ITIP3TokenDeployer {
             }
         }(rootPublicKey, rootOwnerAddress);
 
-        return {value: 0, flag: 128} tip3TokenAddress;
+        return {value: 0, flag: 64} tip3TokenAddress;
     }
 
     function getFutureTIP3Address(
