@@ -428,7 +428,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     // возврат сдачи
     function _tryToReturnProvidingTokens(
         uint128 needToProvideAmount, uint128 actualAmount, address tokenWallet, address senderTokenWallet, address senderAddress, TvmBuilder payloadTB
-    ) private {   
+    ) private pure {   
         uint128 a = needToProvideAmount - actualAmount;
         if (a > 0) {
             ITONTokenWallet(tokenWallet).transfer{
@@ -533,7 +533,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         returns(uint128)
     {   
         uint8 fromK = _getTokenPosition(tokenRoot);
-        uint128 f = uint256(lps[fromK]);
+        uint256 f = uint256(lps[fromK]);
         uint128 k = feeNominator+feeDenominator;
         uint256 b = f*k;
         uint256 v = f * _sqrt( k*k + math.muldiv(4*feeDenominator*feeNominator, tokenAmount, f));
@@ -862,7 +862,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         TvmSlice tmpArgs = args.toSlice();
         (bool isPayloadOk, LPWithdrawInfo lpwi) = _checkAndDecompressWithdrawLiquidityPayload(tmpArgs);
         if ( isPayloadOk ) {
-            SwapPairContract(this)._withdrawTokensFromLP{flag: 64, value: 0}(amount, lpwi, sender_address, sender_wallet, tokensBurnt);
+            SwapPairContract(this)._withdrawTokensFromLP{flag: 64, value: 0}(amount, lpwi, sender_wallet, tokensBurnt);
         } else {
             if ( tokensBurnt ) {
                 IRootTokenContract(lpTokenRootAddress).mint{
@@ -885,7 +885,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     // TODO: Антон: проверка
     function _externalWithdrawLiquidityOneToken(
         TvmCell args, uint128 amount, address sender_address, address sender_wallet, bool tokensBurnt
-    ) external onlySelf {
+    ) external view onlySelf {
         TvmSlice tmpArgs = args.toSlice();
 
         (bool isPayloadOk, address tokenRoot, address userWallet) = _checkAndDecompressWithdrawLiquidityOneTokenPayload(tmpArgs);
@@ -953,7 +953,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     function _checkAndDecompressWithdrawLiquidityOneTokenPayload(TvmSlice tmpArgs) private view returns (bool isPayloadOk, address tokenRoot, address userWallet) {
         bool isSizeOk = tmpArgs.hasNBitsAndRefs(WithdrawOperationSizeOneToken.bits, WithdrawOperationSizeOneToken.refs);
         (tokenRoot, userWallet) = _decompresskWithdrawLiquidityOneTokenPayload(tmpArgs);
-        bool isContentOk = tokenRoot.value != 0 && userWallet != 0;
+        bool isContentOk = (tokenRoot.value != 0) && (userWallet.value != 0);
         isPayloadOk = isSizeOk && isContentOk;
     }
 
