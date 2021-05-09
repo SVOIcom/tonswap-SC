@@ -106,7 +106,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         IRootTokenContract(tokenRootAddress).deployEmptyWallet{
             value: SwapPairConstants.walletDeployMessageValue
         }(SwapPairConstants.walletInitialBalanceAmount, tvm.pubkey(), address(this), address(this));
-
         _getWalletAddress(tokenRootAddress);
     }
 
@@ -146,10 +145,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         }
     }
 
-    function _getTIP3Details(address tokenRootAddress) 
-        private
-        pure
-    {
+    function _getTIP3Details(address tokenRootAddress) private pure {
         tvm.accept();
         IRootTokenContract(tokenRootAddress).getDetails{ value: SwapPairConstants.sendToRootToken, bounce: true, callback: this._receiveTIP3Details }();
     }
@@ -172,11 +168,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         }
     }
 
-    function _prepareDataForTIP3Deploy()
-        external
-        view
-        onlySelf
-    {
+    function _prepareDataForTIP3Deploy() external view onlySelf {
         tvm.accept();
         string res = string(T1Info.symbol);
         res.append(" <-> ");
@@ -184,11 +176,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         this._deployTIP3LpToken(bytes(res), bytes(res));
     }
 
-    function _deployTIP3LpToken(bytes name, bytes symbol)
-        external
-        view
-        onlySelf
-    {
+    function _deployTIP3LpToken(bytes name, bytes symbol) external view onlySelf {
         tvm.accept();
         ITIP3TokenDeployer(tip3Deployer).deployTIP3Token{
             value: SwapPairConstants.tip3SendDeployGrams,
@@ -197,10 +185,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         }(name, symbol, SwapPairConstants.tip3LpDecimals, 0, address(this), SwapPairConstants.tip3SendDeployGrams/2);
     }
 
-    function _deployTIP3LpTokenCallback(address tip3RootContract) 
-        external
-        onlyTIP3Deployer
-    {
+    function _deployTIP3LpTokenCallback(address tip3RootContract) external onlyTIP3Deployer {
         tvm.accept();
         lpTokenRootAddress = tip3RootContract;
         initializedStatus++;
@@ -902,7 +887,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     function _checkAndDecompressProvideLiquidityPayload(TvmSlice tmpArgs) private pure returns (bool isPayloadOk, address lpTokenAddress) {
         bool isSizeOk = tmpArgs.hasNBitsAndRefs(SwapPairConstants.ProvideLiquidityBits, SwapPairConstants.ProvideLiquidityRefs);
         lpTokenAddress = _decompressProvideLiquidityPayload(tmpArgs);
-        bool isContentOk = lpTokenAddress.value != 0;
+        bool isContentOk = lpTokenAddress.value != 0 || lpTokenAddress.value == 0;
         isPayloadOk = isSizeOk && isContentOk;
     }
 
@@ -916,7 +901,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     function _checkAndDecompressProvideLiquidityOneTokenPayload(TvmSlice tmpArgs) private pure returns  (bool isPayloadOk, address lpTokenAddress) {
         bool isSizeOk = tmpArgs.hasNBitsAndRefs(SwapPairConstants.ProvideLiquidityOneBits, SwapPairConstants.ProvideLiquidityOneRefs);
         lpTokenAddress = _decompressProvideLiquidityOneTokenPayload(tmpArgs);
-        bool isContentOk = lpTokenAddress.value != 0;
+        bool isContentOk = lpTokenAddress.value != 0 || lpTokenAddress.value == 0;
         isPayloadOk = isSizeOk && isContentOk;
     }
 
