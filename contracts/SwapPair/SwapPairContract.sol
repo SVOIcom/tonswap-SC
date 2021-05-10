@@ -61,6 +61,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     uint private initializedStatus = 0;
 
     // Tokens positions
+    // TODO: Паша: удалять данные о коде кошелька после получения данных
     uint8 constant T1 = 0;
     uint8 constant T2 = 1; 
 
@@ -160,6 +161,20 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         if (initializedStatus == SwapPairConstants.contractFullyInitialized) {
             _swapPairInitializedCall();
         }
+    }
+
+    /**
+     * Set callback address for wallets
+     * @param walletAddress Address of TIP-3 wallet
+     */
+    function _setWalletsCallbackAddress(address walletAddress) private pure {
+        tvm.accept();
+        ITONTokenWallet(walletAddress).setReceiveCallback{
+            value: 200 milliton
+        }(
+            address(this),
+            false
+        );
     }
 
     /**
@@ -624,7 +639,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         address lpWalletAddress,
         bool tokensBurnt
     ) external onlySelf {
-        // TODO: рефакторинг: общая часть с функцией _withdrawTokensFromLP, вынести в отдельный метод
+        // TODO: рефакторинг: общая часть с функцией _withdrawTokensFromLP, возможно стоит вынести в отдельный метод
         require(
             _checkIsLiquidityProvided(),
             SwapPairErrors.NO_LIQUIDITY_PROVIDED
@@ -655,40 +670,40 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         SwapInfo si = _swap(swapableToken, swapableAmount);
         uint128 resultAmount = si.targetTokenAmount + (isT1 ? withdrawed1 : withdrawed2);
         
-        SwapPairContract(this)._transferTokenToWallet{
-            flag: 64,
-            value: 0
-        }(tokenRoot, tokenWallet, resultAmount);
+        address w = tokenRoot == token1 ? tokenWallets[T1] : tokenWallets[T2];
+        TvmCell payload;
+        _sendTokens(w, tokenWallet, resultAmount, address(this), true, payload);
     }
 
+    /**
+     * Function to transfer multiple tokens to wallets
+     * @dev This function can be called only by contract itself
+     * @param lpwi Struct with information for token withdraw
+     * @param t1Amount Amount of first token to transfer
+     * @param t2Amount Amount of second token to transfer
+     */
     function _transferTokensToWallets(
         LPWithdrawInfo lpwi, uint128 t1Amount, uint128 t2Amount
     ) external view onlySelf {
         // TODO: рефакторинг: изменить названия
+        // TODO: рефакторинг: переделать функцию
         bool t1ist1 = lpwi.tr1 == token1; // смотрим, не была ли перепутана последовательность адресов рут-контрактов
         address w1 = t1ist1 ? tokenWallets[0] : tokenWallets[1];
         address w2 = t1ist1 ? tokenWallets[1] : tokenWallets[0];
         uint128 t1a = t1ist1 ? t1Amount : t2Amount;
         uint128 t2a = t1ist1 ? t2Amount : t1Amount;
-        // TODO: рефакторинг: вынести создание payload в отдельный метод
+
         TvmCell payload = _createWithdrawResultPayload(w1, t1a, w2, t2a);
         ITONTokenWallet(w1).transfer{value: msg.value/3}(lpwi.tw1, t1a, 0, address(this), true, payload);
         _sendTokens(w2, lpwi.tw2, t2a, address(this), true, payload);
     }
 
-    function _transferTokenToWallet(address tokenRoot, address tokenWallet, uint128 amount)
-        external view onlySelf
-    {     
-        address w = tokenRoot == token1 ? tokenWallets[T1] : tokenWallets[T2];
-
-        // TODO: рефакторинг: вынести создание payload в отдельный метод
-        TvmBuilder payloadB;
-        payloadB.store(tokenWallet, amount);
-        TvmCell payload = payloadB.toCell();
-
-        _sendTokens(w, tokenWallet, amount, address(this), true, payload);
-    }
-
+    /**
+     * Fallback function if something went wrong during liquidity withdrawal
+     * @param walletAddress Address of user's LP token wallet
+     * @param tokensAmount Amount of LP tokens that were transferred/burnt
+     * @param mintRequired Were tokens burnt or just transferred
+     */
     function _fallbackWithdrawLP(
         address walletAddress, uint128 tokensAmount, bool mintRequired
     ) private view  {
@@ -704,6 +719,10 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         }
     }
 
+    /**
+     * Burn transferred LP tokens
+     * @param tokenAmount Amount of LP tokens to burn
+     */
     function _burnTransferredLPTokens(uint128 tokenAmount) private view  {
         TvmCell payload;
         IBurnableByOwnerTokenWallet(lpTokenWalletAddress).burnByOwner{
@@ -713,25 +732,20 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     //============Callbacks============
 
-    /*
-     * Set callback address for wallets
+    /**
+     * Function that is called when TIP-3 wallet receives tokens
+     * @dev This function can only be called by swap pair's TIP-3 wallets
+     * @notice This function is just a router for parsing initial payload and guessing which function to call
+     * @param token_wallet Address of wallet that received tokens 
+     * @param token_root Root contract address of wallet
+     * @param amount Amount of tokens transferred
+     * @param sender_public_key Sender's public key
+     * @param sender_address Sender's TON wallet address
+     * @param sender_wallet Sender's token wallet address
+     * @param original_gas_to Original gas_back address
+     * @param updated_balance Balance of wallet after transfer
+     * @param payload Payload attached to message 
      */
-    function _setWalletsCallbackAddress(address walletAddress) 
-        private 
-        pure 
-    {
-        tvm.accept();
-        ITONTokenWallet(walletAddress).setReceiveCallback{
-            value: 200 milliton
-        }(
-            address(this),
-            false
-        );
-    }
-
-    /*
-    * Tokens received from user
-    */
     function tokensReceivedCallback(
         address token_wallet,
         address token_root,
@@ -742,11 +756,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         address original_gas_to,
         uint128 updated_balance,
         TvmCell payload
-    ) 
-        override
-        public
-        onlyOwnWallet
-    {
+    ) override public onlyOwnWallet {
         TvmSlice tmp = payload.toSlice();
         (UnifiedOperation uo) = tmp.decode(UnifiedOperation);
         TvmBuilder failTB;
@@ -767,7 +777,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
                     flag: 64,
                     value: 0
                 }(
-                    uo.operationArgs, msg.sender, sender_public_key, sender_address, amount, sender_wallet
+                    uo.operationArgs, msg.sender, sender_public_key, amount, sender_wallet, sender_address
                 );
             } 
             else if (uo.operationId == SwapPairConstants.ProvideLiquidityOneToken) {
@@ -775,7 +785,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
                     flag: 64,
                     value: 0
                 }(
-                    uo.operationArgs, msg.sender, sender_public_key, sender_address, amount, sender_wallet
+                    uo.operationArgs, msg.sender, sender_public_key, amount, sender_wallet, sender_address
                 );
             } 
             else {
@@ -788,14 +798,14 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
                     flag: 64,
                     value: 0
                 }(
-                    uo.operationArgs, amount, sender_address, sender_wallet, false
+                    uo.operationArgs, amount, sender_wallet, sender_address, false
                 );
             } else if (uo.operationId == SwapPairConstants.WithdrawLiquidityOneToken) {
                 SwapPairContract(this)._externalWithdrawLiquidityOneToken{
                     flag: 64,
                     value: 0
                 }(
-                    uo.operationArgs, amount, sender_address, sender_wallet, false
+                    uo.operationArgs, amount, sender_wallet, sender_address, false
                 );
             } else {
                 _sendTokens(msg.sender, sender_wallet, amount, sender_address, false, failTB.toCell());
@@ -803,6 +813,17 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         }
     }
 
+    /**
+     * Function that is called when LP tokens are burnt
+     * @dev This function can only be called by LP token root contract
+     * @notice This function is just a router for parsing initial payload and guessing which function to call
+     * @param tokensBurnt Amount of burnt tokens
+     * @param payload Payload attached to burnt tokens
+     * @param sender_public_key Public key of user that burnt tokens
+     * @param sender_address Address of user's TON wallet
+     * @param wallet_address Address of user's LP token wallet
+     * @param send_gas_to Original gas_back address
+     */
     function burnCallback(
         uint128 tokensBurnt,
         TvmCell payload,
@@ -810,20 +831,21 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         address sender_address,
         address wallet_address,
         address send_gas_to
-    ) external view onlyTokenRoot {
+    ) external view onlyLpTokenRoot {
         TvmSlice tmp = payload.toSlice();
         (UnifiedOperation uo) = tmp.decode(UnifiedOperation);
 
-        if (msg.sender == lpTokenWalletAddress) {
+        if (wallet_address == lpTokenWalletAddress) {
             return;
         }
 
+        // TODO: рефактринг: подумать над тем, как заменить if/else
         if (uo.operationId == SwapPairConstants.WithdrawLiquidity) {
             SwapPairContract(this)._externalWithdrawLiquidity{
                 flag: 64,
                 value: 0
             }(
-                uo.operationArgs, tokensBurnt, sender_address, wallet_address, true
+                uo.operationArgs, tokensBurnt, wallet_address, sender_address, true
             );
         }
         else if (uo.operationId == SwapPairConstants.WithdrawLiquidityOneToken) {
@@ -831,13 +853,23 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
                 flag: 64,
                 value: 0
             }(
-                uo.operationArgs, tokensBurnt, sender_address, wallet_address, true
+                uo.operationArgs, tokensBurnt, wallet_address, sender_address, true
             );
         }
     }
 
     //============External LP functions============
 
+    /**
+     * Function for token swap. This is top-level wrapper.
+     * @dev This function can be called only by contract itself
+     * @param args Decoded payload from received message
+     * @param tokenReceiver TIP-3 wallet that received tokens
+     * @param token_root Root contract address of transferred token
+     * @param amount Amount of transferred tokens
+     * @param sender_wallet Address of user's TIP-3 wallet
+     * @param sender_address Address of user's TON wallet
+     */
     function _externalSwap(
         TvmCell args, address tokenReceiver, address token_root, uint128 amount, address sender_wallet, address sender_address
     ) 
@@ -854,6 +886,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
             return;
         }
+
         if ( !_checkIsLiquidityProvided() ){
             failTB.store(noLiquidityProvidedMessage);
             _sendTokens(tokenReceiver, sender_wallet, amount, sender_address, false, failTB.toCell());
@@ -870,14 +903,22 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         }
     }
 
-
+    /**
+     * Function for liquidity providing. This is top-level wrapper.
+     * @dev This function can be called only by contract itself
+     * @param args Decoded payload from received message
+     * @param tokenReceiver TIP-3 wallet that received tokens
+     * @param amount Amount of transferred tokens
+     * @param sender_wallet Address of user's TIP-3 wallet
+     * @param sender_address Address of user's TON wallet
+     */
     function _externalProvideLiquidity(
         TvmCell args, 
         address tokenReceiver, 
         uint256 sender_public_key, 
-        address sender_address, 
         uint128 amount, 
-        address sender_wallet
+        address sender_wallet, 
+        address sender_address
     ) 
         external 
         onlySelf 
@@ -941,14 +982,23 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
 
-    // TODO: Антон: проверка
+    // TODO: Антон: проверка провайдинга ликвидности по одному токену
+    /**
+     * Function for liquidity providing using one token. This is top-level wrapper.
+     * @dev This function can be called only by contract itself
+     * @param args Decoded payload from received message
+     * @param tokenReceiver TIP-3 wallet that received tokens
+     * @param amount Amount of transferred tokens
+     * @param sender_wallet Address of user's TIP-3 wallet
+     * @param sender_address Address of user's TON wallet
+     */
     function _externalProvideLiquidityOneToken(        
         TvmCell args, 
         address tokenReceiver, 
         uint256 sender_public_key, 
-        address sender_address, 
         uint128 amount, 
-        address sender_wallet
+        address sender_wallet, 
+        address sender_address
     ) 
         external 
         onlySelf 
@@ -981,9 +1031,17 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         _tryToReturnProvidingTokens(remainder, 0, tokenReceiver, sender_wallet, sender_address, payloadTB);
     }
 
-
+    /**
+     * Function for liquidity withdrawing. This is top-level wrapper.
+     * @dev This function can be called only by contract itself
+     * @param args Decoded payload from received message
+     * @param amount Amount of transferred tokens
+     * @param sender_wallet Address of user's TIP-3 wallet
+     * @param sender_address Address of user's TON wallet
+     * @param tokensBurnt Were tokens burnt or jsut transferred
+     */
     function _externalWithdrawLiquidity(
-        TvmCell args, uint128 amount, address sender_address, address sender_wallet, bool tokensBurnt
+        TvmCell args, uint128 amount, address sender_wallet, address sender_address, bool tokensBurnt
     ) external view onlySelf {
         TvmSlice tmpArgs = args.toSlice();
         (bool isPayloadOk, LPWithdrawInfo lpwi) = _checkAndDecompressWithdrawLiquidityPayload(tmpArgs);
@@ -1005,9 +1063,18 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         SwapPairContract(this)._withdrawTokensFromLP{flag: 64, value: 0}(amount, lpwi, sender_wallet, tokensBurnt);
     }
     
-    // TODO: Антон: проверка
+    // TODO: Антон: проверка вывода ликвидности по одному токену
+    /**
+     * Function for liquidity withdrawing. This is top-level wrapper.
+     * @dev This function can be called only by contract itself
+     * @param args Decoded payload from received message
+     * @param amount Amount of transferred tokens
+     * @param sender_wallet Address of user's TIP-3 wallet
+     * @param sender_address Address of user's TON wallet
+     * @param tokensBurnt Were tokens burnt or jsut transferred
+     */
     function _externalWithdrawLiquidityOneToken(
-        TvmCell args, uint128 amount, address sender_address, address sender_wallet, bool tokensBurnt
+        TvmCell args, uint128 amount, address sender_wallet, address sender_address, bool tokensBurnt
     ) external view onlySelf {
         TvmSlice tmpArgs = args.toSlice();
 
@@ -1036,6 +1103,10 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     //============Payload manipulation functions============
 
+    /**
+     * Check and decompress payload for swap operation
+     * @param tmpArgs Received arguments
+     */
     function _checkAndDecompressSwapPayload(TvmSlice tmpArgs) private pure returns (bool isPayloadOk, address transferTokensTo) {
         bool isSizeOk = tmpArgs.hasNBitsAndRefs(SwapPairConstants.SwapOperationBits, SwapPairConstants.SwapOperationRefs);
         transferTokensTo = _decompressSwapPayload(tmpArgs);
@@ -1043,6 +1114,10 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         isPayloadOk = isSizeOk && isContentOk;
     }
 
+    /**
+     * Check and decompress payload for liquidity providing operation
+     * @param tmpArgs Received arguments
+     */
     function _checkAndDecompressProvideLiquidityPayload(TvmSlice tmpArgs) private pure returns (bool isPayloadOk, address lpTokenAddress) {
         bool isSizeOk = tmpArgs.hasNBitsAndRefs(SwapPairConstants.ProvideLiquidityBits, SwapPairConstants.ProvideLiquidityRefs);
         lpTokenAddress = _decompressProvideLiquidityPayload(tmpArgs);
@@ -1050,6 +1125,10 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         isPayloadOk = isSizeOk && isContentOk;
     }
 
+    /**
+     * Check and decompress payload for liquidity withdrawing operation
+     * @param tmpArgs Received arguments
+     */
     function _checkAndDecompressWithdrawLiquidityPayload(TvmSlice tmpArgs) private pure returns (bool isPayloadOk, LPWithdrawInfo lpwi) {
         bool isSizeOk = tmpArgs.hasNBitsAndRefs(SwapPairConstants.WithdrawOperationBits, SwapPairConstants.WithdrawOperationRefs);
         lpwi = _decompressWithdrawLiquidityPayload(tmpArgs);
@@ -1057,6 +1136,10 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         isPayloadOk = isSizeOk && isContentOk;
     }
 
+    /**
+     * Check and decompress payload for liquidity providing using one token operation
+     * @param tmpArgs Received arguments
+     */
     function _checkAndDecompressProvideLiquidityOneTokenPayload(TvmSlice tmpArgs) private pure returns  (bool isPayloadOk, address lpTokenAddress) {
         bool isSizeOk = tmpArgs.hasNBitsAndRefs(SwapPairConstants.ProvideLiquidityOneBits, SwapPairConstants.ProvideLiquidityOneRefs);
         lpTokenAddress = _decompressProvideLiquidityOneTokenPayload(tmpArgs);
@@ -1064,6 +1147,10 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         isPayloadOk = isSizeOk && isContentOk;
     }
 
+    /**
+     * Check and decompress payload for liquidity withdrawing using one token operation
+     * @param tmpArgs Received arguments
+     */
     function _checkAndDecompressWithdrawLiquidityOneTokenPayload(TvmSlice tmpArgs) private pure returns (bool isPayloadOk, address tokenRoot, address userWallet) {
         bool isSizeOk = tmpArgs.hasNBitsAndRefs(SwapPairConstants.WithdrawOneOperationBits, SwapPairConstants.WithdrawOneOperationRefs);
         (tokenRoot, userWallet) = _decompresskWithdrawLiquidityOneTokenPayload(tmpArgs);
@@ -1071,16 +1158,28 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         isPayloadOk = isSizeOk && isContentOk;
     }
 
+    /**
+     * Decompress payload for swap operation
+     * @param tmpArgs Received arguments
+     */
     function _decompressSwapPayload(TvmSlice tmpArgs) private pure returns(address) {
         (address transferTokensTo) = tmpArgs.decode(address);
         return transferTokensTo;
     }
 
+    /**
+     * Decompress payload for liquidity providing operation
+     * @param tmpArgs Received arguments
+     */
     function _decompressProvideLiquidityPayload(TvmSlice tmpArgs) private pure returns (address) {
         address lpWallet = tmpArgs.decode(address);
         return lpWallet;
     }
 
+    /**
+     * Decompress payload for liquidity withdrawing operation
+     * @param tmpArgs Received arguments
+     */
     function _decompressWithdrawLiquidityPayload(TvmSlice tmpArgs) private pure returns (LPWithdrawInfo) {
         LPWithdrawInfo lpwi;
         (lpwi.tr1, lpwi.tw1) = tmpArgs.decode(address, address);
@@ -1089,27 +1188,48 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         return lpwi;
     }
 
+    /**
+     * Decompress payload for liquidity providing using one token operation
+     * @param tmpArgs Received arguments
+     */
     function _decompressProvideLiquidityOneTokenPayload(TvmSlice tmpArgs) private pure returns (address) {
         address lpWallet = tmpArgs.decode(address);
         return lpWallet;
     }
 
+    /**
+     * Decompress payload for liquidity withdrawing using one token operation
+     * @param tmpArgs Received arguments
+     */
     function _decompresskWithdrawLiquidityOneTokenPayload(TvmSlice tmpArgs) private pure returns (address tokenRoot, address userWallet) {
         (tokenRoot, userWallet) = tmpArgs.decode(address, address);
     }
 
+    /**
+     * Create fail payload for swap operation 
+     */
     function _createSwapFallbackPayload() private pure returns (TvmCell) {
         TvmBuilder tb;
         tb.store(sumIsTooLowForSwap);
         return tb.toCell();
     }
 
+    /**
+     * Create payload with results of withdraw operation
+     * @param w1 Address of token wallet 1
+     * @param t1a Amount of tokens transferred to w1
+     * @param w2 Address of token wallet 2
+     * @param t2a Amount of tokens transferred to w2
+     */
     function _createWithdrawResultPayload(address w1, uint128 t1a, address w2, uint128 t2a) private pure returns (TvmCell) {
         TvmBuilder payloadB;
         payloadB.store(w1, t1a, w2, t2a);
         return payloadB.toCell();
     }
 
+    /**
+     * Create payload for swap operation
+     */
     function createSwapPayload(address sendTokensTo) external pure returns (TvmCell) {
         TvmBuilder tb; TvmBuilder argsBuilder;
         argsBuilder.store(sendTokensTo);
@@ -1117,6 +1237,10 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         return tb.toCell();
     }
 
+    /**
+     * Create payload for liquidity providing operation
+     * @param tip3Address Address of user's LP token wallet
+     */
     function createProvideLiquidityPayload(address tip3Address) external pure returns (TvmCell) {
         TvmBuilder tb; TvmBuilder argsBuilder;
         argsBuilder.store(tip3Address);
@@ -1124,6 +1248,10 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         return tb.toCell();
     }
 
+    /**
+     * Create payload for liquidity providing using one token operation
+     * @param tip3Address Address of user's LP token wallet
+     */
     function createProvideLiquidityOneTokenPayload(address tip3Address) external pure returns (TvmCell) {
         TvmBuilder tb; TvmBuilder argsBuilder;
         argsBuilder.store(tip3Address);
@@ -1131,6 +1259,13 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         return tb.toCell();
     }
 
+    /**
+     * Create payload for liquidity withdrawing operation
+     * @param tokenRoot1 Root contract TIP-3 address of first user's wallet
+     * @param tokenWallet1 Address of first user's TIP-3 wallet
+     * @param tokenRoot1 Root contract TIP-3 address of second user's wallet
+     * @param tokenWallet1 Address of second user's TIP-3 wallet
+     */
     function createWithdrawLiquidityPayload(
         address tokenRoot1,
         address tokenWallet1,
@@ -1144,6 +1279,11 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         return tb.toCell();
     }
 
+    /**
+     * Create payload for liquidity withdrawing using one token operation
+     * @param tokenRoot Root contract TIP-3 address of user's wallet
+     * @param userWallet Address of user's TIP-3 wallet
+     */
     function createWithdrawLiquidityOneTokenPayload(address tokenRoot, address userWallet) external pure returns (TvmCell) 
     {
         TvmBuilder tb; TvmBuilder argsBuilder;
@@ -1154,6 +1294,12 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     //============Upgrade swap pair code part============
 
+    /**
+     * Function to update swap pair code
+     * @dev This function can only be called by swap pair root contract
+     * @param newCode New swap pair's code
+     * @param newCodeVersion New swap pair's code version
+     */
     function updateSwapPairCode(TvmCell newCode, uint32 newCodeVersion) override external onlySwapPairRoot {
         require(
             newCodeVersion > newCodeVersion, 
@@ -1167,16 +1313,32 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         _initializeAfterCodeUpdate();
     }
 
-    function checkIfSwapPairUpgradeRequired(uint32 newCodeVersion) override external onlySwapPairRoot returns(bool) {
+    /**
+     * Function to check if update is required
+     * @param newCodeVersion New swap pair's code version
+     */
+    function checkIfSwapPairUpgradeRequired(uint32 newCodeVersion) override external returns(bool) {
         return newCodeVersion > swapPairCodeVersion;
     }
 
+    /**
+     * Function for reinitialization after code update
+     */
     function _initializeAfterCodeUpdate() private {
         //code will be added when required
     }
 
     //============HELPERS============
 
+    /**
+     * Send tokens to specified TIP-3 wallet
+     * @param walletToUse Swap pair's wallet to use
+     * @param destinationAddress Address to transfer tokens to
+     * @param amount Amount of tokens to transfer
+     * @param gasBackAddress Address to return gas to
+     * @param notify If transfer should notify receiver
+     * @param payload Payload to attach to message
+     */
     function _sendTokens(
         address walletToUse, address destinationAddress, uint128 amount, address gasBackAddress, bool notify, TvmCell payload
     ) private pure {
@@ -1186,12 +1348,19 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         }(destinationAddress, amount, 0, gasBackAddress, notify, payload);
     }
 
+    /**
+     * Create swap payload in case of successfull swap operation
+     * @param si Result of swap pair operation
+     */
     function _createSwapPayload(SwapInfo si) private pure returns(TvmCell) {
         TvmBuilder tb;
         tb.store(si);
         return tb.toCell();
     }
  
+    /**
+     * Call root contract to notify about initialization
+     */
     function _swapPairInitializedCall() 
         private
         view
@@ -1204,6 +1373,9 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         }(spi);
     }
 
+    /**
+     * Construct swap pair info struct
+     */
     function _constructSwapPairInfo()
         private
         view
@@ -1221,8 +1393,9 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         return spi;
     }
 
-    /*
-     * Get token position -> 
+    /**
+     * Get token position
+     * @param _token Address of token root
      */
     function _getTokenPosition(address _token) 
         private
@@ -1233,10 +1406,17 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         return tokenPositions[_token];
     }
 
+    /**
+     * Check if liquidity is already provided
+     */
     function _checkIsLiquidityProvided() private view returns (bool) {
         return lps[T1] > 0 && lps[T2] > 0;
     }
 
+    /**
+     * Calculate sqrt of given number
+     * @param x Number to calculate sqrt of
+     */
     function _sqrt(uint256 x) private pure returns(uint256){
         uint256 z = (x+1) / 2;
         uint256 res = x;
@@ -1250,11 +1430,17 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     //============Modifiers============
 
+    /**
+     * Check if swap pair is initialized
+     */
     modifier initialized() {
         require(initializedStatus == SwapPairConstants.contractFullyInitialized, SwapPairErrors.CONTRACT_NOT_INITIALIZED);
         _;
     }
 
+    /**
+     * Check if msg.sender is known TIP-3 root
+     */
     modifier onlyTokenRoot() {
         require(
             msg.sender == token1 || msg.sender == token2 || msg.sender == lpTokenRootAddress,
@@ -1263,6 +1449,19 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         _;
     }
 
+    /**
+     * Check if msg.sender is LP token root
+     */
+    modifier onlyLpTokenRoot() {
+        require(
+            msg.sender == lpTokenRootAddress,
+            SwapPairErrors.CALLER_IS_NOT_LP_TOKEN_ROOT
+        )
+    }
+
+    /**
+     * Check if msg.sender is TIP-3 deployer contract
+     */
     modifier onlyTIP3Deployer() {
         require(
             msg.sender == tip3Deployer,
@@ -1271,6 +1470,9 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         _;
     }
 
+    /**
+     * Check if msg.sender is swap pair's TIP-3 wallet 
+     */
     modifier onlyOwnWallet() {
         bool b1 = tokenWallets.exists(T1) && msg.sender == tokenWallets[T1];
         bool b2 = tokenWallets.exists(T2) && msg.sender == tokenWallets[T2];
@@ -1282,11 +1484,17 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         _;
     }
 
+    /**
+     * Check if msg.sender is swap pair itself
+     */
     modifier onlySelf() {
         require(msg.sender == address(this));
         _;
     }
 
+    /**
+     * Check if msg.sender is swap pair root contract
+     */
     modifier onlySwapPairRoot() {
         require(
             msg.sender == swapPairRootContract,
@@ -1295,6 +1503,10 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         _;
     }
     
+    /**
+     * Check if given TIP-3 token root address is known to pair
+     * @param _token TIP-3 token root address 
+     */
     modifier tokenExistsInPair(address _token) {
         require(
             tokenPositions.exists(_token),
@@ -1305,6 +1517,11 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     //============Too big for modifier too small for function============
 
+    /**
+     * Check if two nubmers are not zeros
+     * @param _amount1 first number
+     * @param _amount2 second number
+     */
     function notZeroLiquidity(uint128 _amount1, uint128 _amount2) private pure returns(bool) {
         return _amount1 > 0 && _amount2 > 0;
     }
