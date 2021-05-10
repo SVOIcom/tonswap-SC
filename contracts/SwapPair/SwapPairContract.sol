@@ -61,7 +61,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     uint private initializedStatus = 0;
 
     // Tokens positions
-    // TODO: Паша: удалять данные о коде кошелька после получения данных
     uint8 constant T1 = 0;
     uint8 constant T2 = 1; 
 
@@ -199,9 +198,11 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         tvm.accept();
         if (msg.sender == token1) {
             T1Info = rtcd;
+            delete T1Info.wallet_code;
             tokenInfoCount++;
         } else {
             T2Info = rtcd;
+            delete T2Info.wallet_code;
             tokenInfoCount++;
         }
 
