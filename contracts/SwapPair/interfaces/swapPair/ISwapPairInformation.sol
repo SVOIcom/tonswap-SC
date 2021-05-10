@@ -5,90 +5,59 @@ pragma AbiHeader time;
 pragma AbiHeader pubkey;
 
 interface ISwapPairInformation {
+    // General swap pair information
     struct SwapPairInfo {
-        address rootContract;
-        address tokenRoot1;
-        address tokenRoot2;
-        address lpTokenRoot;
-        address tokenWallet1;
-        address tokenWallet2;
-        address lpTokenWallet;
-        uint256 deployTimestamp;
-        address swapPairAddress; 
-        uint256 uniqueId;
-        uint32  swapPairCodeVersion;
+        address rootContract;           // address of swap pair deployer address
+        address tokenRoot1;             // address of first TIP-3 token root
+        address tokenRoot2;             // address of second TIP-3 token root
+        address lpTokenRoot;            // address of deployed LP token root
+        address tokenWallet1;           // address of first TIP-3 token wallet
+        address tokenWallet2;           // address of second TIP-3 token wallet
+        address lpTokenWallet;          // address of deployed LP token wallet
+        uint256 deployTimestamp;        // when the contract was deployed
+        address swapPairAddress;        // address of swap pair
+        uint256 uniqueId;               // unique id of swap pair
+        uint32  swapPairCodeVersion;    // code version of swap pair. can be upgraded using root contract
     }
 
-    struct UserBalanceInfo {
-        address tokenRoot1;
-        address tokenRoot2;
-        uint128 tokenBalance1;
-        uint128 tokenBalance2;
-    }
-
-    struct UserPoolInfo {
-        address tokenRoot1;
-        address tokenRoot2;
-        uint256 liquidityTokensMinted;
-        uint128 lpToken1;
-        uint128 lpToken2;
-    }
-
+    // Information about swap operation result
     struct SwapInfo {
-        uint128 swappableTokenAmount;
-        uint128 targetTokenAmount;
-        uint128 fee;
+        uint128 swappableTokenAmount; // token amount that will be swapped
+        uint128 targetTokenAmount;    // root token contract of token to swap 
+        uint128 fee;                  // fee for swap operation
     }
 
+    // Internal information about swap operation
     struct _SwapInfoInternal {
-        uint8 fromKey;
-        uint8 toKey;
-        uint128 newFromPool;
-        uint128 newToPool;
-        uint128 targetTokenAmount;
-        uint128 fee;
+        uint8 fromKey;              // Id of token that will be used for swap
+        uint8 toKey;                // Id of token that will be swapped to
+        uint128 newFromPool;        // new pool volume
+        uint128 newToPool;          // new pool volume
+        uint128 targetTokenAmount;  // amount of tokens acquired after swap
+        uint128 fee;                // fee of operation
     }
 
+    // Information for token withdraw
     struct LPWithdrawInfo {
-        address tr1;
-        address tw1;
-        address tr2;
-        address tw2;
+        address tr1;    // root of first token wallet
+        address tw1;    // first token wallet
+        address tr2;    // root of seconde token wallet
+        address tw2;    // second token wallet
     }
 
-    struct LPWithdrawResult {
-        address tokenWallet1;
-        uint128 tokenWallet1Amount;
-        address tokenWallet2;
-        uint128 tokenWallet2Amount;
-    }
-
-    struct LPProvideInfo {
-        address tr1;
-        address tw1;
-        uint128 ta1;
-        address tr2;
-        address tw2;
-        uint128 ta2;
-        address lpw;
-    }
-
+    // Information for liquidity providing, stored inside contract
     struct LPProvidingInfo {
-        address walletOwner;
-        uint256 walletPubkey;
-        address w1;
-        uint128 a1;
-        address w2;
-        uint128 a2;
+        address walletOwner;    // address of token wallet owner
+        uint256 walletPubkey;   // pubkey of token wallet owner
+        address w1;             // address of first token wallet
+        uint128 a1;             // amount of tokens provided
+        address w2;             // address of second token wallet
+        uint128 a2;             // amount of tokens provided
     }
 
+    // Struct used for internal routing
     struct UnifiedOperation {
-        uint8 operationId;
-        TvmCell operationArgs;
-    }
-
-    struct OperationSizeRequirements {
-        uint16 bits;
-        uint8 refs;
+        uint8 operationId;      // Id of operation
+        TvmCell operationArgs;  // Arguments for operation stored in TvmCell
     }
 }

@@ -49,6 +49,11 @@ contract RootSwapPairContract is
 
     //============Constructor===========
 
+    /**
+     * @param minMsgValue   minimal value required for pair deployment
+     * @param contractSP    payment for pair deployment
+     * @param tip3Deployer_ address of tip3 tokens deployer
+     */
     constructor(
         uint256 minMsgValue,
         uint256 contractSP,
@@ -71,6 +76,7 @@ contract RootSwapPairContract is
     //============External functions============
 
     /**
+     * @param tip3Deployer Address of new tip3 deployer contract
      */
     function setTIP3DeployerAddress(
         address tip3Deployer_
@@ -114,7 +120,7 @@ contract RootSwapPairContract is
                 swapPairID: uniqueID
             },
             code: swapPairCode
-        }(address(this), tip3Deployer);
+        }(address(this), tip3Deployer, swapPairCodeVersions);
 
         // Storing info about deployed swap pair contracts 
         SwapPairInfo info = SwapPairInfo(
@@ -197,6 +203,11 @@ contract RootSwapPairContract is
         return swapPairDB.exists(uniqueID);
     }
 
+    /**
+     * Get future address of swap pair
+     * @param tokenRootContract1 Address of token root contract
+     * @param tokenRootContract2 Address of token root contract
+     */
     function getFutureSwapPairAddress(
         address tokenRootContract1,
         address tokenRootContract2
@@ -207,6 +218,10 @@ contract RootSwapPairContract is
 
     //============Callback functions============
 
+    /**
+     * Callback called when swap pair is fully intialized and ready for swaps
+     * @param spi Swap pair information
+     */
     function swapPairInitializedCallback(SwapPairInfo spi) external pairWithAddressExists(msg.sender) {
         swapPairDB[addressToUniqueID[msg.sender]] = spi;
         emit SwapPairInitialized(msg.sender);
@@ -216,6 +231,8 @@ contract RootSwapPairContract is
 
     /**
      * Set new swap pair code
+     * @param code New swap pair code
+     * @param codeVersion New swap pair code version
      */
     function setSwapPairCode(
         TvmCell code, 
@@ -232,10 +249,18 @@ contract RootSwapPairContract is
         emit SetSwapPairCode(codeVersion);
     }
 
-    function upgradeSwapPair(uint256 uniqueID)
+    /**
+     * Upgrade swap pair code
+     * @param tokenRootContract1 Address of token root contract
+     * @param tokenRootContract2 Address of token root contract
+     */
+    function upgradeSwapPair(
+        address tokenRootContract1,
+        address tokenRootContract2
+    )
         external
         override
-        pairExists(uniqueID, true)
+        pairWithTokensExist(tokenRootContract1, tokenRootContract2)
     {
         SwapPairInfo info = swapPairDB.at(uniqueID);
         require(
@@ -255,6 +280,12 @@ contract RootSwapPairContract is
 
     //============Private functions============
 
+    /**
+     * Calculate future swap pair contract address
+     * @param tokenRootContract1 Address of token root contract
+     * @param tokenRootContract2 Address of token root contract
+     * @param uniqueID           ID of swap pair
+     */
     function _calculateSwapPairContractAddress(
         address tokenRootContract1,
         address tokenRootContract2,
@@ -293,12 +324,12 @@ contract RootSwapPairContract is
         _;
     }
 
-    modifier pairWithTokensDoesNotExist(address t1, address t2) {
+    modifier pairWithTokensExist(address t1, address t2) {
         uint256 uniqueID = t1.value^t2.value;
         optional(SwapPairInfo) pairInfo = swapPairDB.fetch(uniqueID);
         require(
-            !pairInfo.hasValue(), 
-            RootSwapPairContractErrors.ERROR_PAIR_ALREADY_EXISTS
+            pairInfo.hasValue(),
+            RootSwapPairContractErrors.ERROR_PAIR_DOES_NOT_EXIST
         );
         _;
     }

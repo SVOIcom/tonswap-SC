@@ -25,7 +25,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     address static token2;
     uint    static swapPairID;
 
-    uint32  swapPairCodeVersion = 1;
+    uint32  swapPairCodeVersion;
     address swapPairRootContract;
     address tip3Deployer;
 
@@ -77,11 +77,12 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     //============Contract initialization functions============
 
-    constructor(address rootContract, address tip3Deployer_) public {
+    constructor(address rootContract, address tip3Deployer_, uint32 swapPairCodeVersion_) public {
         tvm.accept();
         creationTimestamp = now;
         swapPairRootContract = rootContract;
         tip3Deployer = tip3Deployer_;
+        swapPairCodeVersion = swapPairCodeVersion_;
 
         tokenPositions[token1] = T1;
         tokenPositions[token2] = T2;
@@ -99,8 +100,10 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
     /**
-    * Deploy internal wallet. getWalletAddressCallback to get wallet address
-    */
+     * Deploy wallet for swap pair.
+     * @dev You cannot get address from this function so _getWalletAddress is used to get address of wallet
+     * @param tokenRootAddress address of tip-3 root contract
+     */
     function _deployWallet(address tokenRootAddress) private view {
         tvm.accept();
         IRootTokenContract(tokenRootAddress).deployEmptyWallet{
@@ -109,6 +112,11 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         _getWalletAddress(tokenRootAddress);
     }
 
+    /**
+     * Get address of future wallet address deployed using _deployWallet
+     * @dev getWalletAddressCallback is used to get wallet address
+     * @param token address of tip-3 root contract
+     */
     function _getWalletAddress(address token) private view {
         tvm.accept();
         IRootTokenContract(token).getWalletAddress{
@@ -117,9 +125,11 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         }(tvm.pubkey(), address(this));
     }
 
-    /*
-    * Deployed wallet address callback
-    */
+    /**
+     * Deployed wallet address callback
+     * @dev can be called only by token root contracts
+     * @param walletAddress address of deployed token wallet
+     */
     function getWalletAddressCallback(address walletAddress) external onlyTokenRoot {
         require(initializedStatus < SwapPairConstants.contractFullyInitialized, SwapPairErrors.CONTRACT_ALREADY_INITIALIZED);
         tvm.accept();
@@ -138,18 +148,35 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             initializedStatus++;
         }
 
+        /* 
+            For all deployed wallets we set callback address equal to swap pair address
+        */
         _setWalletsCallbackAddress(walletAddress);
 
+        /*
+            If all wallets were deployed and LP token root is deployed - swap pair is ready
+            We call swap pair root callback to update stored information
+        */
         if (initializedStatus == SwapPairConstants.contractFullyInitialized) {
             _swapPairInitializedCall();
         }
     }
 
+    /**
+     * Get tip-3 details from root tip-3 contract
+     * @dev function _receiveTIP3Details is used for callback
+     * @param tokenRootAddress address of tip-3 root contract
+     */
     function _getTIP3Details(address tokenRootAddress) private pure {
         tvm.accept();
         IRootTokenContract(tokenRootAddress).getDetails{ value: SwapPairConstants.sendToRootToken, bounce: true, callback: this._receiveTIP3Details }();
     }
 
+    /**
+     * Receive requested TIP-3 details from root contract
+     * @dev this function can be called only by know TIP-3 token root contracts (token1, token2, LP token)
+     * @param rtcd Details about TIP-3
+     */
     function _receiveTIP3Details(IRootTokenContract.IRootTokenContractDetails rtcd) 
         external
         onlyTokenRoot
@@ -163,11 +190,19 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             tokenInfoCount++;
         }
 
+        /*
+            After we receive information about both tokens we can proceed to LP token creation
+            This is mainly done for nice name of future LP token such as "T1 <-> T2"
+        */
         if (tokenInfoCount == 2) {
             this._prepareDataForTIP3Deploy();
         }
     }
 
+    /**
+     * Build name of future TIP-3 LP token
+     * @dev This function can be called only by contract itself
+     */
     function _prepareDataForTIP3Deploy() external view onlySelf {
         tvm.accept();
         string res = string(T1Info.symbol);
@@ -176,8 +211,17 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         this._deployTIP3LpToken(bytes(res), bytes(res));
     }
 
+    /**
+     * Deploy TIP-3 LP token with created params
+     * @dev This function can be called only by contract itself
+     * @param name Name of future TIP-3 token, equal to symbol
+     * @param symbol Symbol of future TIP-3 token
+     */
     function _deployTIP3LpToken(bytes name, bytes symbol) external view onlySelf {
         tvm.accept();
+        /*
+            Another contract is required to deploy TIP-3 token
+        */
         ITIP3TokenDeployer(tip3Deployer).deployTIP3Token{
             value: SwapPairConstants.tip3SendDeployGrams,
             bounce: true,
@@ -185,6 +229,11 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         }(name, symbol, SwapPairConstants.tip3LpDecimals, 0, address(this), SwapPairConstants.tip3SendDeployGrams/2);
     }
 
+    /**
+     * Receive address of LP token root contract. Callback for _deployTIP3Lptoken
+     * @dev This function can be called only by TIP-3 deployer contract
+     * @param tip3RootContract Address of deployed LP token root contract
+     */
     function _deployTIP3LpTokenCallback(address tip3RootContract) external onlyTIP3Deployer {
         tvm.accept();
         lpTokenRootAddress = tip3RootContract;
@@ -200,10 +249,18 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     //============Get functions============
 
+    /**
+     * Get general information about swap pair
+     */
     function getPairInfo() override external responsible view returns (SwapPairInfo info) {
         return _constructSwapPairInfo();
     }
 
+    /**
+     * Get result of swap if swap would be performed right now
+     * @param swappableTokenRoot Root of tip-3 token used for swap
+     * @param swappableTokenAmount Amount of token for swap
+     */
     function getExchangeRate(address swappableTokenRoot, uint128 swappableTokenAmount) 
         override
         external
@@ -221,6 +278,9 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         return SwapInfo(swappableTokenAmount, si.targetTokenAmount, si.fee);
     }
 
+    /**
+     * Get current pool states
+     */
     function getCurrentExchangeRate()
         override
         external
@@ -233,7 +293,14 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     //============Functions for offchain execution============
 
-    // NOTICE: Requires a lot of gas, will only work with runLocal
+    /**
+     * Get information for liquidity providing - how much of first and second tokens will be added to 
+     * liquidity pools 
+     * @dev Requires a lot of gas, recommended to run with runLocal
+     * @notice This is just imitation of LP mechanism for offchain execution
+     * @param maxFirstTokenAmount  amount of first token provided to LP
+     * @param maxSecondTokenAmount amount of second token provided to LP
+     */
     function getProvidingLiquidityInfo(uint128 maxFirstTokenAmount, uint128 maxSecondTokenAmount)
         override
         external
@@ -244,7 +311,12 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         (providedFirstTokenAmount, providedSecondTokenAmount,) = _calculateProvidingLiquidityInfo(maxFirstTokenAmount, maxSecondTokenAmount);
     }
 
-    // NOTICE: Requires a lot of gas, will only work with runLocal
+    /**
+     * Get information how much tokens you will receive if you burn given amount of LP tokens
+     * @dev Requires a lot of gas, recommended to run with runLocal
+     * @notice This is just imitation of LP mechanism for offchain execution
+     * @param liquidityTokensAmount Amount of liquidity tokens to be burnt
+     */
     function getWithdrawingLiquidityInfo(uint256 liquidityTokensAmount)
         override
         external
@@ -255,7 +327,13 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         (withdrawedFirstTokenAmount, withdrawedSecondTokenAmount,) = _calculateWithdrawingLiquidityInfo(liquidityTokensAmount);
     }
 
-    // NOTICE: Requires a lot of gas, will only work with runLocal
+    /**
+     * Calculate amount of another token you need to provide to LP
+     * @dev Requires a lot of gas, recommended to run with runLocal
+     * @notice This is just imitation of LP mechanism for offchain execution
+     * @param providingTokenRoot Address of provided tip-3 token
+     * @param providingTokenAmount Amount of provided tip-3 tokens
+     */
     function getAnotherTokenProvidingAmount(address providingTokenRoot, uint128 providingTokenAmount)
         override
         external
@@ -273,17 +351,27 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     //============LP Functions============
 
+    /**
+     * Calculate LP providing information -> amount of first and second token provided and amount of LP token to mint
+     * @notice This function doesn't change LP volumes. It only calculates
+     * @param maxFirstTokenAmount Amount of first token user provided
+     * @param maxSecondTokenAMount Amount of second token user provided
+     */
     function _calculateProvidingLiquidityInfo(uint128 maxFirstTokenAmount, uint128 maxSecondTokenAmount)
         private
         view
         returns (uint128 provided1, uint128 provided2, uint256 _minted)
     {
+        // TODO: Антон: подумать что можно сделать с тем, что мы минтим uint256
+
+        /*
+            If no liquidity provided than you set the initial exchange rate
+        */
         if ( !_checkIsLiquidityProvided() ) {
             provided1 = maxFirstTokenAmount;
             provided2 = maxSecondTokenAmount;
-            _minted = uint256(provided1) * uint256(provided2); // TODO минтиинг
-        }
-        else {
+            _minted = uint256(provided1) * uint256(provided2);
+        } else {
             uint128 maxToProvide1 = maxSecondTokenAmount != 0 ?  math.muldiv(maxSecondTokenAmount, lps[T1], lps[T2]) : 0;
             uint128 maxToProvide2 = maxFirstTokenAmount  != 0 ?  math.muldiv(maxFirstTokenAmount,  lps[T2], lps[T1]) : 0;
             if (maxToProvide1 <= maxFirstTokenAmount ) {
@@ -298,6 +386,11 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         }
     }
 
+    /**
+     * Calculate amount of tokens received if given amount of LP tokens is burnt
+     * @notice This function doesn't change LP volumes. It only calculates
+     * @param liquidityTokenAmount Amount of LP tokens burnt
+     */
     function _calculateWithdrawingLiquidityInfo(uint256 liquidityTokensAmount)
         private
         view
@@ -311,7 +404,13 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         _burned = liquidityTokensAmount;
     }
 
-        function _calculateOneTokenProvidingAmount(address tokenRoot, uint128 tokenAmount)
+    /**
+     * Calculate LP providing information of only one token was provided
+     * @notice This function doesn't change LP volumes. It only calculates
+     * @param tokenRoot Root contract address of provided token 
+     * @param tokenAmount Amount of provided token
+     */
+    function _calculateOneTokenProvidingAmount(address tokenRoot, uint128 tokenAmount)
         private
         view
         returns(uint128)
@@ -322,9 +421,16 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         uint256 b = f*k;
         uint256 v = f * _sqrt( k*k + math.muldiv(4*feeDenominator*feeNominator, tokenAmount, f));
 
+        // TODO: рефакторинг: возможно стоит заменить на встроенные фукнции для деления
         return uint128((v-b)/(feeNominator+feeNominator));  
     }
 
+    /**
+     * Calculate swap results
+     * @notice This function doesn't change LP volumes. It only calculates swap results
+     * @param swappableTokenRoot Root contract address of token used for swap
+     * @param swappableTokenAmount Amount of token used for swap
+     */
     function _getSwapInfo(address swappableTokenRoot, uint128 swappableTokenAmount) 
         private 
         view
@@ -345,6 +451,12 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         return result;
     }
 
+    /**
+     * Wrapper for _getSwapInfo
+     * @notice This function changes LP volumes 
+     * @param swappableTokenRoot Root contract address of token used for swap
+     * @param swappableTokenAmount Amount of tokens used for swap
+     */
     function _swap(address swappableTokenRoot, uint128 swappableTokenAmount)
         private
         returns (SwapInfo)  
@@ -364,8 +476,17 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         return SwapInfo(swappableTokenAmount, _si.targetTokenAmount, _si.fee);
     }
 
-    // TODO: Антон:  проверка
-    function _provideLiquidityOneToken(address tokenRoot, uint128 tokenAmount, uint256 senderPubKey, address senderAddress, address lpWallet) 
+    // TODO: Антон: проверка провайдинга ликвидности по одному токену
+    /**
+     * Internal function used for providing liquidity using one token
+     * @notice To provide liquidity using one token it's required to swap part of provided token amount
+     * @param tokenRoot Root contract address of token used for liquidity providing
+     * @param tokenAmount Amount of tokens used for liquidity providing
+     * @param senderPubkey Public key of user that provides liquidity
+     * @param senderAddress Address of TON wallet of user
+     * @param lpWallet Address of user's LP wallet
+     */
+    function _provideLiquidityOneToken(address tokenRoot, uint128 tokenAmount, uint256 senderPubkey, address senderAddress, address lpWallet) 
         private 
         tokenExistsInPair(tokenRoot)
         returns (uint128 provided1, uint128 provided2, uint256 toMint, uint128 inputTokenRemainder)
@@ -389,12 +510,20 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             amount2 = tokenAmount - si.swappableTokenAmount;
         }
 
-        (provided1, provided2, toMint) = _provideLiquidity(amount1, amount2, senderPubKey, senderAddress, lpWallet);
+        (provided1, provided2, toMint) = _provideLiquidity(amount1, amount2, senderPubkey, senderAddress, lpWallet);
         inputTokenRemainder = isT1 ? (amount1 - provided1) : (amount2 - provided2);
     }
 
-
-    function _provideLiquidity(uint128 amount1, uint128 amount2, uint256 senderPubKey, address senderAddress, address lpWallet)
+    /**
+     * Internal function for liquidity providing using both tokens
+     * @notice This function changes LP volumes
+     * @param amount1 Amount of first token provided by user
+     * @param amount2 Amount of second token provided by user
+     * @param senderPubkey Public key of user that provides liquidity
+     * @param senderAddress Address of TON wallet of user 
+     * @param lpWallet Address of user's LP wallet
+     */
+    function _provideLiquidity(uint128 amount1, uint128 amount2, uint256 senderPubkey, address senderAddress, address lpWallet)
         private
         returns (uint128 provided1, uint128 provided2, uint256 toMint)
     {
@@ -403,21 +532,32 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         lps[T2] += provided2;
         liquidityTokensMinted += toMint;
 
+        /*
+            If user doesn't have wallet for LP tokens - we create one for user
+        */
         if (lpWallet.value == 0) {
             IRootTokenContract(lpTokenRootAddress).deployWallet{
                 value: msg.value/2,
                 flag: 0
-            }(uint128(toMint), msg.value/4, senderPubKey, senderAddress, senderAddress);
+            }(uint128(toMint), msg.value/4, senderPubkey, senderAddress, senderAddress);
         } else {
             IRootTokenContract(lpTokenRootAddress).mint(uint128(toMint), lpWallet);
         }
     }
 
-    // возврат сдачи
+    /**
+     * Function to return tokens not used for lqiuidity providing
+     * @param providedByUser Amount of tokens transferred by user
+     * @param providedAmount Amount of tokens provided to LP
+     * @param tokenWallet Address of swap pair wallet that received tokens 
+     * @param senderTokenWallet Address of user's token wallet
+     * @param senderAddress Address of user's TON wallet
+     * @param payloadTB Payload attached to message
+     */
     function _tryToReturnProvidingTokens(
-        uint128 needToProvideAmount, uint128 actualAmount, address tokenWallet, address senderTokenWallet, address senderAddress, TvmBuilder payloadTB
+        uint128 providedByUser, uint128 providedAmount, address tokenWallet, address senderTokenWallet, address senderAddress, TvmBuilder payloadTB
     ) private pure {   
-        uint128 amount = needToProvideAmount - actualAmount;
+        uint128 amount = needToProvideAmount - providedAmount;
         if (amount > 0) {
             _sendTokens(tokenWallet, senderTokenWallet, amount, senderAddress, false, payloadTB.toCell());
         }
@@ -425,6 +565,15 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
     //============Withdraw LP tokens functionality============
 
+    /**
+     * Function to withdraw tokens from liquidity pool
+     * @notice To interact with swap pair you need to send TIP-3 tokens with specific payload and TONs
+     * @dev This function can be called only by contract itself
+     * @param tokenAmount Amount of LP tokens burnt/transferred
+     * @param lpwi Information used for token withdrawal. Contains root addresses and user's wallets
+     * @param walletAddress Address of user's LP wallet
+     * @param tokensBurnt If tokens were burnt or just transferred
+     */
     function _withdrawTokensFromLP(
         uint128 tokenAmount, 
         LPWithdrawInfo lpwi,
@@ -458,6 +607,16 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         }
     }
 
+    /**
+     * Function to withdraw tokens from liquidity pool in one token
+     * @notice To interact with swap pair you need to send TIP-3 tokens with specific payload and TONs
+     * @dev This function can be called only by contract itself
+     * @param tokenAmount Amount of LP tokens burnt/transferred
+     * @param tokenRoot Address of desired TIP-3 token
+     * @param tokenWallet Address of tip-3 wallet to transfer tokens to
+     * @param lpWalletAddress Address of user's LP token wallet
+     * @param tokensBurnt If tokens were burnt or just transferred
+     */
     function _withdrawOneTokenFromLP  (
         uint128 tokenAmount, 
         address tokenRoot,
