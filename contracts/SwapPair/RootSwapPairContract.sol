@@ -76,7 +76,7 @@ contract RootSwapPairContract is
     //============External functions============
 
     /**
-     * @param tip3Deployer Address of new tip3 deployer contract
+     * @param tip3Deployer_ Address of new tip3 deployer contract
      */
     function setTIP3DeployerAddress(
         address tip3Deployer_
@@ -120,7 +120,7 @@ contract RootSwapPairContract is
                 swapPairID: uniqueID
             },
             code: swapPairCode
-        }(address(this), tip3Deployer, swapPairCodeVersions);
+        }(address(this), tip3Deployer, swapPairCodeVersion);
 
         // Storing info about deployed swap pair contracts 
         SwapPairInfo info = SwapPairInfo(
@@ -262,6 +262,7 @@ contract RootSwapPairContract is
         override
         pairWithTokensExist(tokenRootContract1, tokenRootContract2)
     {
+        uint256 uniqueID = tokenRootContract1.value^tokenRootContract2.value;
         SwapPairInfo info = swapPairDB.at(uniqueID);
         require(
             info.swapPairCodeVersion < swapPairCodeVersion, 

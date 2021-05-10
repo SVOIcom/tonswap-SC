@@ -371,7 +371,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
      * Calculate LP providing information -> amount of first and second token provided and amount of LP token to mint
      * @notice This function doesn't change LP volumes. It only calculates
      * @param maxFirstTokenAmount Amount of first token user provided
-     * @param maxSecondTokenAMount Amount of second token user provided
+     * @param maxSecondTokenAmount Amount of second token user provided
      */
     function _calculateProvidingLiquidityInfo(uint128 maxFirstTokenAmount, uint128 maxSecondTokenAmount)
         private
@@ -405,7 +405,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     /**
      * Calculate amount of tokens received if given amount of LP tokens is burnt
      * @notice This function doesn't change LP volumes. It only calculates
-     * @param liquidityTokenAmount Amount of LP tokens burnt
+     * @param liquidityTokensAmount Amount of LP tokens burnt
      */
     function _calculateWithdrawingLiquidityInfo(uint256 liquidityTokensAmount)
         private
@@ -573,7 +573,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     function _tryToReturnProvidingTokens(
         uint128 providedByUser, uint128 providedAmount, address tokenWallet, address senderTokenWallet, address senderAddress, TvmBuilder payloadTB
     ) private pure {   
-        uint128 amount = needToProvideAmount - providedAmount;
+        uint128 amount = providedByUser - providedAmount;
         if (amount > 0) {
             _sendTokens(tokenWallet, senderTokenWallet, amount, senderAddress, false, payloadTB.toCell());
         }
@@ -1457,7 +1457,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         require(
             msg.sender == lpTokenRootAddress,
             SwapPairErrors.CALLER_IS_NOT_LP_TOKEN_ROOT
-        )
+        );
+        _;
     }
 
     /**
