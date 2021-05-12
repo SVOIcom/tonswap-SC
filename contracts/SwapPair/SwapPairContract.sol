@@ -289,7 +289,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         if (swappableTokenAmount <= 0)
             return SwapInfo(0, 0, 0);
 
-        _SwapInfoInternal si = _getSwapInfo(swappableTokenRoot, swappableTokenAmount);
+        _SwapInfoInternal si = _calculateSwapInfo(swappableTokenRoot, swappableTokenAmount);
 
         return SwapInfo(swappableTokenAmount, si.targetTokenAmount, si.fee);
     }
@@ -437,7 +437,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         uint256 b = f*k;
         uint256 v = f * _sqrt( k*k + math.muldiv(4*feeDenominator*feeNominator, tokenAmount, f));
 
-        // TODO: рефакторинг: возможно стоит заменить на встроенные фукнции для деления
         return uint128((v-b)/(feeNominator+feeNominator));  
     }
 
@@ -447,7 +446,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
      * @param swappableTokenRoot Root contract address of token used for swap
      * @param swappableTokenAmount Amount of token used for swap
      */
-    function _getSwapInfo(address swappableTokenRoot, uint128 swappableTokenAmount) 
+    function _calculateSwapInfo(address swappableTokenRoot, uint128 swappableTokenAmount) 
         private 
         view
         tokenExistsInPair(swappableTokenRoot)
@@ -458,7 +457,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
         uint128 fee = swappableTokenAmount - math.muldivc(swappableTokenAmount, feeNominator, feeDenominator);
         uint128 newFromPool = lps[fromK] + swappableTokenAmount;
-        uint128 newToPool = uint128( math.divc(uint256(lps[0]) * uint256(lps[1]), newFromPool - fee) );
+        uint128 newToPool = uint128( math.divc(uint256(lps[T1]) * uint256(lps[T2]), newFromPool - fee) );
 
         uint128 targetTokenAmount = lps[toK] - newToPool;
 
@@ -468,7 +467,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     }
 
     /**
-     * Wrapper for _getSwapInfo
+     * Wrapper for _calculateSwapInfo that changes the state of the contract
      * @notice This function changes LP volumes 
      * @param swappableTokenRoot Root contract address of token used for swap
      * @param swappableTokenAmount Amount of tokens used for swap
@@ -477,17 +476,14 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         private
         returns (SwapInfo)  
     {
-        _SwapInfoInternal _si = _getSwapInfo(swappableTokenRoot, swappableTokenAmount);
+        _SwapInfoInternal _si = _calculateSwapInfo(swappableTokenRoot, swappableTokenAmount);
 
         if (!notZeroLiquidity(swappableTokenAmount, _si.targetTokenAmount)) {
             return SwapInfo(0, 0, 0);
         }
 
-        uint8 fromK = _si.fromKey;
-        uint8 toK = _si.toKey;
-
-        lps[fromK] = _si.newFromPool;
-        lps[toK] = _si.newToPool;
+        lps[_si.fromKey] = _si.newFromPool;
+        lps[_si.toKey] = _si.newToPool;
 
         return SwapInfo(swappableTokenAmount, _si.targetTokenAmount, _si.fee);
     }
