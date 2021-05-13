@@ -643,7 +643,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         );
 
         (uint128 withdrawed1, uint128 withdrawed2, uint256 burned) = _calculateWithdrawingLiquidityInfo(tokenAmount);
-        
+
         if (withdrawed1 == 0 || withdrawed2 == 0) {
             _fallbackWithdrawLP(lpWalletAddress, tokenAmount, tokensBurnt);
             return;
@@ -782,7 +782,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
                     flag: 64,
                     value: 0
                 }(
-                    uo.operationArgs, msg.sender, sender_public_key, amount, sender_wallet, sender_address
+                    uo.operationArgs, token_root, msg.sender, sender_public_key, amount, sender_wallet, sender_address
                 );
             } 
             else {
@@ -978,12 +978,12 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         } 
     }
 
-
     // TODO: Антон: проверка провайдинга ликвидности по одному токену
     /**
      * Function for liquidity providing using one token. This is top-level wrapper.
      * @dev This function can be called only by contract itself
      * @param args Decoded payload from received message
+     * @param tokenRoot Address of TIP-3 root contract
      * @param tokenReceiver TIP-3 wallet that received tokens
      * @param amount Amount of transferred tokens
      * @param sender_wallet Address of user's TIP-3 wallet
@@ -991,6 +991,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
      */
     function _externalProvideLiquidityOneToken(        
         TvmCell args, 
+        address tokenRoot,
         address tokenReceiver, 
         uint256 sender_public_key, 
         uint128 amount, 
@@ -1007,7 +1008,6 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         if ( !isPayloadOk ){
             failTB.store(wrongPayloadFormatMessage);
             _sendTokens(tokenReceiver, sender_wallet, amount, sender_address, false, failTB.toCell());
-
             return;
         }
         if ( !_checkIsLiquidityProvided() ){
@@ -1017,7 +1017,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
             return;
         }
 
-        (uint128 provided1, uint128 provided2, , uint128 remainder) = _provideLiquidityOneToken(tokenReceiver, amount, sender_public_key, sender_address, lpWallet);
+        (uint128 provided1, uint128 provided2, , uint128 remainder) = _provideLiquidityOneToken(tokenRoot, amount, sender_public_key, sender_address, lpWallet);
 
         if (provided2 == 0 || provided1 == 0)
             remainder = amount;
