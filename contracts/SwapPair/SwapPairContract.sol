@@ -302,9 +302,9 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         external
         responsible
         view
-        returns (uint128, uint128)
+        returns (LiquidityPoolsInfo)
     {
-        return (lps[T1], lps[T2]);
+        return LiquidityPoolsInfo(lps[T1], lps[T2], liquidityTokensMinted);
     }
 
     //============Functions for offchain execution============

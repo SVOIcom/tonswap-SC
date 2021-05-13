@@ -20,6 +20,13 @@ interface ISwapPairInformation {
         uint32  swapPairCodeVersion;    // code version of swap pair. can be upgraded using root contract
     }
 
+    // Information about liquidity pools volumes
+    struct LiquidityPoolsInfo {
+        uint128 lp1;            // volume of first LP
+        uint128 lp2;            // volume of second LP
+        uint256 lpTokensMinted; // amount of minted LP tokens 
+    }
+
     // Information about swap operation result
     struct SwapInfo {
         uint128 swappableTokenAmount; // token amount that will be swapped

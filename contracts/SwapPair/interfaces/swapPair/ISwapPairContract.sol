@@ -13,7 +13,7 @@ interface ISwapPairContract is ISwapPairInformation {
         uint128 swappableTokenAmount
     ) external responsible view returns (SwapInfo _swapInfo);
     
-    function getCurrentExchangeRate() external responsible view returns (uint128, uint128);
+    function getCurrentExchangeRate() external responsible view returns (LiquidityPoolsInfo);
 
     function getPairInfo() external responsible view returns (SwapPairInfo info);
 
