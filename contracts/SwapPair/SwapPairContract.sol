@@ -893,6 +893,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
         SwapInfo si = _swap(token_root, amount);
         if (si.targetTokenAmount != 0) {
+            emit Swap(token_root, _getOppositeToken(token_root), si.swappableTokenAmount, si.targetTokenAmount, si.fee);
+
             address tokenWallet = tokenReceiver == tokenWallets[T1] ? tokenWallets[T2] : tokenWallets[T1];
             _sendTokens(tokenWallet, transferTokensTo, si.targetTokenAmount, sender_address, true, _createSwapPayload(si));
         } else {
@@ -967,6 +969,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         }
         else {
             (uint128 rtp1, uint128 rtp2, ) = _provideLiquidity(lppi.a1, lppi.a2, sender_public_key, sender_address, lpWallet);
+            emit ProvideLiquidity(liquidityTokensMinted, rtp1, rtp2);
 
             TvmBuilder payloadTB;
             payloadTB.store(lppi.a1, rtp1, lppi.a2, rtp2);
@@ -1021,6 +1024,8 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
 
         if (provided2 == 0 || provided1 == 0)
             remainder = amount;
+        else
+            emit ProvideLiquidity(liquidityTokensMinted, provided1, provided2);
 
         TvmBuilder payloadTB;
         payloadTB.store(tokenReceiver, amount, remainder, provided1, provided2);
@@ -1401,6 +1406,18 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         returns(uint8)
     {
         return tokenPositions[_token];
+    }
+
+    /**
+     * Get opposite TIP-3 token root address
+     * @param _token Address of token root
+     */
+    function _getOppositeToken(address _token)
+        private
+        view
+        returns(address)
+    {
+        return _token == token1? token2 : token1;
     }
 
     /**

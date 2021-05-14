@@ -32,10 +32,10 @@ interface ISwapPairContract is ISwapPairInformation {
 
     //Events
     event Swap(       
-        address swappableTokenRoot,  
+        address providedTokenRoot,  
         address targetTokenRoot,
-        uint128 swappableTokenAmount,
-        uint128 targetTokenAmount,
+        uint128 tokensUsedForSwap,
+        uint128 tokensReceived,
         uint128 fee
     );
 

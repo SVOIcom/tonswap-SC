@@ -223,6 +223,7 @@ contract RootSwapPairContract is
      * @param spi Swap pair information
      */
     function swapPairInitializedCallback(SwapPairInfo spi) external pairWithAddressExists(msg.sender) {
+        tvm.accept();
         swapPairDB[addressToUniqueID[msg.sender]] = spi;
         emit SwapPairInitialized(msg.sender);
     }

@@ -30,7 +30,7 @@ interface ISwapPairInformation {
     // Information about swap operation result
     struct SwapInfo {
         uint128 swappableTokenAmount; // token amount that will be swapped
-        uint128 targetTokenAmount;    // root token contract of token to swap 
+        uint128 targetTokenAmount;    // tokens received
         uint128 fee;                  // fee for swap operation
     }
 
