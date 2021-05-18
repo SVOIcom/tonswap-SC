@@ -198,11 +198,9 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         tvm.accept();
         if (msg.sender == token1) {
             T1Info = rtcd;
-            delete T1Info.wallet_code;
             tokenInfoCount++;
         } else {
             T2Info = rtcd;
-            delete T2Info.wallet_code;
             tokenInfoCount++;
         }
 
