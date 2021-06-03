@@ -123,6 +123,7 @@ contract RootSwapPairContract is
         }(address(this), tip3Deployer, swapPairCodeVersion);
 
         // Storing info about deployed swap pair contracts 
+        bytes tmp;
         SwapPairInfo info = SwapPairInfo(
             address(this),              // root contract
             tokenRootContract1,         // token root
@@ -134,7 +135,8 @@ contract RootSwapPairContract is
             currentTimestamp,           // creation timestamp
             contractAddress,            // address of swap pair
             uniqueID,                   // unique id of swap pair
-            swapPairCodeVersion         // code version of swap pair
+            swapPairCodeVersion,        // code version of swap pair
+            tmp
         );
 
         swapPairDB.add(uniqueID, info);
@@ -158,6 +160,31 @@ contract RootSwapPairContract is
     }
 
     //============Get functions============
+
+    /**
+     * Get all swap pairs
+     */
+    function getAllSwapPairsID() external override view returns (uint256[] ids) {
+        // uint256 uniqueId;
+        for((uint256 uniqueId,): swapPairDB) {
+            ids.push(uniqueId);
+        }
+    }
+
+    /**
+     * Check if pair exists
+     * @param uniqueID unique ID of swap pair
+     */
+    function getPairInfoByID(
+        uint256 uniqueID
+    ) external view override returns(SwapPairInfo swapPairInfo) {
+        optional(SwapPairInfo) spi = swapPairDB.fetch(uniqueID);
+        require(
+            spi.hasValue(), 
+            RootSwapPairContractErrors.ERROR_PAIR_DOES_NOT_EXIST
+        );
+        return spi.get();
+    }
 
     /**
      * Check if pair exists

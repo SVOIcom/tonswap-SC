@@ -15,6 +15,10 @@ interface IRootSwapPairContract is ISwapPairInformation, IServiceInformation {
 
     function getServiceInformation() external view returns (ServiceInfo);
 
+    function getAllSwapPairsID() external view returns (uint256[] ids);
+
+    function getPairInfoByID(uint256 uniqueID) external view returns(SwapPairInfo swapPairInfo);
+
     function getPairInfo(address tokenRootContract1, address tokenRootContract2) external view returns(SwapPairInfo);
 
     function setTIP3DeployerAddress(address tip3Deployer_) external;

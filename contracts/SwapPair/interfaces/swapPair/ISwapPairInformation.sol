@@ -18,13 +18,15 @@ interface ISwapPairInformation {
         address swapPairAddress;        // address of swap pair
         uint256 uniqueId;               // unique id of swap pair
         uint32  swapPairCodeVersion;    // code version of swap pair. can be upgraded using root contract
+        bytes   swapPairLPTokenName;    // name of swap pair LP token
     }
 
     // Information about liquidity pools volumes
     struct LiquidityPoolsInfo {
-        uint128 lp1;            // volume of first LP
-        uint128 lp2;            // volume of second LP
-        uint256 lpTokensMinted; // amount of minted LP tokens 
+        address swapPairAddress; // Address of current swap pair
+        uint128 lp1;             // volume of first LP
+        uint128 lp2;             // volume of second LP
+        uint256 lpTokensMinted;  // amount of minted LP tokens 
     }
 
     // Information about swap operation result
