@@ -1248,7 +1248,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
     /**
      * Create payload for swap operation
      */
-    function createSwapPayload(address sendTokensTo) external pure returns (TvmCell) {
+    function createSwapPayload(address sendTokensTo) external override pure returns (TvmCell) {
         TvmBuilder tb; TvmBuilder argsBuilder;
         argsBuilder.store(sendTokensTo);
         tb.store(UnifiedOperation(SwapPairConstants.SwapPairOperation, argsBuilder.toCell()));
@@ -1259,7 +1259,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
      * Create payload for liquidity providing operation
      * @param tip3Address Address of user's LP token wallet
      */
-    function createProvideLiquidityPayload(address tip3Address) external pure returns (TvmCell) {
+    function createProvideLiquidityPayload(address tip3Address) external override pure returns (TvmCell) {
         TvmBuilder tb; TvmBuilder argsBuilder;
         argsBuilder.store(tip3Address);
         tb.store(UnifiedOperation(SwapPairConstants.ProvideLiquidity, argsBuilder.toCell()));
@@ -1270,7 +1270,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
      * Create payload for liquidity providing using one token operation
      * @param tip3Address Address of user's LP token wallet
      */
-    function createProvideLiquidityOneTokenPayload(address tip3Address) external pure returns (TvmCell) {
+    function createProvideLiquidityOneTokenPayload(address tip3Address) external override pure returns (TvmCell) {
         TvmBuilder tb; TvmBuilder argsBuilder;
         argsBuilder.store(tip3Address);
         tb.store(UnifiedOperation(SwapPairConstants.ProvideLiquidityOneToken, argsBuilder.toCell()));
@@ -1289,7 +1289,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
         address tokenWallet1,
         address tokenRoot2,
         address tokenWallet2
-    ) external pure returns (TvmCell) {
+    ) external override pure returns (TvmCell) {
         TvmBuilder tb; TvmBuilder payloadFirstHalf; TvmBuilder payloadSecondHalf;
         payloadFirstHalf.store(tokenRoot1, tokenWallet1); payloadSecondHalf.store(tokenRoot2, tokenWallet2);
         payloadFirstHalf.storeRef(payloadSecondHalf);
@@ -1302,7 +1302,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
      * @param tokenRoot Root contract TIP-3 address of user's wallet
      * @param userWallet Address of user's TIP-3 wallet
      */
-    function createWithdrawLiquidityOneTokenPayload(address tokenRoot, address userWallet) external pure returns (TvmCell) 
+    function createWithdrawLiquidityOneTokenPayload(address tokenRoot, address userWallet) external override pure returns (TvmCell) 
     {
         TvmBuilder tb; TvmBuilder argsBuilder;
         argsBuilder.store(tokenRoot, userWallet);

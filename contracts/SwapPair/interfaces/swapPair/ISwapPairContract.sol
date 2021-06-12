@@ -30,6 +30,24 @@ interface ISwapPairContract is ISwapPairInformation {
         uint128 providingTokenAmount
     ) external view returns(uint128 anotherTokenAmount);
 
+    function createSwapPayload(address sendTokensTo) external pure returns (TvmCell);
+
+    function createProvideLiquidityPayload(address tip3Address) external pure returns (TvmCell);
+
+    function createProvideLiquidityOneTokenPayload(address tip3Address) external pure returns (TvmCell);
+
+    function createWithdrawLiquidityPayload(
+        address tokenRoot1,
+        address tokenWallet1,
+        address tokenRoot2,
+        address tokenWallet2
+    ) external pure returns (TvmCell);
+    
+    function createWithdrawLiquidityOneTokenPayload(
+        address tokenRoot, 
+        address userWallet
+    ) external pure returns (TvmCell);
+
     //Events
     event Swap(       
         address providedTokenRoot,  
