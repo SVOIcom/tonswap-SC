@@ -4,7 +4,7 @@ pragma AbiHeader expire;
 pragma AbiHeader time;
 pragma AbiHeader pubkey;
 
-import './ISwapPairInformation.sol';
+import '../swapPair/ISwapPairInformation.sol';
 import './IServiceInformation.sol';
 
 interface IRootSwapPairContract is ISwapPairInformation, IServiceInformation {
@@ -15,8 +15,17 @@ interface IRootSwapPairContract is ISwapPairInformation, IServiceInformation {
 
     function getServiceInformation() external view returns (ServiceInfo);
 
+    function getAllSwapPairsID() external view returns (uint256[] ids);
+
+    function getPairInfoByID(uint256 uniqueID) external view returns(SwapPairInfo swapPairInfo);
+
     function getPairInfo(address tokenRootContract1, address tokenRootContract2) external view returns(SwapPairInfo);
 
+    function setTIP3DeployerAddress(address tip3Deployer_) external;
+
+    function getFutureSwapPairAddress(address tokenRootContract1, address tokenRootContract2) external view returns(address);
 
     event DeploySwapPair(address swapPairAddress, address tokenRootContract1, address tokenRootContract2);
+
+    event SwapPairInitialized(address swapPairAddress);
 }

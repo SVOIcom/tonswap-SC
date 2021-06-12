@@ -6,9 +6,11 @@ library SwapPairErrors {
     uint8 constant CALLER_IS_NOT_TOKEN_ROOT      = 102;   string constant CALLER_IS_NOT_TOKEN_ROOT_MSG      = "Error: msg.sender is not token root";
     uint8 constant CALLER_IS_NOT_TOKEN_WALLET    = 103;   string constant CALLER_IS_NOT_TOKEN_WALLET_MSG    = "Error: msg.sender is not token wallet";
     uint8 constant CALLER_IS_NOT_SWAP_PAIR_ROOT  = 104;   string constant CALLER_IS_NOT_SWAP_PAIR_ROOT_MSG  = "Error: msg.sender is not swap pair root contract";
-    uint8 constant CALLER_IS_NOT_OWNER           = 105;   string constant CALLER_IS_NOT_OWNER_MSG           = "Error: message sender is not not owner";
-    uint8 constant LOW_MESSAGE_VALUE             = 106;   string constant LOW_MESSAGE_VALUE_MSG             = "Error: msg.value is too low"; 
-    uint8 constant NO_MESSAGE_SIGNATURE          = 107;   string constant NO_MESSAGE_SIGNATURE_MSG          = "Error: message is not signed"; 
+    uint8 constant CALLER_IS_NOT_OWNER           = 105;   string constant CALLER_IS_NOT_OWNER_MSG           = "Error: msg.sender is not not owner";
+    uint8 constant CALLER_IS_NOT_TIP3_DEPLOYER   = 106;   string constant CALLER_IS_NOT_TIP3_DEPLOYER_MSG   = "Error: msg.sender is not tip3 deployer";
+    uint8 constant LOW_MESSAGE_VALUE             = 107;   string constant LOW_MESSAGE_VALUE_MSG             = "Error: msg.value is too low"; 
+    uint8 constant NO_MESSAGE_SIGNATURE          = 108;   string constant NO_MESSAGE_SIGNATURE_MSG          = "Error: message is not signed"; 
+    uint8 constant CALLER_IS_NOT_LP_TOKEN_ROOT   = 109;   string constant CALLER_IS_NOT_LP_TOKEN_ROOT_MSG   = "Error: msg.sender is not LP token root";
 
     uint8 constant INVALID_TOKEN_ADDRESS         = 110;   string constant INVALID_TOKEN_ADDRESS_MSG         = "Error: invalid token address";
     uint8 constant INVALID_TOKEN_AMOUNT          = 111;   string constant INVALID_TOKEN_AMOUNT_MSG          = "Error: invalid token amount";
