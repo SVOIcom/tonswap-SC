@@ -1320,7 +1320,7 @@ contract SwapPairContract is ITokensReceivedCallback, ISwapPairInformation, IUpg
      */
     function updateSwapPairCode(TvmCell newCode, uint32 newCodeVersion) override external onlySwapPairRoot {
         require(
-            newCodeVersion > newCodeVersion, 
+            newCodeVersion > swapPairCodeVersion, 
             SwapPairErrors.CODE_DOWNGRADE_REQUESTED
         );
         tvm.accept();
