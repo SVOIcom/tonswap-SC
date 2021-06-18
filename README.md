@@ -2,7 +2,7 @@
 ![photo_2020-12-15_20-21-41](https://user-images.githubusercontent.com/18599919/111032509-ac9fbd80-841d-11eb-9639-843ef2d758b3.jpg)
 Hello there! \
 SVOI dev team greets you and would like to present the results of created Decentralized Exchange for the FreeTON Community contest: \
-#16 FreeTon DEX Implementation Stage 1 Contest.
+#23 FreeTon DEX Implementation Stage 2 Contest.
 
 Goal of this work is to create Decentralized Exchange based on Liquidity Pool mechanism and develop instruments, such as 
 debot and [site](https://tonswap.com) for interacting with developed smart contracts.
@@ -12,7 +12,7 @@ debot and [site](https://tonswap.com) for interacting with developed smart contr
 
 Repository for smart contracts compilation and deployment - [https://github.com/SVOIcom/ton-testing-suite](https://github.com/SVOIcom/ton-testing-suite)
 
-Used ton-solidity compiler - [solidity compiler v0.36.0](https://github.com/tonlabs/TON-Solidity-Compiler/tree/5914224aa6c03def19d98c160ad8779d2efe1c50)
+Used ton-solidity compiler - [solidity compiler v0.39.0](https://github.com/broxus/TON-Solidity-Compiler/tree/98892ddbd2817784857b54436d75b64a3fdf6eb1)
 
 Used tvm-linker - [latest tvm linker](https://github.com/tonlabs/TVM-linker)
 
