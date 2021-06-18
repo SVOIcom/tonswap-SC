@@ -92,9 +92,8 @@ There you will find instructions and instruments for smart contract compilation 
 
 ## Pre-deployed smart contracts for tests
 
-There are already deployed contracts. Information about them can be found here: [deployed contracts]() \
-This file contains information about TIP-3 tokens, TIP-3 token wallets, swap pairs and debot contracts, \
-as well as keys for controlling those contracts.
+Deployed root swap pair contract: ```0:3dc2f941650dbb757e47363109841a943c04a4824a6652b8be7377b945603137```
+Deployed test swap pair contract: ```0:12987e0102acf7ebfe916da94a1308540b9894b3b99f8d5c7043a39725c08bdf```
 
 
-If you have any questions - feel free to ask our team in [Telegram](https://t.me/tonswap) (or contact me in direct messages @pafaul).
+If you have any questions - feel free to ask our team in [Telegram](https://t.me/tonswap).
