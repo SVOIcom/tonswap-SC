@@ -2,7 +2,7 @@
 ![photo_2020-12-15_20-21-41](https://user-images.githubusercontent.com/18599919/111032509-ac9fbd80-841d-11eb-9639-843ef2d758b3.jpg)
 Hello there! \
 SVOI dev team greets you and would like to present the results of created Decentralized Exchange for the FreeTON Community contest: \
-#16 FreeTon DEX Implementation Stage 1 Contest.
+#23 FreeTon DEX Implementation Stage 2 Contest.
 
 Goal of this work is to create Decentralized Exchange based on Liquidity Pool mechanism and develop instruments, such as 
 debot and [site](https://tonswap.com) for interacting with developed smart contracts.
@@ -12,7 +12,7 @@ debot and [site](https://tonswap.com) for interacting with developed smart contr
 
 Repository for smart contracts compilation and deployment - [https://github.com/SVOIcom/ton-testing-suite](https://github.com/SVOIcom/ton-testing-suite)
 
-Used ton-solidity compiler - [solidity compiler v0.36.0](https://github.com/tonlabs/TON-Solidity-Compiler/tree/5914224aa6c03def19d98c160ad8779d2efe1c50)
+Used ton-solidity compiler - [solidity compiler v0.39.0](https://github.com/broxus/TON-Solidity-Compiler/tree/98892ddbd2817784857b54436d75b64a3fdf6eb1)
 
 Used tvm-linker - [latest tvm linker](https://github.com/tonlabs/TVM-linker)
 
@@ -63,30 +63,11 @@ Contains function to upgrade swap pair code
 
 #### [RootSwapPairContract.sol](contracts/SwapPair/RootSwapPairContract.sol)
 
-This is RootSwapPairContract. It is mainly used to deploy swap pairs.
+This is RootSwapPairContract. It is used to deploy swap pairs and keep track of unique swap pairs.
 
 #### [SwapPairContract.sol](contracts/SwapPair/SwapPairContract.sol)
 
 Contract implementing liquidity pair mechanism
-
-## Debot
-
-### [debot.sol](contracts/debot/debot.sol)
-Debot simplifies a lot of routine interactions with smart contracts. \
-And this one is created to simplify your interaction with swap-pair contract. \
-With debot you can:
-
-1. Get user token balance - get token amounts available for providing liquidity or performing swap operation;
-2. Get user LP token balance - get user's tokens that are currently in liquidity pool;
-3. Ger user TON balance - get user's TON balance;
-4. Get current LP functions execution cost;
-5. Provide liquidity - add tokens to liquidity pool;
-6. Withdraw liquidity - remove tokens from liquidity pool;
-7. Get current exchange rate;
-8. Swap tokens - swap user's tokens that are currently not in liquidity pool;
-9. Withdraw tokens from swap pair - remove tokens from swap pair by requesting transfer of tokens to specified wallet;
-10. Exit debot :)
-
 
 ## Tokens
 Used tokens are TIP-3 tokens initially developed by Broxus for bridges between Ethereum and TON. \
